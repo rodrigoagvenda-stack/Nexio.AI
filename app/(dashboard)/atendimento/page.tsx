@@ -199,6 +199,16 @@ export default function AtendimentoPage() {
   // manualmente na lista. Compara só dígitos pra não depender do formato
   // exato do telefone bater entre as duas telas.
   useEffect(() => {
+    // Deep-link do sino de notificações: abre a conversa pelo id
+    const convIdParam = searchParams.get('convId');
+    if (convIdParam && conversations.length > 0) {
+      const byId = conversations.find((c) => String(c.id) === convIdParam);
+      if (byId) {
+        setSelectedConversation(byId);
+        router.replace('/atendimento');
+        return;
+      }
+    }
     const phoneParam = searchParams.get('phone');
     if (!phoneParam || conversations.length === 0) return;
     const digits = phoneParam.replace(/\D/g, '');

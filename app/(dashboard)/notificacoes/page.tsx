@@ -1,184 +1,39 @@
-﻿'use client';
+'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useUser } from '@/lib/hooks/useUser';
-import { createClient } from '@/lib/supabase/client';
-import { formatDistanceToNow, isToday, isYesterday, isThisWeek } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { cn } from '@/lib/utils/cn';
-import {
-  UserPlus, MessageCircle, CreditCard, Settings2, Bell,
-  CheckCheck, Loader2, Zap, AlertTriangle, PhoneCall,
-} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { CheckCheck, Loader2, SlidersHorizontal } from 'lucide-react';
+import { useNotifications } from '@/lib/hooks/useNotifications';
+import { NotifItem, NotifTab, itemsForTab, longDate } from '@/lib/notifications/model';
+import { NotifIcon } from '@/components/notifications/NotifIcon';
+import { NotificationPreferences } from '@/components/notifications/NotificationPreferences';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+const SYS = 'system-ui, sans-serif';
 
-interface Notification {
-  id: string;
-  type: string;
-  message: string;
-  created_at: string;
-  read: boolean;
-}
+const GHOST: React.CSSProperties = {
+  height: 42, padding: '0 18px', borderRadius: 999, background: '#141414', border: '1px solid #262626',
+  boxShadow: '0 3px 0 #050505', color: '#fff', fontSize: 14, fontWeight: 500, lineHeight: '18px', display: 'flex', alignItems: 'center', gap: 8,
+};
 
-interface Group {
-  label: string;
-  items: Notification[];
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function groupByDay(notifications: Notification[]): Group[] {
-  const today: Notification[] = [];
-  const yesterday: Notification[] = [];
-  const thisWeek: Notification[] = [];
-  const older: Notification[] = [];
-
-  for (const n of notifications) {
-    const d = new Date(n.created_at);
-    if (isToday(d)) today.push(n);
-    else if (isYesterday(d)) yesterday.push(n);
-    else if (isThisWeek(d, { weekStartsOn: 1 })) thisWeek.push(n);
-    else older.push(n);
-  }
-
-  const groups: Group[] = [];
-  if (today.length) groups.push({ label: 'Hoje', items: today });
-  if (yesterday.length) groups.push({ label: 'Ontem', items: yesterday });
-  if (thisWeek.length) groups.push({ label: 'Esta semana', items: thisWeek });
-  if (older.length) groups.push({ label: 'Anteriores', items: older });
-  return groups;
-}
-
-function typeConfig(type: string): { icon: React.ElementType; color: string; bg: string } {
-  const t = type?.toLowerCase() ?? '';
-  if (t.includes('lead') || t.includes('prospect') || t.includes('contato'))
-    return { icon: UserPlus, color: 'text-blue-500', bg: 'bg-blue-500/10' };
-  if (t.includes('message') || t.includes('mensagem') || t.includes('chat') || t.includes('whatsapp'))
-    return { icon: MessageCircle, color: 'text-green-500', bg: 'bg-green-500/10' };
-  if (t.includes('payment') || t.includes('pagamento') || t.includes('cobran') || t.includes('plano'))
-    return { icon: CreditCard, color: 'text-purple-500', bg: 'bg-purple-500/10' };
-  if (t.includes('call') || t.includes('liga') || t.includes('telefo'))
-    return { icon: PhoneCall, color: 'text-orange-500', bg: 'bg-orange-500/10' };
-  if (t.includes('agent') || t.includes('automac') || t.includes('sequence') || t.includes('flow'))
-    return { icon: Zap, color: 'text-yellow-500', bg: 'bg-yellow-500/10' };
-  if (t.includes('error') || t.includes('erro') || t.includes('fail') || t.includes('alert'))
-    return { icon: AlertTriangle, color: 'text-red-500', bg: 'bg-red-500/10' };
-  if (t.includes('config') || t.includes('setting') || t.includes('system'))
-    return { icon: Settings2, color: 'text-muted-foreground', bg: 'bg-muted' };
-  return { icon: Bell, color: 'text-primary', bg: 'bg-primary/10' };
-}
-
-// ── NotifItem ─────────────────────────────────────────────────────────────────
-
-function NotifItem({
-  notif,
-  onRead,
-}: {
-  notif: Notification;
-  onRead: (id: string) => void;
-}) {
-  const { icon: Icon, color, bg } = typeConfig(notif.type);
-
-  return (
-    <div
-      className={cn(
-        'flex items-start gap-4 px-5 py-4 cursor-pointer transition-colors group',
-        !notif.read ? 'bg-primary/[0.03] hover:bg-primary/[0.06]' : 'hover:bg-muted/30'
-      )}
-      onClick={() => !notif.read && onRead(notif.id)}
-    >
-      {/* Avatar : ícone do tipo sobre Z da marca */}
-      <div className="relative flex-shrink-0 mt-0.5">
-        <div className={cn('w-9 h-9 rounded-full flex items-center justify-center', bg)}>
-          <Icon className={cn('h-4 w-4', color)} />
-        </div>
-        {/* Z badge da marca no canto */}
-        <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary flex items-center justify-center ring-2 ring-background">
-          <span className="text-[8px] font-black text-primary-foreground leading-none">Z</span>
-        </div>
-      </div>
-
-      {/* Conteúdo */}
-      <div className="flex-1 min-w-0">
-        <p className={cn('text-sm leading-snug', !notif.read ? 'text-foreground font-medium' : 'text-foreground/80')}>
-          {notif.message}
-        </p>
-        <div className="flex items-center gap-2 mt-1">
-          <span className="text-xs text-muted-foreground">
-            {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true, locale: ptBR })}
-          </span>
-          {!notif.read && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary bg-primary/10 rounded-full px-2 py-0.5 leading-none">
-              Nova
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Dot de não lida */}
-      {!notif.read && (
-        <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-2" />
-      )}
-    </div>
-  );
-}
-
-// ── Page ──────────────────────────────────────────────────────────────────────
+const EMPTY: Record<NotifTab, string> = {
+  attention: 'Nada precisa de você agora.',
+  message: 'Nenhuma mensagem nova.',
+  activity: 'Nenhuma ação sua por aqui ainda.',
+  all: 'Tudo em dia.',
+};
 
 export default function NotificacoesPage() {
-  const { company } = useUser();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [markingAll, setMarkingAll] = useState(false);
+  const router = useRouter();
+  const { items, counts, loading, markRead, markAllRead, prefs } = useNotifications();
+  const [tab, setTab] = useState<NotifTab | null>(null);
+  const [prefsOpen, setPrefsOpen] = useState(false);
 
-  const fetchNotifications = useCallback(async () => {
-    if (!company?.id) return;
-    try {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from('activity_logs')
-        .select('*')
-        .eq('company_id', company.id)
-        .order('created_at', { ascending: false });
-      if (data) {
-        setNotifications(data.map((log: any) => ({
-          id: log.id,
-          type: log.action,
-          message: log.description,
-          created_at: log.created_at,
-          read: log.read || false,
-        })));
-      }
-    } catch { /* noop */ } finally {
-      setLoading(false);
-    }
-  }, [company?.id]);
+  // Abre em "Precisam de você" quando há algo; senão em "Tudo".
+  useEffect(() => {
+    if (!loading && tab === null) setTab(counts.attention > 0 ? 'attention' : 'all');
+  }, [loading, tab, counts.attention]);
 
-  useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
-
-  const markAsRead = async (id: string) => {
-    try {
-      await fetch(`/api/notifications/${id}/read`, { method: 'POST' });
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-    } catch { /* noop */ }
-  };
-
-  const markAllAsRead = async () => {
-    setMarkingAll(true);
-    try {
-      const unread = notifications.filter(n => !n.read);
-      await Promise.all(unread.map(n => fetch(`/api/notifications/${n.id}/read`, { method: 'POST' })));
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    } catch { /* noop */ } finally {
-      setMarkingAll(false);
-    }
-  };
-
-  const unreadCount = notifications.filter(n => !n.read).length;
-  const groups = groupByDay(notifications);
-
-  if (loading) {
+  if (loading || tab === null) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="flex items-center gap-3 text-muted-foreground">
@@ -189,67 +44,98 @@ export default function NotificacoesPage() {
     );
   }
 
-  return (
-    <div className="max-w-2xl mx-auto pb-20">
+  const list = itemsForTab(items, tab, prefs);
+  const anyUnread = items.some((i) => !i.read && i.kind !== 'activity');
+  const tabs: { id: NotifTab; label: string; badge?: number }[] = [
+    { id: 'attention', label: 'Precisam de você', badge: counts.attention },
+    { id: 'message', label: 'Mensagens' },
+    { id: 'activity', label: 'Atividade' },
+    { id: 'all', label: 'Tudo' },
+  ];
 
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Notificações</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {unreadCount > 0
-              ? `${unreadCount} não lida${unreadCount !== 1 ? 's' : ''}`
-              : 'Tudo em dia'}
+  const open = (item: NotifItem) => {
+    void markRead(item);
+    if (item.href) router.push(item.href);
+  };
+
+  return (
+    <div className="mx-auto flex max-w-[1040px] flex-col px-2 pb-20" style={{ gap: 28, fontFamily: SYS }}>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="flex flex-col" style={{ gap: 6 }}>
+          <h1 style={{ margin: 0, color: '#fff', fontSize: 32, fontWeight: 600, letterSpacing: '-0.02em', lineHeight: '40px' }}>Notificações</h1>
+          <p style={{ margin: 0, color: '#A3A3A3', fontSize: 16, lineHeight: '20px' }}>
+            {counts.attention > 0 ? `${counts.attention} ${counts.attention === 1 ? 'precisa' : 'precisam'} de você` : 'Tudo em dia'}
           </p>
         </div>
-        {unreadCount > 0 && (
-          <button
-            onClick={markAllAsRead}
-            disabled={markingAll}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-          >
-            {markingAll
-              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              : <CheckCheck className="h-3.5 w-3.5" />}
-            Marcar todas como lidas
+        <div className="flex" style={{ gap: 10 }}>
+          {anyUnread && (
+            <button type="button" onClick={() => void markAllRead()} className="transition-transform active:translate-y-0.5" style={GHOST}>
+              <CheckCheck size={16} /> Marcar tudo como lido
+            </button>
+          )}
+          <button type="button" onClick={() => setPrefsOpen(true)} className="transition-transform active:translate-y-0.5" style={GHOST}>
+            <SlidersHorizontal size={16} /> Preferências
           </button>
-        )}
+        </div>
       </div>
 
-      {/* Feed */}
-      {notifications.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border py-20 flex flex-col items-center gap-4 text-center">
-          {/* Z brand vazio */}
-          <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
-            <span className="text-2xl font-black text-muted-foreground/30 leading-none">Z</span>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Nenhuma notificação</p>
-            <p className="text-xs text-muted-foreground/60 mt-1">Quando algo acontecer, você verá aqui.</p>
-          </div>
+      <div role="tablist" className="flex flex-wrap self-start" style={{ gap: 6, padding: 6, background: '#101010', border: '1px solid #1C1C1C', borderRadius: 999 }}>
+        {tabs.map((t) => {
+          const active = tab === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setTab(t.id)}
+              className="flex items-center transition-colors"
+              style={{ gap: 8, height: 38, padding: '0 18px', borderRadius: 999, fontSize: 15, lineHeight: '18px', fontWeight: active ? 600 : 400, background: active ? '#0F3D2B' : 'transparent', color: active ? '#fff' : '#A3A3A3' }}
+            >
+              {t.label}
+              {!!t.badge && (
+                <span style={{ background: '#F5A524', color: '#1A1200', borderRadius: 999, padding: '2px 8px', fontSize: 12, fontWeight: 700, lineHeight: '16px' }}>{t.badge}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {list.length === 0 ? (
+        <div style={{ background: '#101010', border: '1px solid #1C1C1C', borderRadius: 20, padding: '64px 28px', textAlign: 'center', color: '#8A8A8A', fontSize: 16 }}>
+          {EMPTY[tab]}
         </div>
       ) : (
-        <div className="rounded-2xl border border-border bg-card overflow-hidden divide-y divide-border/50">
-          {groups.map((group, gi) => (
-            <div key={group.label}>
-              {/* Separador de grupo */}
-              <div className={cn(
-                'px-5 py-2 bg-muted/30',
-                gi > 0 && 'border-t border-border/50'
-              )}>
-                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  {group.label}
-                </span>
-              </div>
-              <div className="divide-y divide-border/30">
-                {group.items.map(n => (
-                  <NotifItem key={n.id} notif={n} onRead={markAsRead} />
-                ))}
+        <div className="flex flex-col overflow-hidden" style={{ background: '#101010', border: '1px solid #1C1C1C', borderRadius: 20 }}>
+          {list.map((item, i) => (
+            <div key={item.id} className="flex items-start" style={{ gap: 18, padding: '24px 28px', borderBottom: i < list.length - 1 ? '1px solid #1C1C1C' : 0 }}>
+              <NotifIcon item={item} size={44} />
+              <div className="flex flex-1 min-w-0 flex-col" style={{ gap: 6 }}>
+                <div className="flex items-center" style={{ gap: 10 }}>
+                  <div style={{ color: '#fff', fontSize: 17, fontWeight: 600, lineHeight: '22px' }}>{item.title}</div>
+                  {!item.read && <div style={{ background: '#96F63C', borderRadius: 4, width: 8, height: 8, flexShrink: 0 }} aria-label="Não lida" />}
+                </div>
+                {item.body && <div className="line-clamp-3" style={{ color: '#A3A3A3', fontSize: 15, lineHeight: '23px' }}>{item.body}</div>}
+                <div className="flex flex-wrap items-center" style={{ gap: 14, marginTop: 8 }}>
+                  {item.actionLabel && item.href && (
+                    <button
+                      type="button"
+                      onClick={() => open(item)}
+                      className="transition-transform active:translate-y-0.5"
+                      style={{ height: 40, padding: '0 20px', borderRadius: 999, background: '#01573C', boxShadow: '0 3px 0 #013825', color: '#fff', fontSize: 14, fontWeight: 600, lineHeight: '18px' }}
+                    >
+                      {item.actionLabel}
+                    </button>
+                  )}
+                  <span style={{ color: '#737373', fontSize: 14, lineHeight: '18px' }}>{longDate(item.created_at)}</span>
+                </div>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      <NotificationPreferences open={prefsOpen} onOpenChange={setPrefsOpen} />
     </div>
   );
 }

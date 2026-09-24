@@ -1,9 +1,12 @@
 import * as React from "react"
 
+import { toastDuration } from "@/components/ui/toast"
 import type { ToastActionElement, ToastProps } from "@/components/ui/toast"
 
-const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+// Até 3 avisos ao mesmo tempo, o mais novo embaixo. Depois de fechado, o aviso sai da lista
+// logo após a animação de saída (antes ficava "fantasma" por ~16 minutos e ocupava vaga).
+const TOAST_LIMIT = 3
+const TOAST_REMOVE_DELAY = 400
 
 type ToasterToast = ToastProps & {
   id: string
@@ -73,7 +76,7 @@ export const reducer = (state: State, action: Action): State => {
     case "ADD_TOAST":
       return {
         ...state,
-        toasts: [action.toast, ...state.toasts].slice(0, TOAST_LIMIT),
+        toasts: [...state.toasts, action.toast].slice(-TOAST_LIMIT),
       }
 
     case "UPDATE_TOAST":
@@ -137,10 +140,17 @@ type Toast = Omit<ToasterToast, "id">
 function toast({ ...props }: Toast) {
   const id = genId()
 
-  const update = (props: ToasterToast) =>
+  // "Trabalhando" vira sucesso/erro com update({ variant, title }): o tempo do novo tipo entra junto
+  const update = (next: Partial<ToasterToast>) =>
     dispatch({
       type: "UPDATE_TOAST",
-      toast: { ...props, id },
+      toast: {
+        ...next,
+        id,
+        ...(next.variant && next.duration === undefined
+          ? { duration: toastDuration(next.variant, !!(next.action ?? props.action)) }
+          : {}),
+      },
     })
   const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
 
@@ -148,6 +158,7 @@ function toast({ ...props }: Toast) {
     type: "ADD_TOAST",
     toast: {
       ...props,
+      duration: props.duration ?? toastDuration(props.variant, !!props.action),
       id,
       open: true,
       onOpenChange: (open) => {

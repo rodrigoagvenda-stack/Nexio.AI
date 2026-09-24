@@ -1,9 +1,7 @@
-﻿'use client';
+'use client';
 
 import { useUser } from '@/lib/hooks/useUser';
-import { Bell, Settings, LogOut } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Settings, LogOut } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,25 +11,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 import { useRouter, usePathname } from 'next/navigation';
-import { Badge } from '@/components/ui/badge';
-import { useEffect, useState, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { toast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
-
-type NotifTab = 'todas' | 'mensagens' | 'sistema';
-
-interface Notification {
-  id: string;
-  type: 'message' | 'system';
-  title: string;
-  message: string;
-  created_at: string;
-  read: boolean;
-  photo?: string | null;
-}
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 interface SystemTopBarProps {
   userName?: string | null;
@@ -43,9 +26,6 @@ export function SystemTopBar({ userName: userNameProp, userEmail: userEmailProp,
   const { user, company } = useUser();
   const router = useRouter();
   const pathname = usePathname();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [activeTab, setActiveTab] = useState<NotifTab>('todas');
-  const [notifOpen, setNotifOpen] = useState(false);
 
   // Nome/email/avatar vêm do server (layout.tsx, mesma consulta que já
   // alimenta a Sidebar) como fonte principal : o hook useUser() faz a mesma
@@ -70,93 +50,6 @@ export function SystemTopBar({ userName: userNameProp, userEmail: userEmailProp,
     router.push('/login');
     router.refresh();
   };
-
-  const fetchNotifications = useCallback(async () => {
-    if (!company?.id) return;
-    try {
-      const supabase = createClient();
-      const msgLastSeen = localStorage.getItem('notif_msg_last_seen');
-
-      const [{ data: logs }, { data: msgs }] = await Promise.all([
-        supabase
-          .from('activity_logs')
-          .select('id, action, description, created_at, read')
-          .eq('company_id', company.id)
-          .order('created_at', { ascending: false })
-          .limit(20),
-        supabase
-          .from('mensagens_do_whatsapp')
-          .select('id, texto_da_mensagem, carimbo_de_data_e_hora, conversas_do_whatsapp(nome_do_contato, whatsapp_photo_url)')
-          .eq('company_id', company.id)
-          .eq('direcao', 'inbound')
-          .order('carimbo_de_data_e_hora', { ascending: false })
-          .limit(15),
-      ]);
-
-      const sysNotifs: Notification[] = (logs ?? []).map((log: any) => ({
-        id: `sys-${log.id}`,
-        type: 'system' as const,
-        title: 'Sistema',
-        message: log.description ?? log.action,
-        created_at: log.created_at,
-        read: log.read || false,
-      }));
-
-      const msgNotifs: Notification[] = (msgs ?? []).map((msg: any) => ({
-        id: `msg-${msg.id}`,
-        type: 'message' as const,
-        title: msg.conversas_do_whatsapp?.nome_do_contato || 'Nova mensagem',
-        message: msg.texto_da_mensagem || '📎 Mídia',
-        created_at: msg.carimbo_de_data_e_hora,
-        photo: msg.conversas_do_whatsapp?.whatsapp_photo_url ?? null,
-        read: msgLastSeen ? new Date(msg.carimbo_de_data_e_hora) <= new Date(msgLastSeen) : false,
-      }));
-
-      setNotifications([...msgNotifs, ...sysNotifs].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
-    } catch {}
-  }, [company?.id]);
-
-  const markAllMsgRead = () => {
-    localStorage.setItem('notif_msg_last_seen', new Date().toISOString());
-    setNotifications((prev) => prev.map((n) => n.type === 'message' ? { ...n, read: true } : n));
-  };
-
-  const markAsRead = async (notif: Notification) => {
-    if (notif.type === 'message') {
-      markAllMsgRead();
-      return;
-    }
-    const rawId = notif.id.replace('sys-', '');
-    try {
-      await fetch(`/api/notifications/${rawId}/read`, { method: 'POST' });
-      setNotifications((prev) => prev.map((n) => n.id === notif.id ? { ...n, read: true } : n));
-    } catch {}
-  };
-
-  useEffect(() => {
-    if (company?.id) {
-      fetchNotifications();
-
-      const supabase = createClient();
-      const channel = supabase
-        .channel('activity_logs')
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'activity_logs',
-            filter: `company_id=eq.${company.id}`,
-          },
-          () => { fetchNotifications(); }
-        )
-        .subscribe();
-
-      return () => { supabase.removeChannel(channel); };
-    }
-  }, [company?.id, fetchNotifications]);
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
 
   if (pathname?.includes('/configuracoes')) {
     return null;
@@ -195,129 +88,7 @@ export function SystemTopBar({ userName: userNameProp, userEmail: userEmailProp,
 
       {/* Right: Notifications + Settings */}
       <div className="flex items-center gap-0.5 flex-shrink-0">
-        {/* Notifications */}
-        <div className="relative">
-          <div
-            className="relative h-10 w-10 flex items-center justify-center rounded-full cursor-pointer text-white/70 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
-            onClick={() => { setNotifOpen(v => !v); if (!notifOpen) fetchNotifications(); }}
-          >
-            <Bell className="h-5 w-5" />
-            {unreadCount > 0 && (
-              <span
-                className="absolute top-1 right-1 min-w-[16px] h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white px-1"
-                style={{ backgroundColor: '#ef4444', lineHeight: 1 }}
-              >
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
-          </div>
-
-          {notifOpen && (
-            <>
-              {/* Backdrop */}
-              <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
-              {/* Panel: mobile: centrado com margens; desktop: alinhado à direita */}
-              <div className="fixed z-50 bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col
-                left-5 right-5 top-[84px]
-                sm:left-auto sm:right-4 sm:w-[340px] sm:top-[90px]"
-                style={{ maxHeight: 'calc(100dvh - 100px)' }}
-              >
-                {/* Header */}
-                <div className="px-4 pt-4 pb-3 border-b border-border flex-shrink-0">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold text-sm">Notificações</h3>
-                    {unreadCount > 0 && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-destructive/15 text-destructive font-medium">
-                        {unreadCount} nova{unreadCount !== 1 ? 's' : ''}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex gap-1">
-                    {(['todas', 'mensagens', 'sistema'] as NotifTab[]).map((tab) => (
-                      <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        className={cn(
-                          'flex-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors capitalize',
-                          activeTab === tab
-                            ? 'bg-accent text-accent-foreground'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
-                        )}
-                      >
-                        {tab === 'todas' ? 'Todas' : tab === 'mensagens' ? 'Mensagens' : 'Sistema'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* List */}
-                <div className="overflow-y-auto flex-1">
-                  {(() => {
-                    const filtered = notifications.filter(n =>
-                      activeTab === 'todas' ? true :
-                      activeTab === 'mensagens' ? n.type === 'message' :
-                      n.type === 'system'
-                    );
-                    if (filtered.length === 0) {
-                      return (
-                        <div className="py-10 text-center text-sm text-muted-foreground/60">
-                          Nenhuma notificação
-                        </div>
-                      );
-                    }
-                    return filtered.map((notif) => (
-                      <button
-                        key={notif.id}
-                        className={cn(
-                          'w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-accent/50 transition-colors border-b border-border/40 last:border-0',
-                          !notif.read && 'bg-primary/5'
-                        )}
-                        onClick={() => markAsRead(notif)}
-                      >
-                        {notif.type === 'message' ? (
-                          <Avatar className="flex-shrink-0 w-8 h-8 mt-0.5">
-                            <AvatarImage src={notif.photo ?? undefined} />
-                            <AvatarFallback className="bg-primary/15 text-primary text-[11px] font-bold">
-                              {notif.title.charAt(0).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                        ) : (
-                          <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold mt-0.5 bg-muted text-muted-foreground">
-                            ⚙
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-xs font-semibold text-foreground truncate">{notif.title}</p>
-                            <span className="text-[10px] text-muted-foreground/60 flex-shrink-0">
-                              {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true, locale: ptBR })}
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground/80 line-clamp-2 mt-0.5">{notif.message}</p>
-                        </div>
-                        {!notif.read && (
-                          <div className="flex-shrink-0 w-2 h-2 rounded-full bg-primary mt-2" />
-                        )}
-                      </button>
-                    ));
-                  })()}
-                </div>
-
-                {/* Footer */}
-                {notifications.length > 0 && (
-                  <div className="border-t border-border p-2 flex-shrink-0">
-                    <button
-                      onClick={() => { router.push('/atendimento'); setNotifOpen(false); }}
-                      className="w-full py-2 text-xs text-primary font-medium hover:bg-accent/50 rounded-lg transition-colors"
-                    >
-                      Ver todas as mensagens
-                    </button>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+        <NotificationBell />
 
         {/* Settings */}
         <DropdownMenu>
