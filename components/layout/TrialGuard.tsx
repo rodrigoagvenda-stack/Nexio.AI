@@ -6,7 +6,8 @@ import { useRouter, usePathname } from 'next/navigation'
 const ALLOWED_PREFIXES = ['/ajuda', '/novidades']
 const ALLOWED_EXACT = ['/configuracoes', '/planos']
 
-export function TrialGuard({ trialExpired }: { trialExpired: boolean }) {
+// reason: 'trial' = teste vencido; 'payment' = conta nova que ainda não pagou o plano escolhido
+export function TrialGuard({ trialExpired, reason = 'trial' }: { trialExpired: boolean; reason?: 'trial' | 'payment' }) {
   const router = useRouter()
   const pathname = usePathname()
 
@@ -16,9 +17,9 @@ export function TrialGuard({ trialExpired }: { trialExpired: boolean }) {
       ALLOWED_PREFIXES.some((p) => pathname?.startsWith(p)) ||
       ALLOWED_EXACT.includes(pathname ?? '')
     if (!allowed) {
-      router.replace('/configuracoes?tab=plano&expired=trial')
+      router.replace(`/configuracoes?tab=plano&expired=${reason}`)
     }
-  }, [trialExpired, pathname, router])
+  }, [trialExpired, reason, pathname, router])
 
   return null
 }

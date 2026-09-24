@@ -8,6 +8,20 @@ import { AuthSlides } from './AuthSlides';
 // Peças da tela de login/cadastro/recuperação/2FA, com as medidas do layout do Paper.
 const SYS = 'system-ui, sans-serif';
 
+/** CSS dos campos (foco, erro, autofill) e dos botões. Usado pelo login e pelo onboarding. */
+export const AUTH_FIELD_CSS = `
+        .zl-field { transition: border-color .15s, box-shadow .15s; }
+        .zl-field:focus-within { border-color: #01573C !important; box-shadow: 0 0 0 .5px #01573C, 0 0 0 4px #01573C40; }
+        .zl-field.zl-err, .zl-field.zl-err:focus-within { border-color: #E5484D !important; box-shadow: 0 0 0 .5px #E5484D, 0 0 0 4px #E5484D24; }
+        .zl-field input { background: transparent; border: 0; outline: 0; color: #fff; font: 17px/22px ${SYS}; width: 100%; min-width: 0; height: 100%; padding: 0; }
+        .zl-field input::placeholder { color: #5A5A5A; }
+        .zl-field input:-webkit-autofill { -webkit-text-fill-color: #fff; -webkit-box-shadow: 0 0 0 1000px #141414 inset; caret-color: #fff; }
+        .zl-btn { transition: transform .08s, opacity .15s; }
+        .zl-btn:not(:disabled):active { transform: translateY(2px); }
+        .zl-link { background: none; border: 0; padding: 0; cursor: pointer; }
+        .zl-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+      `;
+
 export function GoogleIcon() {
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" style={{ flexShrink: 0 }}>
@@ -23,18 +37,7 @@ export function GoogleIcon() {
 export function AuthShell({ children, footer }: { children: ReactNode; footer: ReactNode }) {
   return (
     <div className="flex min-h-svh" style={{ background: '#0C0C0C' }}>
-      <style>{`
-        .zl-field { transition: border-color .15s, box-shadow .15s; }
-        .zl-field:focus-within { border-color: #01573C !important; box-shadow: 0 0 0 .5px #01573C, 0 0 0 4px #01573C40; }
-        .zl-field.zl-err, .zl-field.zl-err:focus-within { border-color: #E5484D !important; box-shadow: 0 0 0 .5px #E5484D, 0 0 0 4px #E5484D24; }
-        .zl-field input { background: transparent; border: 0; outline: 0; color: #fff; font: 17px/22px ${SYS}; width: 100%; min-width: 0; height: 100%; padding: 0; }
-        .zl-field input::placeholder { color: #5A5A5A; }
-        .zl-field input:-webkit-autofill { -webkit-text-fill-color: #fff; -webkit-box-shadow: 0 0 0 1000px #141414 inset; caret-color: #fff; }
-        .zl-btn { transition: transform .08s, opacity .15s; }
-        .zl-btn:not(:disabled):active { transform: translateY(2px); }
-        .zl-link { background: none; border: 0; padding: 0; cursor: pointer; }
-        .zl-link:hover { text-decoration: underline; text-underline-offset: 3px; }
-      `}</style>
+      <style>{AUTH_FIELD_CSS}</style>
 
       <AuthSlides />
 

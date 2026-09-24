@@ -151,7 +151,7 @@ function ConfiguracoesContent() {
   const { user, authUser } = useUser();
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<Tab>(() => {
-    if (searchParams.get('checkout') || searchParams.get('expired') === 'trial') return 'plano'
+    if (searchParams.get('checkout') || searchParams.get('expired') || searchParams.get('pagar')) return 'plano'
     const t = searchParams.get('tab')
     if (t && (TABS as readonly string[]).includes(t)) return t as Tab
     return 'perfil'
@@ -409,6 +409,32 @@ function ConfiguracoesContent() {
     setPaymentMethodPrompt(plan);
   };
 
+  // Vindo do onboarding (?pagar=starter|pro): abre o checkout já no plano escolhido, uma vez só
+  const autoPayStarted = useRef(false);
+  useEffect(() => {
+    const plan = searchParams.get('pagar');
+    if (autoPayStarted.current || loadingCompany || !company) return;
+    if (plan !== 'starter' && plan !== 'pro') return;
+    if (company.plan_type === 'starter' || company.plan_type === 'pro') return; // já pagou
+    autoPayStarted.current = true;
+    handleCheckout(plan);
+  }, [searchParams, loadingCompany, company]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // PIX mostrado na tela: enquanto espera, confere a cada 5s se o pagamento caiu. Quando cair, o painel
+  // leva para o passo final do onboarding (ou direto ao painel, para quem já era cliente).
+  const waitingPayment = !!pixResult || searchParams.get('expired') === 'payment';
+  useEffect(() => {
+    if (!waitingPayment) return;
+    const timer = setInterval(() => { void fetchCompany(); }, 5000);
+    return () => clearInterval(timer);
+  }, [waitingPayment, fetchCompany]);
+
+  useEffect(() => {
+    if (waitingPayment && (company?.plan_type === 'starter' || company?.plan_type === 'pro')) {
+      window.location.href = '/dashboard';
+    }
+  }, [waitingPayment, company?.plan_type]);
+
   const handleCpfCnpjSubmit = async () => {
     const doc = cpfCnpjInput.replace(/\D/g, '');
     if (doc.length !== 11 && doc.length !== 14) {
@@ -663,6 +689,12 @@ function ConfiguracoesContent() {
             <div className="flex items-center justify-center h-48"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
           ) : (
             <>
+              {searchParams.get('expired') === 'payment' && (
+                <div className="p-5 rounded-2xl border border-amber-500/30 bg-amber-500/10">
+                  <p className="font-semibold text-amber-200">Falta o pagamento do seu plano</p>
+                  <p className="text-sm text-amber-100/80 mt-1">Sua conta está criada. Escolha o plano abaixo e pague por PIX ou cartão para liberar o painel.</p>
+                </div>
+              )}
               {/* Plano atual */}
               <div className="p-6 rounded-2xl border border-border bg-card">
                 <div className="flex items-center justify-between gap-4">
@@ -673,7 +705,9 @@ function ConfiguracoesContent() {
                     <div>
                       <p className="font-semibold text-lg leading-none">{currentPlan.name}</p>
                       <p className="text-sm text-muted-foreground mt-1">
-                        {currentPlanKey === 'trial'
+                        {currentPlanKey === 'trial' && searchParams.get('expired') === 'payment'
+                          ? 'Aguardando pagamento'
+                          : currentPlanKey === 'trial'
                           ? 'Período de teste'
                           : currentPlanKey === 'basic'
                           ? 'Sem assinatura ativa'

@@ -17,6 +17,7 @@ import { SalesFunnelTabs } from '@/components/dashboard/SalesFunnelTabs';
 import { RecentSales } from '@/components/dashboard/RecentSales';
 import { MessageFunnelCard } from '@/components/dashboard/MessageFunnelCard';
 import { useFeatures } from '@/components/layout/FeaturesProvider';
+import { FirstStepsCard } from '@/components/onboarding/FirstStepsCard';
 
 interface DateRange {
   from: Date | undefined;
@@ -441,6 +442,9 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Primeiros passos: só aparece para contas criadas no novo onboarding, até terminar ou ocultar */}
+      <FirstStepsCard />
 
       {/* View tabs */}
       <div className="flex items-center rounded-full p-1 bg-muted w-fit">

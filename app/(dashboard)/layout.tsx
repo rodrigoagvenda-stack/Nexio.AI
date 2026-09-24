@@ -10,6 +10,7 @@ import { QuotaPausedBanner } from '@/components/layout/QuotaPausedBanner';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { readOnboarding } from '@/lib/onboarding/server';
 
 // 🔥 FORÇA RENDERIZAÇÃO DINÂMICA - SEM CACHE
 export const dynamic = 'force-dynamic';
@@ -49,7 +50,7 @@ export default async function DashboardLayout({
   const [{ data: companyData }, { data: briefingConfig }] = await Promise.all([
     supabase
       .from('companies')
-      .select('name, email, image_url, plan_name, plan_type, trial_enabled, trial_ends_at, subscription_expires_at, tokens_used, plan_monthly_limit, features, agente_ativo, agente_pausado_motivo')
+      .select('name, email, image_url, plan_name, plan_type, trial_enabled, trial_ends_at, subscription_expires_at, tokens_used, plan_monthly_limit, features, agente_ativo, agente_pausado_motivo, onboarding')
       .eq('id', userData?.company_id || 0)
       .single(),
     supabase
@@ -89,10 +90,19 @@ export default async function DashboardLayout({
   const PAID_PLAN_TYPES = ['starter', 'start', 'pro', 'growth', 'scale'];
   const isOnPaidPlan = PAID_PLAN_TYPES.includes(companyData?.plan_type ?? '');
   const isTrial = !isOnPaidPlan;
+  // Conta criada no novo onboarding que ainda não pagou o plano escolhido (não é teste vencido)
+  const onboarding = readOnboarding(companyData?.onboarding);
+  const awaitingPayment = !isOnPaidPlan && !trialEnabled && !!onboarding.plan_intent;
+  const gateReason = awaitingPayment ? 'payment' : 'trial';
   // Day-level comparison (matches sidebar logic: trialDaysLeft === 0 = expired)
   const _trialEndDay = trialEndsAt ? new Date(new Date(trialEndsAt).toDateString()) : null;
   const _todayDay = new Date(new Date().toDateString());
   const trialExpiredForGuard = !isOnPaidPlan && !!_trialEndDay && _trialEndDay <= _todayDay;
+
+  // Pagou: falta só o passo final do onboarding ("Tudo certo"), uma vez
+  if (isOnPaidPlan && onboarding.pending_finish) {
+    redirect('/onboarding');
+  }
 
   // Server-side trial gate: redirect before rendering any content
   if (trialExpiredForGuard) {
@@ -104,7 +114,7 @@ export default async function DashboardLayout({
       GATE_ALLOWED_PREFIXES.some((p) => pathname.startsWith(p)) ||
       GATE_ALLOWED_EXACT.includes(pathname);
     if (!isGateAllowed) {
-      redirect('/configuracoes?tab=plano&expired=trial');
+      redirect(`/configuracoes?tab=plano&expired=${gateReason}`);
     }
   }
 
@@ -134,7 +144,7 @@ export default async function DashboardLayout({
     >
     <FeaturesProvider features={features}>
     <div className="flex h-screen bg-background">
-      <TrialGuard trialExpired={trialExpiredForGuard} />
+      <TrialGuard trialExpired={trialExpiredForGuard} reason={gateReason} />
       <ZaapliLoader minDuration={900} />
       <Sidebar
         isAdmin={isAdmin}
@@ -148,7 +158,7 @@ export default async function DashboardLayout({
         userRole={userRole}
         trialEnabled={trialEnabled}
         trialEndsAt={trialEndsAt}
-        isTrial={isTrial}
+        isTrial={isTrial && !awaitingPayment}
         tokensUsed={tokensUsed}
         tokensLimit={tokensLimit}
         features={features}
