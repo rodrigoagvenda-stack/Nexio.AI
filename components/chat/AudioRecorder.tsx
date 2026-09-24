@@ -25,12 +25,17 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const playbackTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // O onstop é criado uma vez só: precisa ler o tempo atual por ref, não pelo state daquele momento
+  const recordingTimeRef = useRef(0);
+  // Cada tentativa de gravar recebe um número; se o componente sai antes do microfone responder, a tentativa é descartada
+  const startTokenRef = useRef(0);
 
   useEffect(() => {
     // Auto-start recording quando monta
     startRecording();
 
     return () => {
+      startTokenRef.current++;
       if (timerRef.current) clearInterval(timerRef.current);
       if (playbackTimerRef.current) clearInterval(playbackTimerRef.current);
       if (audioURL) URL.revokeObjectURL(audioURL);
@@ -44,29 +49,32 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
     }
   };
 
+  const fail = (title: string, description: string) => {
+    toast({ title, description, variant: 'destructive' });
+    onCancel();
+  };
+
   const startRecording = async () => {
+    const token = ++startTokenRef.current;
     try {
-      // Checa estado da permissão antes de tentar: se 'prompt', o popup aparece automaticamente
-      if (navigator.permissions) {
-        const perm = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-        if (perm.state === 'denied') {
-          toast({
-            title: 'Microfone bloqueado',
-            description: 'Clique no cadeado na barra de endereço → Permissões do site → Microfone → Permitir.',
-            variant: 'destructive',
-          });
-          onCancel();
-          return;
-        }
+      // Só dá para gravar em página segura (https ou localhost); em outra, o navegador nem expõe o microfone
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+        fail('Gravação indisponível', 'Este navegador ou endereço não permite gravar áudio. Use o Zaapply por https em um navegador atualizado.');
+        return;
       }
 
+      // Não confiamos só em permissions.query: alguns navegadores não conhecem 'microphone'. Quem decide é o getUserMedia
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : 'audio/webm';
+      if (token !== startTokenRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
 
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus']
+        .find((t) => MediaRecorder.isTypeSupported(t)) ?? '';
+
+      const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -77,32 +85,43 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        const audioBlob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType || mimeType || 'audio/webm' });
         const url = URL.createObjectURL(audioBlob);
         setAudioURL(url);
         setAudioBlob(audioBlob);
-        setDuration(recordingTime);
+        setDuration(recordingTimeRef.current);
         stopMediaStream();
       };
 
       mediaRecorder.start();
       setIsRecording(true);
+      recordingTimeRef.current = 0;
       setRecordingTime(0);
 
       timerRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
+        recordingTimeRef.current += 1;
+        setRecordingTime(recordingTimeRef.current);
       }, 1000);
     } catch (error: any) {
-      console.error('Error accessing microphone:', error);
-      const isPermission = error?.name === 'NotAllowedError' || error?.name === 'PermissionDeniedError';
-      toast({
-        title: 'Não foi possível acessar o microfone',
-        description: isPermission
-          ? 'Permissão negada. Acesse as configurações do navegador e permita o microfone.'
-          : 'Verifique se o dispositivo possui microfone disponível.',
-        variant: 'destructive',
-      });
-      onCancel();
+      if (token !== startTokenRef.current) return;
+      console.error('Erro ao iniciar a gravação:', error?.name, error?.message);
+      // Cada erro do navegador tem uma causa diferente: a mensagem precisa dizer a verdadeira
+      switch (error?.name) {
+        case 'NotAllowedError':
+        case 'PermissionDeniedError':
+          fail('Microfone bloqueado neste site', 'Clique no cadeado ao lado do endereço, abra as permissões do site e escolha Permitir para o microfone. Depois toque no microfone de novo.');
+          break;
+        case 'NotFoundError':
+        case 'OverconstrainedError':
+          fail('Nenhum microfone encontrado', 'Conecte um microfone ou escolha um dispositivo de entrada nas configurações de som do computador.');
+          break;
+        case 'NotReadableError':
+        case 'AbortError':
+          fail('O microfone está em uso', 'Outro programa ou aba está usando o microfone. Feche e tente de novo.');
+          break;
+        default:
+          fail('Não foi possível gravar', 'O navegador não conseguiu iniciar a gravação. Recarregue a página e tente de novo.');
+      }
     }
   };
 

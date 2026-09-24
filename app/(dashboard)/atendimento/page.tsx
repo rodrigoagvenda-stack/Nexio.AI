@@ -835,13 +835,16 @@ export default function AtendimentoPage() {
     setLoading(true);
     try {
       // 1. Upload do áudio para o Supabase Storage
-      const fileName = `audio_${Date.now()}.webm`;
+      // O formato depende do navegador (webm no Chrome/Firefox, mp4 no Safari): o arquivo leva o que foi gravado
+      const audioType = (audioBlob.type || 'audio/webm').split(';')[0];
+      const audioExt = audioType.split('/')[1] === 'mp4' ? 'm4a' : audioType.split('/')[1] || 'webm';
+      const fileName = `audio_${Date.now()}.${audioExt}`;
       const filePath = `${company!.id}/whatsapp/${selectedConversation.id}/${fileName}`;
 
       const { data: uploadData, error: uploadError} = await supabase.storage
         .from('whatsapp-media')
         .upload(filePath, audioBlob, {
-          contentType: 'audio/webm',
+          contentType: audioType,
           cacheControl: '3600',
         });
 
