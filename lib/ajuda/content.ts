@@ -685,21 +685,24 @@ O indicador mostra quando a última atualização ocorreu e uma barra de progres
       {
         question:  'Funções e permissões',
         answer:
-`O sistema tem 4 níveis de acesso:
+`O sistema tem 5 funções:
 
-## SDR
+## Pré-vendas
 Acesso ao Atendimento (chat) e às conversas atribuídas. Sem acesso ao CRM completo ou Automações.
 
 ## Closer
 CRM completo e Atendimento. Sem acesso a Automações, Métricas e Membros.
 
-## SDR + Closer
+## Pré-vendas e Closer
 Atendimento e CRM. Sem Automações, Métricas e Membros.
 
-## Administrador
-Acesso total:  CRM, Atendimento, Automações, Métricas, Membros, Configurações e painel Admin.
+## Gerente
+Pode convidar, editar e remover membros. Só um Admin mexe em outro Admin.
+
+## Admin
+Acesso total: CRM, Atendimento, Automações, Métricas, Membros, Configurações e painel Admin.
 [ADMIN]
-Apenas administradores podem adicionar ou remover membros, configurar o WhatsApp, alterar planos e acessar dados de faturamento.
+Só Admin dá a função de Admin a alguém e mexe em outro Admin. Configurar o WhatsApp, alterar planos e ver dados de faturamento também são só do Admin.
 [/ADMIN]`,
       },
       {
@@ -707,18 +710,18 @@ Apenas administradores podem adicionar ou remover membros, configurar o WhatsApp
         answer:
 `Acesse **Membros** no menu lateral.
 
-1. Clique em **+ Novo Membro**
+1. Clique em **Convidar membro**
 2. Informe o nome e o e-mail do membro
-3. Selecione a função (SDR, Closer, SDR+Closer ou Administrador)
-4. Clique em **Enviar Convite**
+3. Escolha a função (Pré-vendas, Closer, Pré-vendas e Closer, Gerente ou Admin)
+4. Clique em **Enviar convite**
 
-O membro recebe um e-mail com link para criar senha e acessar o sistema. O convite expira em 48 horas.
+A pessoa recebe um e-mail com o link para criar a senha e entrar. Se o e-mail não chegar, peça para olhar também o spam.
+
+## Editar a função
+Clique no membro na lista. No painel ao lado, mude a função ou o departamento e clique em **Salvar alterações**.
 
 ## Remover um membro
-Clique no ícone de lixeira ao lado do membro e confirme. O acesso é revogado imediatamente.
-[TIP]
-Se o membro não acessar no prazo de 48 horas, reenvie o convite clicando em **Reenviar** na lista de membros.
-[/TIP]`,
+Clique no membro, depois em **Remover membro**, e confirme. O acesso é revogado na hora e não dá para desfazer: para voltar, é preciso convidar de novo.`,
       },
       {
         question:  'Limites por plano',
@@ -728,10 +731,10 @@ Se o membro não acessar no prazo de 48 horas, reenvie o convite clicando em **R
 • **Start**:  Até 3 atendentes, 1 número WhatsApp
 • **Growth**:  Até 10 atendentes, 2 números WhatsApp
 [INFO]
-"Atendentes" são membros com função SDR, Closer ou SDR+Closer. Administradores não entram no limite do plano.
+Durante o período de teste não há limite de membros. Os limites acima valem depois da assinatura.
 [/INFO]
 
-Para verificar o número de atendentes ativos e o limite do seu plano, acesse **Configuração → Plano**.`,
+Para ver o seu plano, acesse **Configuração → Plano e uso**.`,
       },
     ],
   },

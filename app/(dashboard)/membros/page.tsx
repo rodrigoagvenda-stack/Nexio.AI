@@ -1,84 +1,88 @@
-﻿'use client';
+'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Clock, Info, Loader2, Plus, Search, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Label } from '@/components/ui/label';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { UserPlus, Search, Trash2, Edit } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUser } from '@/lib/hooks/useUser';
 import { toast } from '@/components/ui/use-toast';
 import { SimplePagination } from '@/components/ui/pagination-simple';
+import { cn } from '@/lib/utils';
+import { CARD, CardTitle, FIELD, FieldLabel } from '@/components/configuracoes/cfg-ui';
 
 interface Member {
   user_id: string;
   name: string;
   email: string;
   role: string;
-  department?: string;
+  department?: string | null;
   is_active: boolean;
-  last_login?: string;
+  last_login?: string | null;
   created_at: string;
 }
 
-const ROLE_CONFIG: Record<string, { label: string; className: string }> = {
-  admin:      { label: 'Admin',      className: 'bg-purple-500/10 text-purple-600 dark:text-purple-400' },
-  manager:    { label: 'Gerente',    className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
-  sdr:        { label: 'SDR',        className: 'bg-orange-500/10 text-orange-600 dark:text-orange-400' },
-  closer:     { label: 'Closer',     className: 'bg-primary/10 text-primary' },
-  sdr_closer: { label: 'SDR+Closer', className: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
-};
+const ROLES = [
+  { value: 'sdr', label: 'Pré-vendas', desc: 'Faz a primeira conversa e qualifica o lead', chip: 'bg-orange-500/15 text-orange-700 dark:text-orange-300' },
+  { value: 'closer', label: 'Closer', desc: 'Conduz a reunião e fecha a venda', chip: 'bg-[#01573C]/15 text-[#01573C] dark:bg-[#96F63C]/15 dark:text-[#96F63C]' },
+  { value: 'sdr_closer', label: 'Pré-vendas e Closer', desc: 'Faz as duas etapas', chip: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
+  { value: 'manager', label: 'Gerente', desc: 'Pode convidar, editar e remover membros', chip: 'bg-blue-500/15 text-blue-700 dark:text-blue-300' },
+  { value: 'admin', label: 'Admin', desc: 'Pode convidar, editar e remover membros', chip: 'bg-purple-500/15 text-purple-700 dark:text-purple-300' },
+] as const;
 
-function getRoleChip(role: string) {
-  const c = ROLE_CONFIG[role] || { label: 'Membro', className: 'bg-muted text-muted-foreground' };
-  return (
-    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md whitespace-nowrap ${c.className}`}>
-      {c.label}
-    </span>
-  );
-}
+const roleOf = (role: string) => ROLES.find((r) => r.value === role) ?? { value: role, label: 'Membro', desc: '', chip: 'bg-muted text-muted-foreground' };
 
-function fmtRelative(dateStr?: string): string {
-  if (!dateStr) return 'Nunca';
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
+const initials = (name: string) => name.split(/\s+/).filter(Boolean).map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+
+function fmtLast(d?: string | null) {
+  if (!d) return 'Sem registro';
+  const mins = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
   if (mins < 1) return 'Agora';
-  if (mins < 60) return `${mins}min atrás`;
+  if (mins < 60) return `${mins} min atrás`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h atrás`;
+  if (hrs < 24) return `${hrs} h atrás`;
   const days = Math.floor(hrs / 24);
   if (days === 1) return 'Ontem';
   if (days < 7) return `${days} dias atrás`;
-  return new Date(dateStr).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+  return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 }
 
-function getInitials(name: string): string {
-  return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+const Avatar = ({ name, size = 40, mine }: { name: string; size?: number; mine?: boolean }) => (
+  <span
+    className={cn('flex shrink-0 items-center justify-center rounded-full font-semibold', mine ? 'bg-[#0F3D2B] text-[#96F63C]' : 'bg-accent text-[#01573C] dark:text-[#96F63C]')}
+    style={{ width: size, height: size, fontSize: size * 0.32 }}
+  >
+    {initials(name)}
+  </span>
+);
+
+function RoleOptions({ value, onChange, allowAdmin }: { value: string; onChange: (v: string) => void; allowAdmin: boolean }) {
+  return (
+    <div className="flex flex-col gap-2" role="radiogroup" aria-label="Função">
+      {ROLES.filter((r) => allowAdmin || r.value !== 'admin').map((r) => {
+        const on = value === r.value;
+        return (
+          <button
+            key={r.value}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            onClick={() => onChange(r.value)}
+            className={cn('flex items-center gap-3.5 rounded-xl border px-4 py-3 text-left transition-colors', on ? 'border-[#1E6B47] bg-accent' : 'border-border bg-muted hover:border-foreground/25')}
+          >
+            <span className={cn('flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2', on ? 'border-[#01573C] dark:border-[#96F63C]' : 'border-muted-foreground/50')}>
+              {on && <span className="h-2 w-2 rounded-full bg-[#01573C] dark:bg-[#96F63C]" />}
+            </span>
+            <span className="flex flex-col gap-px">
+              <span className={cn('text-[15px] leading-[18px] text-foreground', on && 'font-semibold')}>{r.label}</span>
+              <span className="text-[13.5px] leading-[18px] text-muted-foreground">{r.desc}</span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function MembrosPage() {
@@ -86,467 +90,309 @@ export default function MembrosPage() {
 
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [isInviting, setIsInviting] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const itemsPerPage = 10;
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [inviting, setInviting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const perPage = 10;
 
-  const isAdmin = user?.role === 'admin' || user?.role === 'manager';
-  // Só administrador mexe em outro administrador ou dá esse papel (a API também confere)
   const myRole: string | undefined = user?.role;
+  const canInvite = myRole === 'admin' || myRole === 'manager' || myRole === 'company_admin';
+  // Só administrador mexe em outro administrador ou dá esse papel (a API também confere)
   const isAdminRole = myRole === 'admin' || myRole === 'company_admin';
-  const canManage = (m: Member) =>
-    isAdmin && m.user_id !== user?.user_id && (isAdminRole || (m.role !== 'admin' && m.role !== 'company_admin'));
+  const canManage = (m: Member) => canInvite && m.user_id !== user?.user_id && (isAdminRole || (m.role !== 'admin' && m.role !== 'company_admin'));
 
   const [inviteForm, setInviteForm] = useState({ name: '', email: '', role: 'closer', department: '' });
   const [editForm, setEditForm] = useState({ role: '', department: '' });
 
-  useEffect(() => {
-    if (!company?.id) return;
-    fetchMembers();
-  }, [company?.id]);
-
   async function fetchMembers() {
     try {
-      setLoading(true);
-      const response = await fetch(`/api/members?companyId=${company!.id}`);
-      const data = await response.json();
+      const res = await fetch(`/api/members?companyId=${company!.id}`);
+      const data = await res.json();
       if (!data.success) throw new Error(data.message);
       setMembers(data.data || []);
     } catch {
-      toast({ title: 'Erro ao carregar membros', variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
+      toast({ variant: 'destructive', title: 'Não foi possível carregar os membros' });
+    } finally { setLoading(false); }
   }
 
-  async function handleInviteMember(e: React.FormEvent) {
-    e.preventDefault();
-    setIsInviting(true);
-    try {
-      const response = await fetch('/api/members', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...inviteForm, companyId: company!.id }),
-      });
-      const data = await response.json();
-      if (!data.success) throw new Error(data.message);
-      toast({ title: 'Convite enviado! Verifique o email (inclusive spam).' });
-      setInviteDialogOpen(false);
-      setInviteForm({ name: '', email: '', role: 'closer', department: '' });
-      fetchMembers();
-    } catch (error: any) {
-      toast({ title: error.message || 'Erro ao convidar membro', variant: 'destructive' });
-    } finally {
-      setIsInviting(false);
-    }
-  }
+  useEffect(() => { if (company?.id) void fetchMembers(); }, [company?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setPage(1); }, [query]);
 
-  async function handleEditMember(e: React.FormEvent) {
-    e.preventDefault();
-    if (!selectedMember) return;
-    try {
-      const response = await fetch(`/api/members/${selectedMember.user_id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...editForm, companyId: company!.id }),
-      });
-      const data = await response.json();
-      if (!data.success) throw new Error(data.message);
-      toast({ title: 'Membro atualizado com sucesso!' });
-      setEditDialogOpen(false);
-      setSelectedMember(null);
-      fetchMembers();
-    } catch (error: any) {
-      toast({ title: error.message || 'Erro ao atualizar membro', variant: 'destructive' });
-    }
-  }
+  const selected = members.find((m) => m.user_id === selectedId) ?? null;
+  useEffect(() => {
+    if (selected) setEditForm({ role: selected.role, department: selected.department || '' });
+  }, [selected?.user_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function handleDeleteMember() {
-    if (!selectedMember) return;
-    setIsDeleting(true);
-    try {
-      const response = await fetch(`/api/members/${selectedMember.user_id}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyId: company!.id }),
-      });
-      const data = await response.json();
-      if (!data.success) throw new Error(data.message);
-      toast({ title: 'Membro removido com sucesso!' });
-      setDeleteDialogOpen(false);
-      setSelectedMember(null);
-      fetchMembers();
-    } catch (error: any) {
-      toast({ title: error.message || 'Erro ao remover membro', variant: 'destructive' });
-    } finally {
-      setIsDeleting(false);
-    }
-  }
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return members;
+    return members.filter((m) => m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q) || (m.department ?? '').toLowerCase().includes(q));
+  }, [members, query]);
+  const pageRows = filtered.slice((page - 1) * perPage, page * perPage);
 
-  function openEditDialog(member: Member) {
-    setSelectedMember(member);
-    setEditForm({ role: member.role, department: member.department || '' });
-    setEditDialogOpen(true);
-  }
-
-  function openDeleteDialog(member: Member) {
-    setSelectedMember(member);
-    setDeleteDialogOpen(true);
-  }
-
-  const filteredMembers = members.filter(
-    (m) =>
-      m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.department?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
-  const paginatedMembers = filteredMembers.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  useEffect(() => { setCurrentPage(1); }, [searchQuery]);
-
-  // Stats
-  const activeCount = members.filter(m => m.is_active).length;
-  const roleCounts = members.reduce<Record<string, number>>((acc, m) => {
-    acc[m.role] = (acc[m.role] || 0) + 1;
-    return acc;
-  }, {});
-  const statsText = members.length === 0
+  const active = members.filter((m) => m.is_active).length;
+  const count = (r: string) => members.filter((m) => m.role === r).length;
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  const summary = members.length === 0
     ? 'Gerencie os membros da sua empresa'
     : [
-        `${members.length} membros`,
-        `${activeCount} ativos`,
-        roleCounts.admin     && `${roleCounts.admin} admin${roleCounts.admin > 1 ? 's' : ''}`,
-        roleCounts.manager   && `${roleCounts.manager} gerente${roleCounts.manager > 1 ? 's' : ''}`,
-        roleCounts.closer    && `${roleCounts.closer} closer${roleCounts.closer > 1 ? 's' : ''}`,
-        roleCounts.sdr       && `${roleCounts.sdr} SDR${roleCounts.sdr > 1 ? 's' : ''}`,
-        roleCounts.sdr_closer && `${roleCounts.sdr_closer} SDR+Closer`,
+        plural(active, 'membro ativo', 'membros ativos'),
+        count('admin') > 0 && plural(count('admin'), 'admin', 'admins'),
+        count('manager') > 0 && plural(count('manager'), 'gerente', 'gerentes'),
+        count('closer') > 0 && plural(count('closer'), 'closer', 'closers'),
+        count('sdr') > 0 && `${count('sdr')} de pré-vendas`,
+        count('sdr_closer') > 0 && `${count('sdr_closer')} de pré-vendas e closer`,
       ].filter(Boolean).join(' · ');
+  const noAccessRecorded = members.length > 0 && members.every((m) => !m.last_login);
 
-  if (loading) {
-    return (
-      <div className="flex flex-col gap-4">
-        <div className="h-14 bg-muted/50 animate-pulse rounded-xl" />
-        <div className="h-9 bg-muted/30 animate-pulse rounded-xl max-w-xs" />
-        <div className="rounded-xl border border-border/50 overflow-hidden space-y-px">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-[60px] bg-muted/20 animate-pulse" />
-          ))}
-        </div>
-      </div>
-    );
+  async function invite(e: React.FormEvent) {
+    e.preventDefault();
+    setInviting(true);
+    try {
+      const res = await fetch('/api/members', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...inviteForm, companyId: company!.id }) });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message);
+      toast({ variant: 'success', title: 'Convite enviado', description: 'Peça para a pessoa olhar também o spam.' });
+      setInviteOpen(false);
+      setInviteForm({ name: '', email: '', role: 'closer', department: '' });
+      void fetchMembers();
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Não foi possível convidar', description: err?.message });
+    } finally { setInviting(false); }
   }
 
+  async function saveEdit() {
+    if (!selected) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/members/${selected.user_id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...editForm, companyId: company!.id }) });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message);
+      toast({ variant: 'success', title: 'Membro atualizado' });
+      void fetchMembers();
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Não foi possível salvar', description: err?.message });
+    } finally { setSaving(false); }
+  }
+
+  async function remove() {
+    if (!selected) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/members/${selected.user_id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companyId: company!.id }) });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message);
+      toast({ title: `${selected.name} foi removido` });
+      setDeleteOpen(false);
+      setSelectedId(null);
+      void fetchMembers();
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Não foi possível remover', description: err?.message });
+    } finally { setDeleting(false); }
+  }
+
+  if (loading) {
+    return <div className="flex h-64 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+  }
+
+  const dirty = !!selected && (editForm.role !== selected.role || editForm.department !== (selected.department || ''));
+
   return (
-    <div className="flex flex-col gap-4">
-      {/* Page Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Membros</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{statsText}</p>
+    <div className="mx-auto flex w-full max-w-[1900px] flex-col gap-6 pb-14 pt-2">
+      <div className="flex flex-wrap items-center justify-between gap-6">
+        <div className="flex flex-col gap-1.5">
+          <h1 className="text-[26px] font-semibold leading-8 tracking-tight text-foreground">Membros</h1>
+          <p className="text-[15px] text-muted-foreground">{summary}</p>
         </div>
-        {isAdmin && (
-          <Button size="sm" onClick={() => setInviteDialogOpen(true)} className="gap-1.5 flex-shrink-0">
-            <UserPlus className="h-3.5 w-3.5" />
-            Convidar
-          </Button>
-        )}
+        {canInvite && <Button className="h-[46px] px-6 text-[15px]" onClick={() => setInviteOpen(true)}><Plus className="!size-4" strokeWidth={2.4} /> Convidar membro</Button>}
       </div>
 
-      {/* Filter bar */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por nome, email ou departamento..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-9 text-sm"
-          />
+      {noAccessRecorded && (
+        <div className="flex items-start gap-4 rounded-[14px] border border-amber-500/30 bg-amber-500/[0.08] px-6 py-4">
+          <Clock className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-[#F5B544]" strokeWidth={2} />
+          <div className="flex flex-col gap-0.5">
+            <p className="text-base font-semibold text-foreground">O último acesso não está sendo registrado</p>
+            <p className="text-sm text-amber-900/80 dark:text-[#D9C28A]">Nenhum dos {members.length} membros tem acesso salvo, então não dá para saber quem entrou no sistema.</p>
+          </div>
         </div>
-        {searchQuery && (
-          <span className="text-xs text-muted-foreground">
-            {filteredMembers.length} de {members.length}
-          </span>
-        )}
-      </div>
-
-      {/* Members table */}
-      <div className="rounded-xl border border-border/50 overflow-hidden">
-        {/* Table header */}
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-muted/30 border-b border-border/50">
-              <tr>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Membro
-                </th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Função
-                </th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider hidden md:table-cell">
-                  Departamento
-                </th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider hidden md:table-cell">
-                  Último acesso
-                </th>
-                <th className="px-4 py-2.5 w-20" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/40 bg-card">
-              {paginatedMembers.length === 0 ? (
-                <tr>
-                  <td colSpan={5}>
-                    <div className="flex flex-col items-center justify-center py-16 gap-4">
-                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                        <UserPlus className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                      <div className="text-center">
-                        <p className="text-sm font-medium text-foreground">
-                          {searchQuery ? 'Nenhum membro encontrado' : 'Nenhum membro ainda'}
-                        </p>
-                        {isAdmin && !searchQuery && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Convide o primeiro membro da equipe
-                          </p>
-                        )}
-                      </div>
-                      {isAdmin && !searchQuery && (
-                        <Button size="sm" onClick={() => setInviteDialogOpen(true)} className="gap-1.5">
-                          <UserPlus className="h-3.5 w-3.5" />
-                          Convidar Membro
-                        </Button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                paginatedMembers.map((member) => (
-                  <tr key={member.user_id} className="hover:bg-accent/30 transition-colors">
-                    {/* Member */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="relative flex-shrink-0">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback className="text-xs font-medium bg-primary/10 text-primary">
-                              {getInitials(member.name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span
-                            className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-background ${
-                              member.is_active ? 'bg-emerald-500' : 'bg-muted-foreground/30'
-                            }`}
-                          />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">{member.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{member.email}</p>
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Role */}
-                    <td className="px-4 py-3">{getRoleChip(member.role)}</td>
-
-                    {/* Department */}
-                    <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell">
-                      {member.department || ':'}
-                    </td>
-
-                    {/* Last login */}
-                    <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell tabular-nums">
-                      {fmtRelative(member.last_login)}
-                    </td>
-
-                    {/* Actions */}
-                    <td className="px-4 py-3">
-                      {canManage(member) && (
-                        <div className="flex items-center gap-1 justify-end">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 hover:bg-accent"
-                            onClick={() => openEditDialog(member)}
-                          >
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-accent"
-                            onClick={() => openDeleteDialog(member)}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Pagination */}
-      {filteredMembers.length > itemsPerPage && (
-        <SimplePagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-          totalItems={filteredMembers.length}
-          itemsPerPage={itemsPerPage}
-        />
       )}
 
-      {/* Invite Dialog */}
-      <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Convidar Membro</DialogTitle>
-            <DialogDescription>
-              O convite será enviado por email. Verifique também a caixa de spam.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleInviteMember}>
-            <div className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nome completo</Label>
-                <Input
-                  id="name"
-                  value={inviteForm.name}
-                  onChange={(e) => setInviteForm({ ...inviteForm, name: e.target.value })}
-                  placeholder="João Silva"
-                  required
-                  className="h-9"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={inviteForm.email}
-                  onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
-                  placeholder="joao@empresa.com"
-                  required
-                  className="h-9"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>Função</Label>
-                  <Select value={inviteForm.role} onValueChange={(v) => setInviteForm({ ...inviteForm, role: v })}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sdr">SDR</SelectItem>
-                      <SelectItem value="closer">Closer</SelectItem>
-                      <SelectItem value="sdr_closer">SDR+Closer</SelectItem>
-                      <SelectItem value="manager">Gerente</SelectItem>
-                      {isAdminRole && <SelectItem value="admin">Admin</SelectItem>}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="department">Departamento</Label>
-                  <Input
-                    id="department"
-                    value={inviteForm.department}
-                    onChange={(e) => setInviteForm({ ...inviteForm, department: e.target.value })}
-                    placeholder="Vendas"
-                    className="h-9"
-                  />
-                </div>
-              </div>
+      <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
+        <section className={cn(CARD, 'flex min-w-0 flex-1 flex-col gap-4 p-[26px]')}>
+          <label className="flex h-[46px] items-center gap-3 rounded-xl border border-border bg-muted px-4">
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por nome, email ou departamento" aria-label="Buscar membro" className="w-full bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground" />
+          </label>
+
+          {pageRows.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-16 text-center">
+              <p className="text-base font-medium text-foreground">{query ? 'Nenhum membro encontrado' : 'Nenhum membro ainda'}</p>
+              {canInvite && !query && <Button className="h-11 px-6" onClick={() => setInviteOpen(true)}>Convidar o primeiro membro</Button>}
             </div>
-            <DialogFooter className="mt-4">
-              <Button type="button" variant="outline" size="sm" onClick={() => setInviteDialogOpen(false)} disabled={isInviting}>
-                Cancelar
-              </Button>
-              <Button type="submit" size="sm" disabled={isInviting}>
-                {isInviting ? 'Enviando…' : 'Enviar Convite'}
-              </Button>
-            </DialogFooter>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] border-collapse">
+                <thead>
+                  <tr className="text-left text-[13px] font-medium tracking-[0.06em] text-muted-foreground">
+                    <th className="px-4 py-3 font-medium">MEMBRO</th>
+                    <th className="px-4 py-3 font-medium">FUNÇÃO</th>
+                    <th className="hidden px-4 py-3 font-medium md:table-cell">DEPARTAMENTO</th>
+                    <th className="hidden px-4 py-3 font-medium md:table-cell">ÚLTIMO ACESSO</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageRows.map((m) => {
+                    const r = roleOf(m.role);
+                    const on = m.user_id === selectedId;
+                    const mine = m.user_id === user?.user_id;
+                    return (
+                      <tr
+                        key={m.user_id}
+                        onClick={() => setSelectedId(m.user_id)}
+                        className={cn('cursor-pointer border-t border-border transition-colors', on ? 'bg-accent' : 'hover:bg-muted')}
+                      >
+                        <td className="px-4 py-3.5">
+                          <div className="flex items-center gap-3.5">
+                            <Avatar name={m.name} mine={mine} />
+                            <div className="min-w-0">
+                              <p className="flex items-center gap-2 text-base font-semibold leading-5 text-foreground">
+                                <span className="truncate">{m.name}</span>
+                                {mine && <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-normal text-muted-foreground">Você</span>}
+                                {!m.is_active && <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-normal text-muted-foreground">Inativo</span>}
+                              </p>
+                              <p className="truncate text-sm text-muted-foreground">{m.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5"><span className={cn('whitespace-nowrap rounded-full px-3 py-1 text-[13px] font-semibold', r.chip)}>{r.label}</span></td>
+                        <td className={cn('hidden px-4 py-3.5 text-[15px] md:table-cell', m.department ? 'text-foreground' : 'text-muted-foreground')}>{m.department || 'Sem departamento'}</td>
+                        <td className="hidden px-4 py-3.5 text-[15px] text-muted-foreground md:table-cell">{fmtLast(m.last_login)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {filtered.length > perPage && (
+            <SimplePagination currentPage={page} totalPages={Math.ceil(filtered.length / perPage)} onPageChange={setPage} totalItems={filtered.length} itemsPerPage={perPage} />
+          )}
+
+          <p className="flex items-center gap-3 rounded-xl border border-border bg-muted px-[18px] py-3.5 text-sm text-muted-foreground">
+            <Info className="h-4 w-4 shrink-0" strokeWidth={2} /> Durante o teste não há limite de membros. Depois, cada plano tem um limite de membros ativos.
+          </p>
+        </section>
+
+        <aside className={cn(CARD, 'flex w-full shrink-0 flex-col gap-5 p-[30px] xl:w-[480px]')}>
+          {!selected ? (
+            <div className="flex flex-col items-center gap-1.5 py-16 text-center">
+              <p className="text-base font-medium text-foreground">Selecione um membro</p>
+              <p className="text-sm text-muted-foreground">para ver os detalhes e editar a função.</p>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-4">
+                <Avatar name={selected.name} size={56} mine={selected.user_id === user?.user_id} />
+                <div className="min-w-0">
+                  <p className="truncate text-[22px] font-semibold leading-7 tracking-tight text-foreground">{selected.name}</p>
+                  <p className="truncate text-[15px] text-muted-foreground">{selected.email}</p>
+                </div>
+              </div>
+
+              {canManage(selected) ? (
+                <>
+                  <div className="flex flex-col gap-2">
+                    <FieldLabel>Função</FieldLabel>
+                    <Select value={editForm.role} onValueChange={(v) => setEditForm((f) => ({ ...f, role: v }))}>
+                      <SelectTrigger className="h-[50px] rounded-xl border-border bg-muted px-4 text-[15px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {ROLES.filter((r) => isAdminRole || r.value !== 'admin').map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[13.5px] text-muted-foreground">Gerentes e admins podem convidar, editar e remover membros.</p>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <FieldLabel htmlFor="mb-dep">Departamento</FieldLabel>
+                    <input id="mb-dep" className={FIELD} value={editForm.department} placeholder="Vendas" onChange={(e) => setEditForm((f) => ({ ...f, department: e.target.value }))} />
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col gap-1 rounded-xl border border-border bg-muted px-[18px] py-3.5">
+                  <p className="text-sm text-muted-foreground">Função</p>
+                  <p className="text-[15px] font-semibold text-foreground">{roleOf(selected.role).label}</p>
+                  <p className="text-[13.5px] text-muted-foreground">{selected.user_id === user?.user_id ? 'Você não pode editar a própria função.' : 'Só um administrador edita esta pessoa.'}</p>
+                </div>
+              )}
+
+              <dl className="flex flex-col rounded-xl border border-border bg-muted">
+                <div className="flex items-center justify-between px-[18px] py-3.5"><dt className="text-[15px] text-muted-foreground">Membro desde</dt><dd className="text-[15px] font-semibold text-foreground">{new Date(selected.created_at).toLocaleDateString('pt-BR')}</dd></div>
+                <div className="flex items-center justify-between border-t border-border px-[18px] py-3.5"><dt className="text-[15px] text-muted-foreground">Último acesso</dt><dd className="text-[15px] text-muted-foreground">{fmtLast(selected.last_login)}</dd></div>
+              </dl>
+
+              {canManage(selected) && (
+                <div className="flex flex-col gap-3">
+                  <Button className="h-[50px] text-base" onClick={saveEdit} disabled={saving || !dirty}>{saving && <Loader2 className="h-4 w-4 animate-spin" />} Salvar alterações</Button>
+                  <Button variant="secondary" className="h-[50px] text-base text-red-600 dark:text-red-400" onClick={() => setDeleteOpen(true)}>Remover membro</Button>
+                </div>
+              )}
+            </>
+          )}
+        </aside>
+      </div>
+
+      {/* Convidar */}
+      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+        <DialogContent className="max-h-[92vh] max-w-[600px] gap-0 overflow-y-auto rounded-[20px] border-border bg-card p-9 [&>button]:hidden">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-1.5">
+              <DialogTitle className="text-2xl font-semibold leading-8 tracking-tight">Convidar membro</DialogTitle>
+              <DialogDescription className="text-[15px] text-muted-foreground">A pessoa recebe um convite por email. Peça para olhar também o spam.</DialogDescription>
+            </div>
+            <button type="button" onClick={() => setInviteOpen(false)} aria-label="Fechar" className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"><X className="h-5 w-5" /></button>
+          </div>
+          <form onSubmit={invite} className="mt-6 flex flex-col gap-5">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-2"><FieldLabel htmlFor="iv-name">Nome completo</FieldLabel><input id="iv-name" required className={FIELD} placeholder="João Silva" value={inviteForm.name} onChange={(e) => setInviteForm((f) => ({ ...f, name: e.target.value }))} /></div>
+              <div className="flex flex-col gap-2"><FieldLabel htmlFor="iv-email">Email</FieldLabel><input id="iv-email" required type="email" className={FIELD} placeholder="joao@empresa.com" value={inviteForm.email} onChange={(e) => setInviteForm((f) => ({ ...f, email: e.target.value }))} /></div>
+            </div>
+            <div className="flex flex-col gap-2.5">
+              <p className="text-sm font-semibold text-foreground">Função</p>
+              <RoleOptions value={inviteForm.role} onChange={(v) => setInviteForm((f) => ({ ...f, role: v }))} allowAdmin={isAdminRole} />
+            </div>
+            <div className="flex flex-col gap-2"><FieldLabel htmlFor="iv-dep" optional>Departamento</FieldLabel><input id="iv-dep" className={FIELD} placeholder="Vendas" value={inviteForm.department} onChange={(e) => setInviteForm((f) => ({ ...f, department: e.target.value }))} /></div>
+            <div className="flex justify-end gap-3 pt-1">
+              <Button type="button" variant="secondary" className="h-[46px] px-6 text-[15px]" onClick={() => setInviteOpen(false)} disabled={inviting}>Cancelar</Button>
+              <Button type="submit" className="h-[46px] px-7 text-[15px]" disabled={inviting}>{inviting && <Loader2 className="h-4 w-4 animate-spin" />} Enviar convite</Button>
+            </div>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Edit Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="sm:max-w-xs">
-          <DialogHeader>
-            <DialogTitle>Editar {selectedMember?.name}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleEditMember}>
-            <div className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label>Função</Label>
-                <Select value={editForm.role} onValueChange={(v) => setEditForm({ ...editForm, role: v })}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sdr">SDR</SelectItem>
-                    <SelectItem value="closer">Closer</SelectItem>
-                    <SelectItem value="sdr_closer">SDR+Closer</SelectItem>
-                    <SelectItem value="manager">Gerente</SelectItem>
-                    {isAdminRole && <SelectItem value="admin">Admin</SelectItem>}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Departamento</Label>
-                <Input
-                  value={editForm.department}
-                  onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
-                  placeholder="Vendas"
-                  className="h-9"
-                />
+      {/* Remover */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent className="max-w-[500px] gap-0 rounded-[20px] border-border bg-card p-8">
+          <span className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-red-500/15"><Trash2 className="h-5 w-5 text-red-500" strokeWidth={2} /></span>
+          <AlertDialogTitle className="mt-4 text-2xl font-semibold tracking-tight">Remover {selected?.name}?</AlertDialogTitle>
+          <AlertDialogDescription className="mt-2 text-[15px] leading-normal text-muted-foreground">Essa pessoa perde o acesso ao Zaapply. Essa ação não pode ser desfeita. Para voltar, será preciso convidar de novo.</AlertDialogDescription>
+          {selected && (
+            <div className="mt-5 flex items-center gap-3.5 rounded-xl border border-border bg-muted px-[18px] py-3.5">
+              <Avatar name={selected.name} size={40} />
+              <div className="min-w-0">
+                <p className="truncate text-[15px] font-semibold text-foreground">{selected.name}</p>
+                <p className="truncate text-sm text-muted-foreground">{selected.email} · {roleOf(selected.role).label}{selected.department ? ` · ${selected.department}` : ''}</p>
               </div>
             </div>
-            <DialogFooter className="mt-4">
-              <Button type="button" variant="outline" size="sm" onClick={() => setEditDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit" size="sm">Salvar</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remover membro</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja remover <strong>{selectedMember?.name}</strong>?
-              Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteMember}
-              disabled={isDeleting}
-              className="bg-destructive hover:bg-destructive/90"
-            >
-              {isDeleting ? 'Removendo…' : 'Remover'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
+          )}
+          <div className="mt-6 flex justify-end gap-3">
+            <Button variant="secondary" className="h-[46px] px-6 text-[15px]" onClick={() => setDeleteOpen(false)} disabled={deleting}>Cancelar</Button>
+            <Button variant="destructive" className="h-[46px] px-7 text-[15px] [box-shadow:0_2px_0_0_#7F1D1D]" onClick={remove} disabled={deleting}>{deleting && <Loader2 className="h-4 w-4 animate-spin" />} Remover membro</Button>
+          </div>
         </AlertDialogContent>
       </AlertDialog>
     </div>
