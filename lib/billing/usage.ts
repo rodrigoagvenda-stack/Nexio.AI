@@ -12,6 +12,7 @@
 
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendTokenAlertEmail } from '@/lib/email/resend'
+import { logCompanyNotice } from '@/lib/notifications/server'
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────
 
@@ -211,6 +212,15 @@ export async function pauseTenant(tenantId: number, supabase: Supabase): Promise
     agente_ativo: false,
     agente_pausado_motivo: 'quota_exceeded',
   }).eq('id', tenantId)
+
+  // Avisa no sino, uma vez por mês, para a pausa não passar em silêncio
+  await logCompanyNotice(supabase, {
+    companyId: tenantId,
+    action: 'quota_exceeded',
+    description: 'Franquia esgotada. O agente foi pausado porque a franquia do mês acabou. Compre um pacote extra ou mude de plano para retomar o atendimento.',
+    dedupeKey: `quota_exceeded:${monthStart()}`,
+    dedupeHours: 24 * 31,
+  })
 }
 
 // ─── checkAndSendQuotaAlerts (fire-and-forget) ───────────────────────────────
@@ -226,33 +236,52 @@ export async function checkAndSendQuotaAlerts(
       .eq('id', tenantId)
       .single()
 
-    if (!company?.email) return
+    if (!company) return
 
     const quota = await getPlanQuota(tenantId, supabase)
     const used = await getMonthUsage(tenantId, supabase)
     const pct = quota > 0 ? used / quota : 0
     const month = monthStart()
 
+    // O aviso no sino não depende de a empresa ter e-mail cadastrado.
     if (pct >= 0.95 && (!company.token_alert_95_sent_at || company.token_alert_95_sent_at < month)) {
-      await sendTokenAlertEmail({
-        to: company.email,
-        companyName: company.name,
-        percent: 95,
-        usedTokens: used,
-        quota,
-      }).catch(() => {})
+      if (company.email) {
+        await sendTokenAlertEmail({
+          to: company.email,
+          companyName: company.name,
+          percent: 95,
+          usedTokens: used,
+          quota,
+        }).catch(() => {})
+      }
+      await logCompanyNotice(supabase, {
+        companyId: tenantId,
+        action: 'quota_warning',
+        description: 'Franquia quase no fim. Você já usou 95% da franquia deste mês. Ao chegar em 100% o agente pausa.',
+        dedupeKey: `quota_warning:95:${month}`,
+        dedupeHours: 24 * 31,
+      })
       await supabase
         .from('companies')
         .update({ token_alert_95_sent_at: new Date().toISOString() })
         .eq('id', tenantId)
     } else if (pct >= 0.80 && (!company.token_alert_80_sent_at || company.token_alert_80_sent_at < month)) {
-      await sendTokenAlertEmail({
-        to: company.email,
-        companyName: company.name,
-        percent: 80,
-        usedTokens: used,
-        quota,
-      }).catch(() => {})
+      if (company.email) {
+        await sendTokenAlertEmail({
+          to: company.email,
+          companyName: company.name,
+          percent: 80,
+          usedTokens: used,
+          quota,
+        }).catch(() => {})
+      }
+      await logCompanyNotice(supabase, {
+        companyId: tenantId,
+        action: 'quota_warning',
+        description: 'Franquia em 80%. Você já usou 80% da franquia deste mês. Se ela acabar, o agente pausa.',
+        dedupeKey: `quota_warning:80:${month}`,
+        dedupeHours: 24 * 31,
+      })
       await supabase
         .from('companies')
         .update({ token_alert_80_sent_at: new Date().toISOString() })

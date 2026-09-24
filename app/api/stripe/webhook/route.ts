@@ -2,6 +2,7 @@
 import { getStripe, getPlanByPriceId, PLANS } from '@/lib/stripe';
 import { createServiceClient } from '@/lib/supabase/server';
 import Stripe from 'stripe';
+import { logCompanyNotice } from '@/lib/notifications/server';
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -89,6 +90,13 @@ export async function POST(request: NextRequest) {
 
       await service.from('companies').update({ is_active: false }).eq('id', companyId);
       console.log(`[Stripe] Empresa ${companyId} bloqueada : pagamento falhou`);
+      await logCompanyNotice(service, {
+        companyId,
+        action: 'payment_failed',
+        description: 'Cobrança não aprovada. O acesso foi bloqueado até o pagamento ser regularizado.',
+        dedupeKey: `payment_failed:${invoice.id}`,
+        dedupeHours: 24 * 7,
+      });
       break;
     }
 

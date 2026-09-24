@@ -75,7 +75,7 @@ export function logToItem(log: ActivityLogRow): NotifItem {
     return { ...base, kind: 'attention', group: 'billing', icon: 'card', href: '/planos', actionLabel: 'Ver plano' };
   }
   if (/desconect|disconnect|conexao|conexão/i.test(action)) {
-    return { ...base, kind: 'attention', group: 'billing', icon: 'plug', href: '/configuracoes', actionLabel: 'Reconectar' };
+    return { ...base, kind: 'attention', group: 'billing', icon: 'plug', href: '/configuracoes/sdr', actionLabel: 'Reconectar' };
   }
   return { ...base, kind: 'activity', group: 'own', icon: 'bolt' };
 }

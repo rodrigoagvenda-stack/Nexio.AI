@@ -28,6 +28,7 @@ import { getPlatformConfig } from '@/lib/platform-config'
 import { getPayment, getSubscription } from '@/lib/asaas/client'
 import { syslog } from '@/lib/logger'
 import { rateLimit } from '@/lib/rate-limit'
+import { logCompanyNotice } from '@/lib/notifications/server'
 
 const CONFIRMED_EVENTS = new Set(['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED'])
 
@@ -128,6 +129,26 @@ export async function POST(request: NextRequest) {
     } else if (event === 'PAYMENT_REFUNDED') {
       await handleSubscriptionRefunded(payment, supabase)
       await syslog({ type: 'billing', severity: 'warning', message: `Pagamento estornado : ${payment.id}`, payload: { event, paymentId: payment.id } })
+
+    } else if (event === 'PAYMENT_OVERDUE') {
+      // Cobrança da assinatura da própria empresa venceu: avisa quem usa o sistema
+      if (payment.subscription) {
+        const { data: overdueCompany } = await supabase
+          .from('companies')
+          .select('id')
+          .eq('asaas_subscription_id', payment.subscription)
+          .maybeSingle()
+        if (overdueCompany) {
+          await logCompanyNotice(supabase, {
+            companyId: overdueCompany.id,
+            action: 'payment_overdue',
+            description: 'Pagamento em atraso. A cobrança da assinatura venceu. Regularize para não perder o acesso.',
+            dedupeKey: `payment_overdue:${payment.id}`,
+            dedupeHours: 24 * 7,
+          })
+        }
+      }
+      await syslog({ type: 'billing', severity: 'warning', message: `Pagamento em atraso : ${payment.id}`, payload: { event, paymentId: payment.id } })
 
     } else if (event === 'SUBSCRIPTION_DELETED') {
       await handleSubscriptionDeleted(payment, supabase)

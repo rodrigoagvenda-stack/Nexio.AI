@@ -57,6 +57,7 @@ import {
   checkAndSendQuotaAlerts,
 } from '@/lib/billing/usage'
 import { sendInjectionAlertEmail } from '@/lib/email/resend'
+import { logCompanyNotice } from '@/lib/notifications/server'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -3893,10 +3894,25 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
         null
       console.log(`[SDR:${companyId}] evento de conexão : status="${s}" → normalized="${normalized}"`)
       if (normalized) {
+        // Só avisa na virada de conectado para desconectado (o webhook repete o evento)
+        const { data: before } = await supabase
+          .from('sdr_configs')
+          .select('instance_status')
+          .eq('company_id', companyId)
+          .maybeSingle()
         await supabase.from('sdr_configs').update({
           instance_status: normalized,
           ...(normalized === 'disconnected' ? { instance_phone: null } : {}),
         }).eq('company_id', companyId)
+        if (normalized === 'disconnected' && before?.instance_status === 'connected') {
+          await logCompanyNotice(supabase, {
+            companyId,
+            action: 'whatsapp_disconnected',
+            description: 'WhatsApp desconectado. O número saiu do ar e o agente não consegue responder. Reconecte para voltar a atender.',
+            dedupeKey: 'whatsapp_disconnected',
+            dedupeHours: 6,
+          })
+        }
       }
       return true
     }

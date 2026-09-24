@@ -141,11 +141,17 @@ export function useNotifications({ alerts = false }: { alerts?: boolean } = {}) 
 
   const markAllRead = useCallback(async () => {
     try { localStorage.setItem(FLOOR_KEY, new Date().toISOString()); } catch { /* segue sem persistir */ }
-    const unreadLogs = logs.filter((n) => !n.read && n.logId);
     setMsgs((prev) => prev.map((n) => ({ ...n, read: true })));
     setLogs((prev) => prev.map((n) => ({ ...n, read: true })));
-    await Promise.all(unreadLogs.map((n) => fetch(`/api/notifications/${n.logId}/read`, { method: 'POST' }).catch(() => null)));
-  }, [logs]);
+    // uma chamada só, no lugar de uma requisição por aviso
+    try {
+      await fetch('/api/notifications/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ all: true }),
+      });
+    } catch { /* volta no próximo carregamento */ }
+  }, []);
 
   return { items, counts, loading, refresh: fetchAll, markRead, markAllRead, prefs };
 }
