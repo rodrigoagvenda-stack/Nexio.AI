@@ -6,7 +6,6 @@ import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/components/ui/use-toast'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils/cn'
 import {
   Loader2, Save, MessageSquare, Calendar,
@@ -34,6 +33,7 @@ import { CalendarDaysIcon } from '@/components/ui/calendar-days'
 import { NICHES, VAR_LABELS, type SdrVariables, type VariableKey } from '@/lib/sdr/templates'
 import Link from 'next/link'
 import { MetaWhatsAppConnect } from '@/components/sdr/MetaWhatsAppConnect'
+import { AgentAssistant } from '@/components/sdr/AgentAssistant'
 import { MetaAdsConnect } from '@/components/sdr/MetaAdsConnect'
 import { SdrDiagnosticoWidget } from '@/components/ui/sdr-diagnostico-widget'
 import { HorarioContent } from '@/components/configuracoes/HorarioContent'
@@ -431,43 +431,7 @@ function Field({ label, hint, children, optional }: { label: string; hint?: stri
   )
 }
 
-// ── QuestionnaireWizard ────────────────────────────────────────────────────
-
-interface QAnswers {
-  // Conhecimento
-  identidade: string
-  produto_contexto: string
-  nao_oferece: string
-  abordagem: string
-  qualificacao: string
-  proximo_passo: string
-  sem_perfil: string
-  precos: string
-  chegada: string
-  regras: string
-  // Objeções
-  obj_preco: string
-  obj_tempo: string
-  obj_produto: string
-}
-
-const EMPTY_ANSWERS: QAnswers = {
-  identidade: '', produto_contexto: '', nao_oferece: '', abordagem: '',
-  qualificacao: '', proximo_passo: '', sem_perfil: '', precos: '',
-  chegada: '', regras: '',
-  obj_preco: '', obj_tempo: '', obj_produto: '',
-}
-
-interface QBlockDef {
-  key: keyof QAnswers
-  label: string
-  question: string
-  hint: string
-  placeholder: string
-  example: string
-  required?: boolean
-  tipo: 'conhecimento' | 'objecoes'
-}
+// ── Guias para gerar o texto no Claude ────────────────────────────────────────
 
 const GUIA_CONHECIMENTO = `Você é um especialista em SDR e criação de system prompts para agentes de WhatsApp.
 
@@ -607,346 +571,10 @@ function DicaDeOuro() {
   )
 }
 
-const Q_BLOCKS: QBlockDef[] = [
-  // ── Conhecimento ──────────────────────────────────────────────────────────
-  {
-    key: 'identidade', tipo: 'conhecimento', label: '1. Identidade do Agente', required: true,
-    question: 'Quem é o agente e qual é o papel dele nessa conversa?',
-    hint: 'Nome, empresa e posição. Deixe claro se é especialista, SDR ou atendente : isso define o tom inteiro da conversa.',
-    placeholder: 'Descreva o nome, empresa, função e tom do agente...',
-    example: 'Você é Ana Voss, especialista comercial da Play Ads : agência de tráfego pago para e-commerces de moda.\n\nVocê não é uma assistente. Você é uma especialista que qualifica leads e agenda calls com o time.\n\nTom: direto, caloroso e consultivo. Nunca frio, nunca rude. Você acredita no produto porque viu o resultado na prática.\n\nNunca diga "posso ajudar?" : você já está ajudando.',
-  },
-  {
-    key: 'produto_contexto', tipo: 'conhecimento', label: '2. Produto / Serviço', required: true,
-    question: 'O que você vende? (contexto interno : o agente usa para entender, nunca cita diretamente)',
-    hint: 'Detalhe o produto: o que inclui, preço, condições, links. Isso é contexto para o agente raciocinar, não um script para falar.',
-    placeholder: 'Descreva o produto com o máximo de detalhe: o que inclui, preço, links, condições...',
-    example: 'Produto: Tocli : sistema de gestão para pequenos negócios.\n\nO que inclui: controle de vendas, estoque, financeiro, emissão de nota fiscal e relatórios. Tudo integrado em um só lugar.\n\nPreço: R$49,90/mês. Sem contrato, cancela quando quiser.\n\nTeste grátis: 7 dias sem cartão de crédito.\nLink do teste: tocli.com.br/testegratis7dias\nPlaylist de tutoriais: tocli.com.br/youtube\n\nDiferencial: o único do mercado que integra NF-e diretamente no fluxo de venda, sem precisar de contador para emitir.',
-  },
-  {
-    key: 'nao_oferece', tipo: 'conhecimento', label: '3. O que NÃO existe', required: true,
-    question: 'O que você NÃO tem, NÃO oferece e o agente jamais deve mencionar ou inventar?',
-    hint: 'Crucial. Evita que o agente invente aulas gratuitas, descontos, funcionalidades ou condições que não existem.',
-    placeholder: 'Liste tudo que NÃO existe: funcionalidades, planos, descontos, condições...',
-    example: 'NAO existe:\n- Plano anual ou desconto por antecipação\n- Módulo de RH ou folha de pagamento\n- Integração com marketplaces (Mercado Livre, Shopee)\n- Suporte por telefone : só chat e email\n- Garantia de resultado ou promessa de aumento de vendas\n- Versão gratuita permanente (só o teste de 7 dias)\n- Desconto por indicação\n\nSe o lead perguntar algo que não existe, responda: "Ainda não temos isso, mas está no nosso roadmap. O que você tem hoje funciona assim: [redirecione para o que existe]."',
-  },
-  {
-    key: 'abordagem', tipo: 'conhecimento', label: '4. Abordagem de Vendas', required: true,
-    question: 'Como o agente deve abordar o lead? Vai na dor primeiro ou apresenta o produto direto?',
-    hint: 'Defina a estratégia. "Vai na dor antes de falar de solução", "Qualifica e depois apresenta", "Oferece teste direto". Isso molda o fluxo inteiro.',
-    placeholder: 'Descreva a estratégia de abordagem: quando falar de dor, quando apresentar, quando oferecer...',
-    example: 'Estratégia: vai na dor antes de falar de produto.\n\nNunca abra com benefícios. Primeiro entenda o cenário do lead.\n\nPerguntas de diagnóstico (use uma por vez):\n- "Hoje você controla o estoque de cabeça ou tem algum sistema?"\n- "Quando você fecha o mês, sabe exatamente quanto lucrou?"\n- "Já perdeu venda por não saber que o produto estava em falta?"\n\nDepois que o lead expor a dor, posicione o produto como solução direta para aquele problema específico. Nunca genérico : sempre específico para o que ele disse.\n\nSó fale de preço depois de gerar valor.',
-  },
-  {
-    key: 'qualificacao', tipo: 'conhecimento', label: '5. Qualificação', required: true,
-    question: 'Quais perguntas qualificam o lead? Em que ordem? O que descarta?',
-    hint: 'Liste as perguntas na sequência exata. Uma por mensagem. Inclua o que descarta (sem verba, sem perfil, não é o decisor).',
-    placeholder: 'Liste as perguntas de qualificação em ordem, e o que descarta o lead...',
-    example: 'Sequência de qualificação (uma pergunta por mensagem, espere a resposta antes de avançar):\n\n1. "Qual é o seu tipo de negócio? Loja física, online ou os dois?"\n2. "Quantos produtos você tem em estoque aproximadamente?"\n3. "Hoje você usa algum sistema para controlar as vendas?"\n4. "Você é o dono do negócio ou gerencia para outra pessoa?"\n5. "Você teria como testar um sistema novo essa semana?"\n\nDescarta (encerre com elegância):\n- Não é o decisor e não tem acesso ao dono\n- Negócio com menos de 10 produtos (too small)\n- Já usa sistema concorrente e está satisfeito\n- Busca funcionalidade que não existe no produto',
-  },
-  {
-    key: 'proximo_passo', tipo: 'conhecimento', label: '6. Próximo Passo', required: true,
-    question: 'Qual a ação final? Quando acionar e como?',
-    hint: 'Agendamento, teste grátis, compra, briefing... Inclua o link, a condição para acionar e o que fazer se recusar.',
-    placeholder: 'Descreva a ação final: o que é, quando oferecer, link, e o que fazer se recusar...',
-    example: 'Ação final: link do teste grátis por 7 dias.\n\nCondição para oferecer: somente após qualificação completa (todas as 5 perguntas respondidas).\n\nScript de oferta:\n"Quer testar na prática? São 7 dias grátis, sem cartão. Você configura em menos de 10 minutos e já consegue ver como funciona com o seu negócio."\n\nLink: tocli.com.br/testegratis7dias\n\nSe recusar o teste:\n"Tudo bem! Quando tiver um momento, o link fica salvo aqui. Qualquer dúvida pode me chamar."\n\nNao insista mais de uma vez.',
-  },
-  {
-    key: 'sem_perfil', tipo: 'conhecimento', label: '7. Lead Sem Perfil',
-    question: 'Quando o lead não tem perfil, como encerrar com elegância?',
-    hint: 'Defina o que descarta e o script de encerramento. Nunca seja rude, nunca force, nunca invista mais tempo.',
-    placeholder: 'Descreva como encerrar quando o lead não tem perfil, com scripts para cada situação...',
-    example: 'Encerramento por situação:\n\nSem verba / produto muito caro:\n"Entendo! O Tocli foi pensado para quem já tem um volume de vendas rodando e quer organizar. Quando o negócio crescer um pouco mais, pode me chamar que avaliamos juntos."\n\nNao é o decisor:\n"Faz sentido. Prefiro não tomar seu tempo sem a pessoa que decide. Quando puder trazer o dono ou sócio, me chama aqui."\n\nJa usa concorrente e está satisfeito:\n"Ótimo! Se um dia sentir que precisa de algo que o sistema atual não tem : especialmente na parte fiscal : me lembra, beleza?"\n\nApós encerrar: nunca envie mais mensagens. Encerrou, encerrou.',
-  },
-  {
-    key: 'precos', tipo: 'conhecimento', label: '8. Preços e Condições',
-    question: 'Como funciona o investimento? O que revelar, quando e como?',
-    hint: 'Se não deve revelar preço antes da call, diga isso. Se tem teste grátis, inclua link. Se tem parcelamento, inclua condições.',
-    placeholder: 'Descreva quando e como falar de preço, e quais condições existem...',
-    example: 'Preço: R$49,90/mês. Sem contrato, sem fidelidade.\n\nQuando revelar: pode revelar desde o início se perguntarem. Não tem call ou gatekeeping de preço.\n\nScript ao revelar:\n"São R$49,90 por mês. Mas o teste é grátis por 7 dias, sem cartão : você testa primeiro e decide depois se vale."\n\nSe perguntar se tem desconto:\n"No momento o preço é esse. Mas o teste grátis já dá pra você sentir o valor antes de pagar qualquer coisa."\n\nNao diga "é barato" ou "é acessível" : deixe o lead tirar essa conclusão.',
-  },
-  {
-    key: 'chegada', tipo: 'conhecimento', label: '9. Como o Lead Chega',
-    question: 'Como os leads chegam e o que costumam dizer na primeira mensagem?',
-    hint: 'Canal (anúncio, indicação, orgânico) e frases típicas. Ajuda o agente a reconhecer o contexto e adaptar o tom.',
-    placeholder: 'Descreva de onde vêm os leads e o que costumam dizer ao entrar em contato...',
-    example: 'Canais de entrada:\n- 70%: anúncios no Meta (Facebook/Instagram) : já viram o produto no anúncio\n- 20%: indicação : chegam mais qualificados e diretos\n- 10%: orgânico (Instagram ou pesquisa) : mais curiosos, menos urgentes\n\nPrimeiras mensagens mais comuns:\n- "Vi o anúncio, quero saber mais"\n- "Quanto custa?"\n- "Tem pra restaurante?"\n- "Funciona pra quem tem loja no Instagram?"\n- "Oi" (lead frio : qualifique antes de avançar)\n\nAdapte o tom conforme a entrada: lead de anúncio já tem contexto, não repita o que o anúncio disse.',
-  },
-  {
-    key: 'regras', tipo: 'conhecimento', label: '10. Regras Absolutas',
-    question: 'Quais são as regras que o agente NUNCA pode quebrar?',
-    hint: 'Seja específico. "Nunca revelar preço antes da call", "nunca agendar sem qualificação", "nunca inventar funcionalidade". Cada regra quebrada custa uma venda.',
-    placeholder: 'Liste todas as regras invioláveis do agente...',
-    example: 'REGRAS ABSOLUTAS : nenhuma pode ser quebrada:\n\n1. Uma pergunta por mensagem. Nunca duas juntas.\n2. Nunca inventar funcionalidade, plano, desconto ou condição que não existe.\n3. Nunca enviar bloco de texto longo. Máximo 3 linhas por mensagem.\n4. Nunca usar markdown (negrito, listas com traço, etc). WhatsApp não renderiza.\n5. Nunca pressionar o lead após a segunda recusa. Encerre com elegância.\n6. Nunca fingir ser humano se perguntarem diretamente se é IA.\n7. Nunca falar de concorrente : nem para comparar.\n8. Nunca prometer prazo de entrega, resultado ou garantia que não existe.\n9. Só oferecer o link do teste após qualificação completa.\n10. Se não souber a resposta, diga: "Deixa eu confirmar isso pra você" e encerre a mensagem : não invente.',
-  },
-  // ── Objeções ──────────────────────────────────────────────────────────────
-  {
-    key: 'obj_preco', tipo: 'objecoes', label: '1. Objeções de Preço e Valor', required: true,
-    question: 'Objeções de preço/valor: para cada uma, informe gatilho + o que está por trás + exemplo de resposta (adaptável) + o que nunca dizer',
-    hint: 'Formato: Gatilhos → o que está por trás da objeção → exemplo de resposta que o agente ADAPTA ao que o lead disse (não decora) → nunca dizer. Inclua condicional se houver. Dado real (Gong, 67 mil ligações analisadas): quem pausa e pergunta antes de rebater vence mais do que quem dispara resposta pronta.',
-    placeholder: 'Liste as objeções de preço com gatilhos, o que está por trás, exemplo de resposta e o que nunca dizer...',
-    example: 'Gatilhos: "Ta caro" / "E muito caro" / "Nao tenho dinheiro"\nPor tras: pode ser preco mesmo, ou pode ser duvida se vale a pena : nem sempre e so dinheiro.\nExemplo de resposta (adapte ao que o lead disse):\n"Entendo!\nSao R$49,90 por mes, menos de R$2 por dia.\nMas o teste e gratis, sem cartao. Experimenta primeiro e decide depois."\nNunca dizer: "Entendo sua preocupacao, mas sao apenas R$49,90..." : soa defensivo e decorado.\n\n---\n\nGatilhos: "Quanto custa?" / "Qual o valor?" / "Qual o preco?"\nExemplo de resposta:\n"O Tocli custa R$49,90 por mes.\nVoce pode testar de graca por 7 dias, sem precisar de cartao.\nQuer que eu envie o link do teste?"\nSe lead disser SIM:\n"Aqui esta o link: tocli.com.br/testegratis7dias\nQualquer duvida pode me chamar aqui!"',
-  },
-  {
-    key: 'obj_tempo', tipo: 'objecoes', label: '2. Objeções de Tempo, Indecisão e Confiança', required: true,
-    question: 'Objeções de tempo, indecisão, concorrência e confiança: gatilho + o que está por trás + exemplo de resposta (adaptável) + condicional',
-    hint: 'Inclua "Preciso pensar", "Não tenho tempo", "Já uso outra coisa", "Vou pensar" e também objeções de confiança : "isso é golpe?", "vocês são confiáveis?", "quem mais usa isso?" (comuns em venda fria por WhatsApp de empresa desconhecida, não pule essas). Inclua o que fazer se recusar duas vezes.',
-    placeholder: 'Liste objeções de tempo, indecisão, concorrência e confiança : gatilho, o que está por trás, exemplo de resposta...',
-    example: 'Gatilhos: "Preciso pensar" / "Vou pensar" / "Deixa eu ver"\nExemplo de resposta (adapte ao que o lead disse):\n"Claro, sem pressao!\nO teste fica disponivel quando voce quiser : sao 7 dias gratis.\nPosso te mandar o link pra voce salvar?"\nSe recusar o link: "Tudo bem! Quando decidir, me chama aqui."\nNao insista.\n\n---\n\nGatilhos: "Nao tenho tempo agora" / "To ocupado"\nExemplo de resposta:\n"Sem problema!\nO teste fica aqui esperando. Quando tiver 10 minutinhos, da pra configurar tranquilo.\nDeixo o link: tocli.com.br/testegratis7dias"\n\n---\n\nGatilhos: "Ja uso outro sistema" / "Ja tenho"\nExemplo de resposta:\n"Entendi! Qual voce usa hoje?"\n[espere resposta, nao rebata sem saber qual e]\nSe for concorrente direto: "Faz sentido. Se um dia sentir falta de [funcionalidade diferencial], me lembra."\nNao fale mal do concorrente.\n\n---\n\nGatilhos: "Isso e golpe?" / "Voces sao confiaveis?" / "Quem mais usa isso?"\nPor tras: lead nao te conhece e esta arriscando confiar numa empresa nova por WhatsApp : nao adianta so afirmar "somos confiaveis", precisa de prova.\nExemplo de resposta:\n"Otima pergunta!\nSomos a Tocli, [numero] negocios ja usam hoje. Da uma olhada aqui: [link de prova/case/site]\nQualquer duvida sobre a empresa, fico a disposicao."\nNunca dizer: "Pode confiar, somos serios" : afirmar sem provar so aumenta a desconfianca.',
-  },
-  {
-    key: 'obj_produto', tipo: 'objecoes', label: '3. Dúvidas sobre o Produto', required: true,
-    question: 'Perguntas frequentes sobre o produto/serviço: para cada uma, informe gatilho + resposta exata',
-    hint: 'Perguntas do tipo "tem X?", "funciona para Y?", "como funciona?". Scripts curtos e diretos.',
-    placeholder: 'Liste as dúvidas mais comuns sobre o produto com respostas exatas...',
-    example: 'Gatilhos: "Tem contrato?" / "Precisa fidelidade?" / "Prende?"\nScript:\n"Nao tem contrato nenhum.\nE mensal, cancela quando quiser. Sem burocracia."\n\n---\n\nGatilhos: "E dificil de usar?" / "Precisa de treinamento?"\nScript:\n"E bem simples.\nA maioria dos clientes configura sozinho em menos de 15 minutos.\nNo teste voce ja consegue ver como funciona na pratica."\n\n---\n\nGatilhos: "Tem app?" / "Funciona no celular?"\nScript:\n"Funciona sim, direto pelo celular.\nNao precisa instalar nada : abre no navegador e ja usa."\n\n---\n\nGatilhos: "Funciona pra restaurante?" / "Serve pra [nicho especifico]?"\nScript:\n"Funciona sim para [nicho].\nVarios clientes do segmento ja usam : o controle de estoque e o financeiro sao os modulos mais usados por eles.\nQuer testar pra ver se encaixa no seu?"\nSempre termine com uma pergunta ou call-to-action.',
-  },
-]
-
-function QuestionnaireWizard({
-  flowId, type, variables, hasExistingBase, onSuccess,
-}: {
-  flowId: string | null
-  type: 'conhecimento' | 'objecoes'
-  variables: SdrVariables
-  hasExistingBase?: boolean
-  onSuccess: (result: { chunks: number }) => void
-}) {
-  const storageKey = flowId ? `sdr_questionnaire_${flowId}_${type}` : null
-  const [answers, setAnswers] = useState<QAnswers>(() => {
-    if (!storageKey) return { ...EMPTY_ANSWERS }
-    try { const saved = localStorage.getItem(storageKey); if (saved) return { ...EMPTY_ANSWERS, ...JSON.parse(saved) } } catch {}
-    return { ...EMPTY_ANSWERS }
-  })
-  const [step, setStep] = useState(0)
-  const [processing, setProcessing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [showExample, setShowExample] = useState(false)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-
-  // Filtra blocos pelo tipo : conhecimento mostra blocos 1-10, objeções mostra blocos 11-13
-  const visibleBlocks = Q_BLOCKS.filter(b => b.tipo === type)
-  const current = visibleBlocks[step]
-  const total = visibleBlocks.length
-  const progress = Math.round((step / total) * 100)
-
-  function setAnswer(key: keyof QAnswers, value: string) {
-    const next = { ...answers, [key]: value }
-    setAnswers(next)
-    if (storageKey) { try { localStorage.setItem(storageKey, JSON.stringify(next)) } catch {} }
-  }
-
-  useEffect(() => {
-    setShowExample(false)
-    setTimeout(() => textareaRef.current?.focus(), 80)
-  }, [step])
-
-  // 80 chars era piso baixo demais (menos de uma frase) : GIGO documentado em
-  // pesquisa de prompt engineering, output nunca fica específico se o input
-  // não for. 220 força um parágrafo curto de verdade por bloco.
-  const MIN_CHARS = 220
-
-  const charCount = answers[current?.key ?? 'identidade']?.length ?? 0
-  const requiredFilled = visibleBlocks.filter((b) => b.required).every((b) => answers[b.key].trim())
-
-  // Auto-resize textarea whenever current step/answer changes
-  useEffect(() => {
-    const ta = textareaRef.current
-    if (!ta) return
-    ta.style.height = 'auto'
-    ta.style.height = `${Math.max(ta.scrollHeight, 120)}px`
-  }, [current?.key, answers])
-
-  async function generate() {
-    if (!flowId) { setError('Salve a configuração antes de gerar.'); return }
-
-    const tooShort = visibleBlocks.filter(b => b.required && answers[b.key].trim().length < MIN_CHARS)
-    if (tooShort.length) {
-      setError(`Detalhe mais os blocos: ${tooShort.map(b => b.label).join(', ')}. Mínimo recomendado: ${MIN_CHARS} caracteres.`)
-      return
-    }
-
-    setError(null)
-    setProcessing(true)
-    try {
-      const res = await fetch(`/api/sdr/flows/${flowId}/knowledge/from-questionnaire`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, answers, variables }),
-      })
-      let data: any
-      try { data = await res.json() } catch { throw new Error(`Erro ${res.status}`) }
-      if (!res.ok) throw new Error(data.error || `Erro ${res.status}`)
-      onSuccess({ chunks: data.chunks })
-    } catch (err: any) {
-      setError(err.message)
-    } finally { setProcessing(false) }
-  }
-
-  const isLast = step === total - 1
-  if (!current) return null
-
-  return (
-    <div className="space-y-4">
-      {step === 0 && (
-        <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-500/8 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-400">
-          <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-          <span>A efetividade do agente depende diretamente da qualidade das suas respostas. Detalhes específicos geram scripts melhores : respostas genéricas geram um agente genérico.</span>
-        </div>
-      )}
-      {/* Progress bar */}
-      <div className="space-y-1.5">
-        <div className="flex justify-between text-[10px] text-muted-foreground">
-          <span>{current.label}</span>
-          <span>{step + 1}/{total}</span>
-        </div>
-        <div className="h-1 rounded-full bg-muted overflow-hidden">
-          <div
-            className="h-full bg-primary rounded-full transition-all duration-300"
-            style={{ width: `${progress + (100 / total)}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Question card */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-1.5">
-          <p className="text-sm font-semibold">{current.question}</p>
-          {current.required && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium shrink-0">obrigatório</span>
-          )}
-        </div>
-        {current.hint && <p className="text-xs text-muted-foreground">{current.hint}</p>}
-
-        {/* Exemplo colapsável */}
-        <div className="rounded-lg border border-border/60 overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setShowExample((v) => !v)}
-            className="w-full flex items-center justify-between px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
-          >
-            <span className="flex items-center gap-1.5">
-              <BookOpen className="w-3 h-3 shrink-0" />
-              Ver exemplo de resposta bem preenchida
-            </span>
-            {showExample ? <ChevronUp className="w-3 h-3 shrink-0" /> : <ChevronDown className="w-3 h-3 shrink-0" />}
-          </button>
-          {showExample && (
-            <div className="px-3 pb-3 pt-1 bg-muted/30 border-t border-border/40">
-              <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-sans leading-relaxed">{current.example}</pre>
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-1">
-          <textarea
-            ref={textareaRef}
-            value={answers[current.key]}
-            onChange={(e) => setAnswer(current.key, e.target.value)}
-            placeholder={current.placeholder}
-            style={{ minHeight: '120px', overflow: 'hidden' }}
-            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm resize-y outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/60"
-          />
-          {current.required && charCount > 0 && charCount < MIN_CHARS && (
-            <p className="text-[10px] text-amber-500">Detalhe mais para melhores resultados</p>
-          )}
-        </div>
-      </div>
-
-      {isLast && hasExistingBase && (
-        <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-500/8 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-400">
-          <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-          <span>Gerar agora substitui a base atual inteira, incluindo qualquer correção aplicada pelo simulador desde a última geração.</span>
-        </div>
-      )}
-
-      {/* Navigation */}
-      <div className="flex gap-2">
-        {step > 0 && (
-          <Button size="sm" variant="outline" onClick={() => setStep((s) => s - 1)} className="h-8 text-xs gap-1">
-            <ChevronLeft className="w-3 h-3" /> Anterior
-          </Button>
-        )}
-        {!isLast && (
-          <Button size="sm" onClick={() => setStep((s) => s + 1)} className="h-8 text-xs gap-1 ml-auto">
-            Próximo <ArrowRight className="w-3 h-3" />
-          </Button>
-        )}
-        {isLast && (
-          <Button
-            size="sm"
-            onClick={generate}
-            disabled={processing || !requiredFilled}
-            className="h-8 text-xs gap-1.5 ml-auto"
-          >
-            {processing
-              ? <><Loader2 className="w-3 h-3 animate-spin" />Gerando com IA…</>
-              : <><Sparkles className="w-3 h-3" />Gerar template personalizado</>}
-          </Button>
-        )}
-      </div>
-
-      {/* Step dots */}
-      <div className="flex gap-1 justify-center">
-        {visibleBlocks.map((_, i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={() => setStep(i)}
-            className={cn(
-              'w-1.5 h-1.5 rounded-full transition-colors',
-              i === step ? 'bg-primary' : answers[visibleBlocks[i].key].trim() ? 'bg-primary/40' : 'bg-muted-foreground/20'
-            )}
-          />
-        ))}
-      </div>
-
-      {!requiredFilled && isLast && (
-        <p className="text-xs text-amber-600 text-center">
-          Preencha os blocos obrigatórios (1, 2, 3 e 5) antes de gerar.
-        </p>
-      )}
-
-      {error && (
-        <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/5 border border-destructive/20 rounded-lg px-3 py-2">
-          <AlertCircle className="w-3.5 h-3.5 shrink-0" />{error}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ── Knowledge Builder ──────────────────────────────────────────────────────
 
-interface ExistingBase { filename: string; chunks: number }
-
-function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPersonaChange, sharedNicheId, onNicheChange }: {
-  flowId: string | null; type: 'conhecimento' | 'objecoes'
-  active: boolean; onActiveChange: (v: boolean) => void
-  persona: AgentPersona
-  onPersonaChange: (field: keyof AgentPersona, value: string) => void
-  sharedNicheId: string
-  onNicheChange: (id: string) => void
-}) {
-  const [existingBase, setExistingBase] = useState<ExistingBase | null>(null)
-  const [sheetOpen, setSheetOpen] = useState(false)
-
-  const isConhecimento = type === 'conhecimento'
-  const label = isConhecimento ? 'conhecimento' : 'objeções'
-  const Icon = isConhecimento ? BookOpen : ShieldAlert
-
-  useEffect(() => {
-    if (!flowId || !active) return
-    const url = isConhecimento
-      ? `/api/sdr/flows/${flowId}/knowledge`
-      : `/api/sdr/flows/${flowId}/objections`
-    fetch(url)
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (d?.exists) setExistingBase({ filename: d.filename, chunks: d.chunks }) })
-      .catch(() => {})
-  }, [flowId, active, isConhecimento])
-
-  const buildVariables = (): SdrVariables => ({
+function buildSdrVariables(persona: AgentPersona): SdrVariables {
+  return {
     nome_agente: persona.nome_agente,
     nome_empresa: persona.empresa,
     descricao_produto: persona.produto,
@@ -967,7 +595,39 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
     formas_pagamento: persona.formas_pagamento,
     valor_minimo_pedido: persona.valor_minimo_pedido,
     pedido_tipo: persona.pedido_tipo,
-  })
+  }
+}
+
+interface ExistingBase { filename: string; chunks: number }
+
+function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPersonaChange, sharedNicheId, onNicheChange, onOpenAssistant, refreshKey }: {
+  flowId: string | null; type: 'conhecimento' | 'objecoes'
+  active: boolean; onActiveChange: (v: boolean) => void
+  persona: AgentPersona
+  onPersonaChange: (field: keyof AgentPersona, value: string) => void
+  sharedNicheId: string
+  onNicheChange: (id: string) => void
+  /** abre o assistente de criação (cria as duas bases de uma vez) */
+  onOpenAssistant: () => void
+  /** muda quando o assistente termina, para recarregar o status da base */
+  refreshKey: number
+}) {
+  const [existingBase, setExistingBase] = useState<ExistingBase | null>(null)
+
+  const isConhecimento = type === 'conhecimento'
+  const label = isConhecimento ? 'conhecimento' : 'objeções'
+  const Icon = isConhecimento ? BookOpen : ShieldAlert
+
+  useEffect(() => {
+    if (!flowId || !active) return
+    const url = isConhecimento
+      ? `/api/sdr/flows/${flowId}/knowledge`
+      : `/api/sdr/flows/${flowId}/objections`
+    fetch(url)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.exists) setExistingBase({ filename: d.filename, chunks: d.chunks }) })
+      .catch(() => {})
+  }, [flowId, active, isConhecimento, refreshKey])
 
   return (
     <>
@@ -1009,7 +669,7 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
               size="sm"
               variant={existingBase ? 'outline' : 'default'}
               className="w-full h-8 text-xs gap-1.5"
-              onClick={() => setSheetOpen(true)}
+              onClick={onOpenAssistant}
             >
               {existingBase
                 ? <><Pencil className="w-3 h-3" />Editar base de {label}</>
@@ -1018,29 +678,6 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
           </>
         )}
       </div>
-
-      {/* Sheet com wizard */}
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
-          <SheetHeader className="mb-4">
-            <SheetTitle className="flex items-center gap-2 text-base">
-              <Icon className="w-4 h-4" />
-              Base de {label}
-            </SheetTitle>
-          </SheetHeader>
-          <QuestionnaireWizard
-            flowId={flowId}
-            type={type}
-            variables={buildVariables()}
-            hasExistingBase={!!existingBase}
-            onSuccess={(result) => {
-              setExistingBase({ filename: `${type}_guiado`, chunks: result.chunks })
-              setSheetOpen(false)
-              toast({ title: `${result.chunks} chunks salvos com sucesso.` })
-            }}
-          />
-        </SheetContent>
-      </Sheet>
     </>
   )
 }
@@ -2374,6 +2011,11 @@ export default function SdrConfigPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
+  // Assistente de criação do agente (9 passos)
+  const [assistantOpen, setAssistantOpen] = useState(false)
+  const [kbRefresh, setKbRefresh] = useState(0)
+  const [hasExistingBase, setHasExistingBase] = useState(false)
+
   // Shared niche selection across KnowledgeBuilders
   const [sharedNicheId, setSharedNicheId] = useState('')
   const [identNicheOpen, setIdentNicheOpen] = useState(false)
@@ -2529,6 +2171,19 @@ export default function SdrConfigPage() {
       toast({ title: err.message || 'Erro ao salvar', variant: 'destructive' })
     } finally { setSaving(false) }
   }
+
+  // A criação termina no servidor; a página guarda o nome do agente com o mesmo salvar de sempre
+  const handleSaveRef = useRef(handleSave)
+  handleSaveRef.current = handleSave
+
+  // Ao abrir o assistente, confere se já existe base (criar de novo substitui a atual)
+  useEffect(() => {
+    if (!assistantOpen || !config.flow_id) return
+    Promise.all([
+      fetch(`/api/sdr/flows/${config.flow_id}/knowledge`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`/api/sdr/flows/${config.flow_id}/objections`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]).then(([k, o]) => setHasExistingBase(!!(k?.exists || o?.exists)))
+  }, [assistantOpen, config.flow_id])
 
   const handleSavePixel = async () => {
     setSavingPixel(true)
@@ -3150,6 +2805,30 @@ export default function SdrConfigPage() {
             <div className="flex gap-4 h-[calc(100vh-180px)] min-h-[560px]">
               {/* Left : KB config */}
               <div className="w-[360px] shrink-0 overflow-y-auto pr-2 space-y-6 pb-4">
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-primary shrink-0" />
+                    <p className="text-sm font-semibold">Assistente de criação</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Responda 9 passos e o assistente monta a base de conhecimento e a de objeções de uma vez, com a regra de preço travada.
+                  </p>
+                  <Button size="sm" className="w-full h-8 text-xs gap-1.5" onClick={() => setAssistantOpen(true)} disabled={!config.flow_id}>
+                    <Sparkles className="w-3 h-3" />Criar agente de vendas
+                  </Button>
+                  {!config.flow_id && <p className="text-[11px] text-amber-600">Salve a configuração antes de criar o agente.</p>}
+                </div>
+                <AgentAssistant
+                  open={assistantOpen}
+                  onClose={() => setAssistantOpen(false)}
+                  flowId={config.flow_id}
+                  variables={buildSdrVariables(config.persona)}
+                  agentActive={config.agente_ativo}
+                  hasExistingBase={hasExistingBase}
+                  onAgentName={(name) => setPersona('nome_agente', name)}
+                  onBuilt={() => { setKbRefresh((k) => k + 1); void handleSaveRef.current() }}
+                  onCreated={() => setAssistantOpen(false)}
+                />
                 <div>
                   <div className="flex items-center gap-2 mb-3">
                     <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
@@ -3164,6 +2843,8 @@ export default function SdrConfigPage() {
                     onPersonaChange={setPersona}
                     sharedNicheId={sharedNicheId}
                     onNicheChange={handleNicheChange}
+                    onOpenAssistant={() => setAssistantOpen(true)}
+                    refreshKey={kbRefresh}
                   />
                 </div>
                 <div className="border-t border-border/60 pt-5">
@@ -3180,6 +2861,8 @@ export default function SdrConfigPage() {
                     onPersonaChange={setPersona}
                     sharedNicheId={sharedNicheId}
                     onNicheChange={handleNicheChange}
+                    onOpenAssistant={() => setAssistantOpen(true)}
+                    refreshKey={kbRefresh}
                   />
                 </div>
 

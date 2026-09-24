@@ -68,6 +68,9 @@ export function logToItem(log: ActivityLogRow): NotifItem {
       href: conversationId ? `/atendimento?convId=${conversationId}` : '/atendimento', actionLabel: 'Abrir conversa',
     };
   }
+  if (action === 'sdr_agent_ready') {
+    return { ...base, kind: 'attention', group: 'handoff', icon: 'bolt', href: '/configuracoes/sdr', actionLabel: 'Testar o agente' };
+  }
   if (action === 'sdr_quality_alert') {
     return { ...base, kind: 'attention', group: 'handoff', icon: 'alert', href: '/configuracoes/sdr', actionLabel: 'Revisar o SDR' };
   }

@@ -61,7 +61,7 @@ export function useNotifications({ alerts = false }: { alerts?: boolean } = {}) 
     }
   }, [company?.id]);
 
-  const refreshTimer = useRef<ReturnType<typeof setTimeout>>();
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const refreshSoon = useCallback(() => {
     clearTimeout(refreshTimer.current);
     refreshTimer.current = setTimeout(fetchAll, 400);
