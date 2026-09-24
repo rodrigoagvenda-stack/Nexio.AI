@@ -1,5 +1,7 @@
 ﻿'use client';
 
+import { AutomationsNav } from '@/components/automacoes/AutomationsNav';
+
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import {
@@ -574,6 +576,7 @@ export default function AgendaPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 py-2 pb-16">
+      <AutomationsNav active="calendario" />
 
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">

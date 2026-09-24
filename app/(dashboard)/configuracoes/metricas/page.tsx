@@ -1,5 +1,7 @@
 ﻿'use client';
 
+import { AutomationsNav } from '@/components/automacoes/AutomationsNav';
+
 import { useState, useEffect, useCallback } from 'react';
 import { startOfDay, startOfWeek, startOfMonth, startOfYear, endOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -617,6 +619,7 @@ export default function MetricasPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 py-2 pb-16">
+      <AutomationsNav active="metricas" />
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-4">

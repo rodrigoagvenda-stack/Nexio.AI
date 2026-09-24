@@ -1,5 +1,7 @@
 ﻿'use client'
 
+import { AutomationsNav } from '@/components/automacoes/AutomationsNav'
+
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
@@ -2324,6 +2326,10 @@ export default function SdrConfigPage() {
   return (
     <>
     <div className="max-w-5xl mx-auto p-4 md:p-6 pb-8 space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <AutomationsNav active="sdr" />
+        <Link href="/configuracoes/sdr/funil" className="rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted">Funil da conversa</Link>
+      </div>
 
       {/* ── Hero: agente + status ── */}
       <div className={cn(

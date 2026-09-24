@@ -1,5 +1,7 @@
 'use client';
 
+import { AutomationsNav } from '@/components/automacoes/AutomationsNav';
+
 import { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@/lib/hooks/useUser';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -547,6 +549,7 @@ export default function OutboundPage() {
 
   return (
     <div className="space-y-6">
+      <AutomationsNav active="outbound" />
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="p-2.5 rounded-xl bg-primary/10 shrink-0">
