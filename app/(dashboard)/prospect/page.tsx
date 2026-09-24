@@ -1,584 +1,366 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
+import { Check, Info, Loader2, Lock } from 'lucide-react';
 import { useUser } from '@/lib/hooks/useUser';
 import { createClient } from '@/lib/supabase/client';
-import { Card } from '@/components/ui/card';
-import TextType from '@/components/TextType';
-import { AnimatedShinyText } from '@/components/ui/animated-shiny-text';
-import { Orb } from '@/components/ui/orb';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
-import { Link2, Zap, Loader2, MapPin, Lock } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { CARD, CardTitle, FIELD, FieldLabel, LIME } from '@/components/configuracoes/cfg-ui';
 
 const LEAD_LIMITS = [10, 25, 50, 100, 200, 500];
-
-const ESTADOS_BRASIL = [
-  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
-  'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
-];
-
+const ESTADOS = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
 const NICHOS = [
-  'Restaurantes',
-  'Academias',
-  'Salões de Beleza',
-  'Clínicas Médicas',
-  'Consultórios Odontológicos',
-  'Escritórios de Advocacia',
-  'Imobiliárias',
-  'Agências de Marketing',
-  'Lojas de Roupas',
-  'Pet Shops',
-  'Oficinas Mecânicas',
-  'Escolas',
-  'Hotéis e Pousadas',
-  'Bares e Cafeterias',
-  'Farmácias',
-  'Supermercados',
-  'Padarias',
-  'Floriculturas',
-  'Auto Escolas',
-  'Outros',
+  'Restaurantes', 'Academias', 'Salões de Beleza', 'Clínicas Médicas', 'Consultórios Odontológicos', 'Escritórios de Advocacia',
+  'Imobiliárias', 'Agências de Marketing', 'Lojas de Roupas', 'Pet Shops', 'Oficinas Mecânicas', 'Escolas', 'Hotéis e Pousadas',
+  'Bares e Cafeterias', 'Farmácias', 'Supermercados', 'Padarias', 'Floriculturas', 'Auto Escolas',
 ];
+const MAPS_URL = /^https?:\/\/(www\.)?google\.com(\.br)?\/maps\//i;
+const STAGE_COLORS = ['#8A8A8A', '#F5B544', '#5B9BF5', '#96F63C', '#4A4A4A', '#C084FC', '#F472B6'];
+const RUNNING_MAX_MS = 15 * 60_000;
 
-export default function ProspectAIPage() {
+interface Session {
+  id: string;
+  requested: number;
+  inserted: number;
+  found: number;
+  processed: number;
+  status: 'running' | 'complete' | 'error' | string;
+  created_at: string;
+  segmento: string | null;
+  cidade: string | null;
+  uf: string | null;
+  sem_telefone: number | null;
+  sem_whatsapp: number | null;
+}
+
+const fmtWhen = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+};
+const title = (s: Session) => (s.segmento || s.cidade ? `${s.segmento ?? 'Sem segmento'}${s.cidade ? `, ${s.cidade}${s.uf ? ` (${s.uf})` : ''}` : ''}` : 'Link do Google Maps, sem segmento');
+
+const chip = (on: boolean) => cn('rounded-full border px-4 py-2 text-sm transition-colors', on ? 'border-[#1E6B47] bg-accent font-semibold text-foreground' : 'border-border bg-muted text-foreground hover:border-foreground/30');
+
+export default function OrbitPage() {
   const { company, loading: userLoading } = useUser();
-  const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'url' | 'manual'>('manual');
+  const enabled = !!company?.features?.prospect;
 
-  const hasOrbitAccess = !!company?.features?.prospect;
-
-  // URL Mode
-  const [mapsUrl, setMapsUrl] = useState('');
-  const [leadLimit, setLeadLimit] = useState(100);
-
-  // Manual Mode
+  const [mode, setMode] = useState<'manual' | 'url'>('manual');
   const [cidade, setCidade] = useState('');
   const [estado, setEstado] = useState('');
   const [nicho, setNicho] = useState('');
+  const [customOpen, setCustomOpen] = useState(false);
   const [customNicho, setCustomNicho] = useState('');
+  const [mapsUrl, setMapsUrl] = useState('');
+  const [limit, setLimit] = useState(100);
   const [projectValue, setProjectValue] = useState('');
+  const [starting, setStarting] = useState(false);
 
-  const [extracting, setExtracting] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [currentAction, setCurrentAction] = useState('');
-  const [liveInserted, setLiveInserted] = useState(0);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [showAll, setShowAll] = useState(false);
+  const [leadStats, setLeadStats] = useState<{ total: number; quente: number; morno: number; frio: number; stages: { name: string; n: number }[] } | null>(null);
+  const [running, setRunning] = useState<Session | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Acumulador de sessão
-  const [session, setSession] = useState<{ runs: number; inserted: number; processed: number; semTelefone: number; semWhatsapp: number } | null>(null);
+  const loadSessions = useCallback(async () => {
+    if (!company?.id) return [] as Session[];
+    const { data } = await createClient().from('extraction_sessions')
+      .select('id, requested, inserted, found, processed, status, created_at, segmento, cidade, uf, sem_telefone, sem_whatsapp')
+      .eq('company_id', company.id).order('created_at', { ascending: false }).limit(200);
+    const list = (data ?? []) as Session[];
+    setSessions(list);
+    return list;
+  }, [company?.id]);
 
-  // Mensagens dinâmicas rotativas durante extração
-  const PROGRESS_MESSAGES = [
-    'Conectando ao Google Maps...',
-    'Coletando empresas do Apify...',
-    'Validando números de WhatsApp...',
-    'Gerando Score de qualificação...',
-    'Gerando MQL dos leads...',
-    'Filtrando leads com WhatsApp...',
-    'Inserindo leads no CRM...',
-    'Quase lá...',
-  ];
-  const msgIndexRef = useRef(0);
+  const loadLeadStats = useCallback(async () => {
+    if (!company?.id) return;
+    const { data } = await createClient().from('leads').select('status, nivel_interesse').eq('company_id', company.id).eq('import_source', 'PEG').limit(5000);
+    const rows = (data ?? []) as { status: string | null; nivel_interesse: string | null }[];
+    const count = (v: string) => rows.filter((r) => (r.nivel_interesse ?? '').toLowerCase().startsWith(v)).length;
+    const byStage = new Map<string, number>();
+    rows.forEach((r) => byStage.set(r.status || 'Sem etapa', (byStage.get(r.status || 'Sem etapa') ?? 0) + 1));
+    setLeadStats({ total: rows.length, quente: count('quente'), morno: count('morno'), frio: count('frio'), stages: Array.from(byStage, ([name, n]) => ({ name, n })).sort((a, b) => b.n - a.n) });
+  }, [company?.id]);
 
-  const stopPolling = () => {
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
-    }
-  };
+  const stopPolling = () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } };
+  useEffect(() => stopPolling, []);
+
+  const watch = useCallback((s: Session) => {
+    stopPolling();
+    setRunning(s);
+    const sb = createClient();
+    pollRef.current = setInterval(async () => {
+      const { data } = await sb.from('extraction_sessions')
+        .select('id, requested, inserted, found, processed, status, created_at, segmento, cidade, uf, sem_telefone, sem_whatsapp').eq('id', s.id).single();
+      if (!data) return;
+      const cur = data as Session;
+      setRunning(cur);
+      const tooLong = Date.now() - +new Date(cur.created_at) > RUNNING_MAX_MS;
+      if (cur.status === 'complete') {
+        stopPolling();
+        toast({ variant: 'success', title: 'Busca concluída', description: `${cur.inserted} de ${cur.requested} empresas tinham WhatsApp e entraram na Triagem.` });
+      } else if (cur.status === 'error' || tooLong) {
+        stopPolling();
+        toast({ variant: 'destructive', title: cur.status === 'error' ? 'A busca não terminou' : 'A busca está demorando mais que o normal', description: 'O que já entrou na Triagem ficou salvo. Tente de novo em alguns minutos.' });
+      } else return;
+      setRunning(null);
+      void loadSessions();
+      void loadLeadStats();
+    }, 3000);
+  }, [loadSessions, loadLeadStats]);
 
   useEffect(() => {
-    return () => stopPolling();
-  }, []);
+    if (!enabled) return;
+    void loadLeadStats();
+    void loadSessions().then((list) => {
+      // Se a página foi recarregada no meio de uma busca, volta a acompanhar
+      const active = list.find((s) => s.status === 'running' && Date.now() - +new Date(s.created_at) < RUNNING_MAX_MS);
+      if (active) watch(active);
+    });
+  }, [enabled, loadSessions, loadLeadStats, watch]);
 
-  const validateUrl = (url: string): boolean => {
-    const googleMapsPattern = /^https?:\/\/(www\.)?google\.com(\.br)?\/maps\//i;
-    return googleMapsPattern.test(url);
-  };
+  const stats = useMemo(() => {
+    const done = sessions.filter((s) => s.status === 'complete');
+    const requested = sessions.reduce((n, s) => n + s.requested, 0);
+    const inserted = sessions.reduce((n, s) => n + s.inserted, 0);
+    const doneRequested = done.reduce((n, s) => n + s.requested, 0);
+    const doneInserted = done.reduce((n, s) => n + s.inserted, 0);
+    return { count: sessions.length, requested, inserted, pct: requested ? Math.round((inserted / requested) * 100) : 0, per100: doneRequested >= 100 ? Math.round((doneInserted / doneRequested) * 100) : null, since: sessions.length ? sessions[sessions.length - 1].created_at : null };
+  }, [sessions]);
 
-  const validateManualForm = (): boolean => {
-    if (!cidade.trim()) {
-      toast({
-        variant: "destructive",
-        description: "Por favor, informe a cidade",
-      });
-      return false;
-    }
-    if (!estado) {
-      toast({
-        variant: "destructive",
-        description: "Por favor, selecione o estado",
-      });
-      return false;
-    }
-    if (!nicho && !customNicho.trim()) {
-      toast({
-        variant: "destructive",
-        description: "Por favor, selecione ou digite um nicho",
-      });
-      return false;
-    }
-    return true;
-  };
+  const nichoFinal = customOpen ? customNicho.trim() : nicho;
 
-  const handleExtract = async () => {
-    if (!company?.id) {
-      toast({ variant: "destructive", description: "Erro ao identificar sua empresa" });
-      return;
-    }
-
-    let finalUrl = '';
-    if (activeTab === 'url') {
-      if (!mapsUrl.trim() || !validateUrl(mapsUrl)) {
-        toast({ variant: "destructive", description: "URL inválida. Use uma URL do Google Maps (.com ou .com.br)" });
-        return;
-      }
-      finalUrl = mapsUrl;
+  async function start() {
+    if (!company?.id) return;
+    let url = '';
+    if (mode === 'url') {
+      if (!MAPS_URL.test(mapsUrl.trim())) { toast({ variant: 'destructive', title: 'Link inválido', description: 'Cole um link do Google Maps (google.com/maps ou google.com.br/maps).' }); return; }
+      url = mapsUrl.trim();
     } else {
-      if (!validateManualForm()) return;
-      const nichoFinal = nicho === 'Outros' ? customNicho : nicho;
-      finalUrl = `https://www.google.com.br/maps/search/${encodeURIComponent(`${nichoFinal} em ${cidade}, ${estado}`)}`;
+      if (!cidade.trim()) { toast({ variant: 'destructive', title: 'Informe a cidade' }); return; }
+      if (!estado) { toast({ variant: 'destructive', title: 'Escolha o estado' }); return; }
+      if (!nichoFinal) { toast({ variant: 'destructive', title: 'Escolha o segmento' }); return; }
+      url = `https://www.google.com.br/maps/search/${encodeURIComponent(`${nichoFinal} em ${cidade}, ${estado}`)}`;
     }
-
-    let safetyTimeout: ReturnType<typeof setTimeout> | null = null;
-
+    setStarting(true);
     try {
-      setExtracting(true);
-      setLiveInserted(0);
-      setProgress(5);
-      msgIndexRef.current = 0;
-      setCurrentAction(PROGRESS_MESSAGES[0]);
-
-      // Rotacionar mensagens a cada 4s
-      const msgInterval = setInterval(() => {
-        msgIndexRef.current = (msgIndexRef.current + 1) % PROGRESS_MESSAGES.length;
-        setCurrentAction(PROGRESS_MESSAGES[msgIndexRef.current]);
-      }, 4000);
-
-      // Disparar extração — recebe sessionId imediatamente
-      const response = await fetch('/api/extraction/prospect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch('/api/extraction/prospect', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          url: finalUrl,
-          limit: leadLimit,
-          companyId: company.id,
-          cidade,
-          estado,
-          nicho: nicho === 'Outros' ? customNicho : nicho,
-          projectValue: projectValue ? parseFloat(projectValue) : null,
+          url, limit, companyId: company.id,
+          cidade: mode === 'manual' ? cidade.trim() : undefined, estado: mode === 'manual' ? estado : undefined, nicho: mode === 'manual' ? nichoFinal : undefined,
+          projectValue: projectValue ? parseFloat(projectValue.replace(',', '.')) : null,
         }),
       });
-
-      const data = await response.json();
-      clearInterval(msgInterval);
-
-      if (!response.ok) throw new Error(data.message || 'Erro ao extrair leads');
-
-      const { sessionId, requested } = data;
-      setProgress(15);
-
-      // Timeout de segurança: encerra após 5 minutos mesmo sem Complete
-      safetyTimeout = setTimeout(() => {
-        stopPolling();
-        setProgress(100);
-        setCurrentAction('Concluído!');
-        setSession(prev => {
-          const ins = prev ? prev.inserted : liveInserted;
-          // Timeout de segurança dispara antes do "complete" gravar a
-          // contagem real de sem_telefone/sem_whatsapp : sem esse dado
-          // ainda, mantém o que já tinha (ou zero na primeira execução).
-          return prev
-            ? { runs: prev.runs + 1, inserted: prev.inserted + liveInserted, processed: prev.processed + requested, semTelefone: prev.semTelefone, semWhatsapp: prev.semWhatsapp }
-            : { runs: 1, inserted: liveInserted, processed: requested, semTelefone: 0, semWhatsapp: 0 };
-        });
-        toast({ variant: 'default', title: 'Extração concluída!', description: `${liveInserted} de ${requested} leads com WhatsApp inseridos.` });
-        setTimeout(() => { setExtracting(false); setProgress(0); setCurrentAction(''); }, 1500);
-      }, 5 * 60 * 1000);
-
-      // Polling direto no Supabase a cada 3s — sem passar pela API
-      const supabase = createClient();
-      pollingRef.current = setInterval(async () => {
-        const { data: sessionRow, error } = await supabase
-          .from('extraction_sessions')
-          .select('inserted, status, requested, sem_telefone, sem_whatsapp')
-          .eq('id', sessionId)
-          .single();
-
-        if (error || !sessionRow) return;
-
-        const { inserted, status, sem_telefone: semTelefone, sem_whatsapp: semWhatsapp } = sessionRow;
-        setLiveInserted(inserted);
-
-        const pct = Math.min(15 + Math.round((inserted / requested) * 80), 95);
-        setProgress(pct);
-
-        const idx = Math.min(Math.floor((inserted / requested) * PROGRESS_MESSAGES.length), PROGRESS_MESSAGES.length - 1);
-        setCurrentAction(PROGRESS_MESSAGES[idx]);
-
-        if (status === 'complete') {
-          stopPolling();
-          if (safetyTimeout) clearTimeout(safetyTimeout);
-          setProgress(100);
-          setCurrentAction('Concluído!');
-
-          setSession(prev => prev
-            ? { runs: prev.runs + 1, inserted: prev.inserted + inserted, processed: prev.processed + requested, semTelefone: prev.semTelefone + (semTelefone ?? 0), semWhatsapp: prev.semWhatsapp + (semWhatsapp ?? 0) }
-            : { runs: 1, inserted, processed: requested, semTelefone: semTelefone ?? 0, semWhatsapp: semWhatsapp ?? 0 }
-          );
-
-          toast({
-            variant: "default",
-            title: "Extração concluída!",
-            description: `${inserted} de ${requested} leads tinham WhatsApp e foram inseridos.`,
-          });
-
-          setMapsUrl(''); setCidade(''); setEstado(''); setNicho(''); setCustomNicho('');
-          setTimeout(() => { setExtracting(false); setProgress(0); setCurrentAction(''); }, 1500);
-        }
-      }, 3000);
-
-    } catch (error: any) {
-      stopPolling();
-      if (safetyTimeout) clearTimeout(safetyTimeout);
-      console.error('Extraction error:', error);
-      toast({ variant: "destructive", description: error.message || "Erro ao extrair leads. Tente novamente." });
-      setExtracting(false);
-      setProgress(0);
-      setCurrentAction('');
-    }
-  };
-
-  // Aguardar dados do usuário antes de decidir o que mostrar
-  if (userLoading) {
-    return (
-      <div className="h-[calc(100vh-64px)] -m-3 md:-m-6 bg-background relative overflow-hidden flex items-center justify-center">
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="w-[700px] h-[700px] flex items-center justify-center">
-            <Orb size={700} />
-          </div>
-        </div>
-        <Loader2 className="h-8 w-8 animate-spin text-primary/50 relative" />
-      </div>
-    );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Não foi possível iniciar a busca');
+      watch({
+        id: data.sessionId, requested: data.requested, inserted: 0, found: 0, processed: 0, status: 'running', created_at: new Date().toISOString(),
+        segmento: mode === 'manual' ? nichoFinal : null, cidade: mode === 'manual' ? cidade.trim() : null, uf: mode === 'manual' ? estado : null, sem_telefone: null, sem_whatsapp: null,
+      });
+      setCidade(''); setEstado(''); setNicho(''); setCustomNicho(''); setCustomOpen(false); setMapsUrl(''); setProjectValue('');
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Não foi possível buscar', description: err?.message });
+    } finally { setStarting(false); }
   }
 
-  // Se não tem acesso ao Orbit, mostrar mensagem de upgrade
-  if (!hasOrbitAccess) {
+  const header = (
+    <div className="flex flex-col gap-1.5">
+      <h1 className="text-[26px] font-semibold leading-8 tracking-tight text-foreground">Orbit</h1>
+      <p className="text-[15px] text-muted-foreground">Encontra empresas no Google Maps que atendem no WhatsApp e leva para a Triagem do CRM, com nota e resumo.</p>
+    </div>
+  );
+
+  if (userLoading) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+
+  // ── Não ativo ──
+  if (!enabled) {
     return (
-      <div className="h-[calc(100vh-64px)] -m-3 md:-m-6 bg-background relative overflow-hidden flex items-center justify-center">
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="w-[700px] h-[700px] flex items-center justify-center">
-            <Orb size={700} />
+      <div className="mx-auto flex w-full max-w-[1900px] flex-col gap-8 pb-14 pt-2">
+        {header}
+        <div className={cn(CARD, 'mx-auto flex w-full max-w-[700px] flex-col items-center gap-6 rounded-3xl px-10 py-11 text-center')}>
+          <span className="flex h-16 w-16 items-center justify-center rounded-2xl border border-border bg-muted"><Lock className="h-7 w-7 text-muted-foreground" strokeWidth={1.8} /></span>
+          <div className="flex flex-col gap-2">
+            <h2 className="text-[28px] font-semibold leading-9 tracking-tight text-foreground">O Orbit ainda não está ativo na sua empresa</h2>
+            <p className="text-base leading-normal text-muted-foreground">Fale com o time do Zaapply para ligar. Enquanto isso, o resto do sistema funciona normalmente.</p>
           </div>
-        </div>
-
-        <div className="relative max-w-2xl mx-auto px-6">
-          <div className="space-y-8 text-center">
-            <div className="space-y-6">
-              <div className="min-h-[60px] md:min-h-[80px] lg:min-h-[100px] flex items-center justify-center w-full">
-                <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-light tracking-tight">
-                  Prospecção inteligente.
-                </h1>
-              </div>
-            </div>
-
-            <Card className="relative p-8 border border-border/40 bg-card/60 backdrop-blur-lg rounded-2xl shadow-2xl">
-              <div className="flex flex-col items-center space-y-6">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 rounded-full blur-xl opacity-30"></div>
-                  <div className="relative bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 p-4 rounded-full">
-                    <Lock className="h-10 w-10 text-white" />
-                  </div>
-                </div>
-
-                <div className="space-y-3 max-w-md">
-                  <h2 className="text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent">
-                    Orbit não disponível
-                  </h2>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    O recurso de prospecção inteligente com Orbit não está ativado pra sua empresa. Fale com o time pra habilitar.
-                  </p>
-                </div>
-              </div>
-            </Card>
-          </div>
+          <ol className="flex w-full flex-col rounded-xl border border-border bg-muted text-left">
+            {['Você escolhe a cidade e o segmento, por exemplo clínicas em Campinas.', 'O Orbit acha as empresas no Google Maps e confirma quais atendem no WhatsApp.', 'Elas chegam na Triagem do CRM com nota (quente, morna ou fria) e um resumo pronto.'].map((t, i) => (
+              <li key={i} className={cn('flex items-center gap-4 px-5 py-4', i > 0 && 'border-t border-border')}>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card text-[13px] font-semibold text-foreground">{i + 1}</span>
+                <span className="text-[15px] leading-normal text-foreground">{t}</span>
+              </li>
+            ))}
+          </ol>
+          <Button className="h-[50px] px-8 text-base" asChild><Link href="/ajuda?tab=chamados">Falar com o time</Link></Button>
         </div>
       </div>
     );
   }
 
+  // ── Buscando ──
+  if (running) {
+    const found = running.found;
+    const phase = found === 0 ? 'collect' : running.processed < found ? 'check' : 'finish';
+    const pct = found === 0 ? null : Math.min(100, Math.round((running.processed / found) * 100));
+    const stageLabel = phase === 'collect' ? 'Buscando as empresas no Google Maps' : phase === 'check' ? 'Validando números de WhatsApp' : 'Finalizando';
+    const steps = [
+      { label: 'Conectou ao Google Maps', state: 'done' },
+      { label: 'Coletou as empresas', state: found > 0 ? 'done' : 'active' },
+      { label: 'Confere quais têm WhatsApp', state: found === 0 ? 'todo' : phase === 'check' ? 'active' : 'done' },
+      { label: 'Dá a nota e escreve o resumo', state: running.inserted > 0 ? (phase === 'check' ? 'active' : 'done') : 'todo' },
+      { label: 'Coloca na Triagem do CRM', state: running.inserted > 0 ? (phase === 'check' ? 'active' : 'done') : 'todo' },
+    ] as const;
+    return (
+      <div className="mx-auto flex w-full max-w-[1900px] flex-col gap-8 pb-14 pt-2">
+        {header}
+        <div className={cn(CARD, 'mx-auto flex w-full max-w-[760px] flex-col gap-6 rounded-3xl px-11 py-10')}>
+          <div className="flex flex-col gap-1.5">
+            <h2 className="text-[28px] font-semibold leading-9 tracking-tight text-foreground">Buscando {running.segmento ? running.segmento.toLowerCase() : 'empresas'}{running.cidade ? ` em ${running.cidade}` : ''}</h2>
+            <p className="text-base text-muted-foreground">{running.requested} empresas pedidas. Acompanhe por aqui até terminar.</p>
+          </div>
+          <div className="flex flex-col gap-2.5">
+            <div className="flex items-center justify-between text-[15px]"><span className="font-semibold text-foreground">{stageLabel}</span><span className="text-muted-foreground">{pct == null ? 'Iniciando' : `${pct}%`}</span></div>
+            <div className="h-2.5 overflow-hidden rounded-full bg-muted"><div className={cn('h-full rounded-full bg-[#01573C] transition-all duration-700 dark:bg-[#96F63C]', pct == null && 'animate-pulse')} style={{ width: `${pct == null ? 8 : Math.max(pct, 3)}%` }} /></div>
+          </div>
+          <div className="flex items-baseline gap-3.5 rounded-xl border border-border bg-muted px-6 py-5">
+            <span className={cn('text-[40px] font-semibold leading-none tracking-tight', LIME)}>{running.inserted}</span>
+            <span className="text-base text-foreground">empresas com WhatsApp já entraram na Triagem</span>
+          </div>
+          <ul className="flex flex-col rounded-xl border border-border bg-muted">
+            {steps.map((s, i) => (
+              <li key={s.label} className={cn('flex items-center gap-3.5 px-5 py-3.5 text-[15px]', i > 0 && 'border-t border-border', s.state === 'todo' ? 'text-muted-foreground' : 'text-foreground', s.state === 'active' && 'font-semibold')}>
+                {s.state === 'done' ? <Check className={cn('h-4 w-4', LIME)} strokeWidth={2.6} /> : s.state === 'active' ? <Loader2 className={cn('h-4 w-4 animate-spin', LIME)} /> : <span className="h-4 w-4 rounded-full border-2 border-muted-foreground/40" />}
+                {s.label}
+              </li>
+            ))}
+          </ul>
+          <p className="text-sm leading-normal text-muted-foreground">Empresas sem telefone no Maps ou com telefone sem WhatsApp ficam de fora. No fim, mostramos quantas foram cada uma.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Principal ──
+  const visible = showAll ? sessions : sessions.slice(0, 8);
   return (
-    <div className="h-[calc(100vh-64px)] -m-3 md:-m-6 bg-background relative overflow-hidden flex items-center justify-center">
-      {/* Orb background com efeito React Bits */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="w-[700px] h-[700px] flex items-center justify-center">
-          <Orb size={700} />
-        </div>
-      </div>
+    <div className="mx-auto flex w-full max-w-[1900px] flex-col gap-6 pb-14 pt-2">
+      {header}
+      <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
+        <form onSubmit={(e) => { e.preventDefault(); void start(); }} className={cn(CARD, 'flex w-full shrink-0 flex-col gap-5 px-8 py-8 xl:w-[600px]')}>
+          <CardTitle title="Nova busca" />
+          <div role="tablist" aria-label="Como buscar" className="flex w-fit items-center rounded-full bg-muted p-1">
+            {([['manual', 'Cidade e segmento'], ['url', 'Link do Google Maps']] as const).map(([id, label]) => (
+              <button key={id} type="button" role="tab" aria-selected={mode === id} onClick={() => setMode(id)} className={cn('rounded-full px-5 py-2 text-sm transition-colors', mode === id ? 'bg-[#0F3D2B] font-semibold text-white' : 'font-medium text-muted-foreground hover:text-foreground')}>{label}</button>
+            ))}
+          </div>
 
-      <div className="relative max-w-2xl mx-auto px-6">
-        <div className="space-y-8 text-center">
-          {/* Hero */}
-          <div className="space-y-6">
-            <div className="min-h-[60px] md:min-h-[80px] lg:min-h-[100px] flex items-center justify-center w-full">
-              <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-light tracking-tight whitespace-nowrap">
-                <TextType
-                  text={[
-                    'Prospecção inteligente.',
-                    'Leads qualificados.',
-                    'Vendas automatizadas.',
-                  ]}
-                  as="span"
-                  className="font-light inline-block whitespace-nowrap"
-                  typingSpeed={80}
-                  deletingSpeed={40}
-                  pauseDuration={2000}
-                  showCursor={true}
-                  cursorCharacter="|"
-                  cursorClassName="text-primary"
-                  variableSpeed={false}
-                  onSentenceComplete={() => {}}
-                />
-              </h1>
+          {mode === 'manual' ? (
+            <>
+              <div className="grid grid-cols-[1fr_120px] gap-4">
+                <div className="flex flex-col gap-2"><FieldLabel htmlFor="ob-city">Cidade</FieldLabel><input id="ob-city" className={FIELD} placeholder="São Paulo" value={cidade} onChange={(e) => setCidade(e.target.value)} /></div>
+                <div className="flex flex-col gap-2">
+                  <FieldLabel>Estado</FieldLabel>
+                  <Select value={estado} onValueChange={setEstado}><SelectTrigger className="h-[50px] rounded-xl border-border bg-muted px-4 text-[15px]"><SelectValue placeholder="UF" /></SelectTrigger><SelectContent>{ESTADOS.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}</SelectContent></Select>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2.5">
+                <p className="text-sm font-semibold text-foreground">Segmento</p>
+                <div className="flex flex-wrap gap-2">
+                  {NICHOS.map((n) => <button key={n} type="button" aria-pressed={!customOpen && nicho === n} onClick={() => { setNicho(n); setCustomOpen(false); }} className={chip(!customOpen && nicho === n)}>{n}</button>)}
+                  <button type="button" aria-pressed={customOpen} onClick={() => { setCustomOpen(true); setNicho(''); }} className={cn(chip(customOpen), !customOpen && 'border-dashed text-muted-foreground')}>Outro segmento…</button>
+                </div>
+                {customOpen && <input aria-label="Outro segmento" autoFocus className={FIELD} placeholder="Ex.: Clínicas veterinárias" value={customNicho} onChange={(e) => setCustomNicho(e.target.value)} />}
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <FieldLabel htmlFor="ob-url">Link da busca no Google Maps</FieldLabel>
+              <input id="ob-url" className={cn(FIELD, 'font-mono text-[13px]')} placeholder="https://www.google.com/maps/search/…" value={mapsUrl} onChange={(e) => setMapsUrl(e.target.value)} />
+              <p className="text-[13px] text-muted-foreground">Faça a busca no Google Maps, copie o endereço da página e cole aqui.</p>
             </div>
-          </div>
+          )}
 
-          {/* Form */}
-          <div>
-            <Card className="relative p-6 border border-border/40 bg-card/60 backdrop-blur-lg rounded-2xl shadow-2xl">
-              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'url' | 'manual')}>
-                <TabsList className="grid w-full grid-cols-2 mb-6 h-11 bg-muted/30 rounded-xl border border-border/50">
-                  <TabsTrigger value="manual" className="text-xs md:text-sm data-[state=active]:bg-background/80 rounded-lg">
-                    <MapPin className="h-3.5 w-3.5 mr-2" />
-                    Buscar por Cidade
-                  </TabsTrigger>
-                  <TabsTrigger value="url" className="text-xs md:text-sm data-[state=active]:bg-background/80 rounded-lg">
-                    <Link2 className="h-3.5 w-3.5 mr-2" />
-                    Cole a URL do Maps
-                  </TabsTrigger>
-                </TabsList>
-
-            {/* Manual Mode */}
-            <TabsContent value="manual" className="space-y-4 min-h-[180px] text-left">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block text-left">Cidade</label>
-                  <Input
-                    placeholder="São Paulo"
-                    value={cidade}
-                    onChange={(e) => setCidade(e.target.value)}
-                    disabled={extracting}
-                    className="h-10 text-sm bg-background/50 border-border/50 focus:border-primary/50 transition-colors"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block text-left">Estado</label>
-                  <Select value={estado} onValueChange={setEstado} disabled={extracting}>
-                    <SelectTrigger className="h-10 text-sm bg-background/50 border-border/50 focus:border-primary/50">
-                      <SelectValue placeholder="UF" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ESTADOS_BRASIL.map((uf) => (
-                        <SelectItem key={uf} value={uf}>
-                          {uf}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block text-left">Segmento</label>
-                <Select value={nicho} onValueChange={setNicho} disabled={extracting}>
-                  <SelectTrigger className="h-10 text-sm bg-background/50 border-border/50 focus:border-primary/50">
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {NICHOS.map((n) => (
-                      <SelectItem key={n} value={n}>
-                        {n}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {nicho === 'Outros' && (
-                <div className="space-y-2">
-                  <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block text-left">Nicho personalizado</label>
-                  <Input
-                    placeholder="Digite o nicho"
-                    value={customNicho}
-                    onChange={(e) => setCustomNicho(e.target.value)}
-                    disabled={extracting}
-                    className="h-10 text-sm bg-background/50 border-border/50 focus:border-primary/50 transition-colors"
-                  />
-                </div>
-              )}
-            </TabsContent>
-
-            {/* URL Mode */}
-            <TabsContent value="url" className="space-y-4 min-h-[180px] text-left">
-              <div className="space-y-2">
-                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 text-left">
-                  <Link2 className="h-3 w-3" />
-                  URL do Google Maps
-                </label>
-                <div className="relative">
-                  <Input
-                    placeholder="https://www.google.com/maps/search/..."
-                    value={mapsUrl}
-                    onChange={(e) => setMapsUrl(e.target.value)}
-                    disabled={extracting}
-                    className="h-10 font-mono text-xs bg-background/50 border-border/50 focus:border-primary/50 transition-colors pr-10"
-                  />
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary/40 animate-pulse"></div>
-                  </div>
-                </div>
-                <p className="text-[10px] text-muted-foreground/60">
-                  Cole a URL da busca do Google Maps
-                </p>
-              </div>
-            </TabsContent>
-          </Tabs>
-
-          {/* Lead Limit */}
-          <div className="flex items-center gap-3 pt-1">
-            <Select
-              value={leadLimit.toString()}
-              onValueChange={(v) => setLeadLimit(parseInt(v))}
-              disabled={extracting}
-            >
-              <SelectTrigger className="w-32 h-10 text-sm bg-background/50 border-border/50 focus:border-primary/50">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {LEAD_LIMITS.map((limit) => (
-                  <SelectItem key={limit} value={limit.toString()}>
-                    {limit} leads
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <span className="text-xs text-muted-foreground/60 font-light">leads para extrair</span>
-          </div>
-
-          {/* Valor do projeto (opcional, aplicado a todos os leads extraídos) */}
-          <div className="space-y-1.5">
-            <Input
-              type="number"
-              min={0}
-              step="0.01"
-              value={projectValue}
-              onChange={(e) => setProjectValue(e.target.value)}
-              disabled={extracting}
-              placeholder="Valor do projeto (opcional)"
-              className="h-10 text-sm bg-background/50 border-border/50 focus:border-primary/50"
-            />
-            <p className="text-[10px] text-muted-foreground/60">
-              Se preenchido, aplica esse valor pra todos os leads extraídos nessa busca
+          <div className="flex flex-col gap-2.5">
+            <p className="text-sm font-semibold text-foreground">Quantas empresas pedir</p>
+            <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-6" role="radiogroup" aria-label="Quantas empresas pedir">
+              {LEAD_LIMITS.map((n) => <button key={n} type="button" role="radio" aria-checked={limit === n} onClick={() => setLimit(n)} className={cn('h-12 rounded-xl border text-[15px] transition-colors', limit === n ? 'border-[#1E6B47] bg-accent font-semibold text-foreground' : 'border-border bg-muted text-foreground hover:border-foreground/30')}>{n}</button>)}
+            </div>
+            <p className="flex items-start gap-3 rounded-xl border border-border bg-muted px-4 py-3.5 text-sm leading-normal text-muted-foreground">
+              <Info className="mt-0.5 h-4 w-4 shrink-0" />
+              Só entram empresas com telefone que tem WhatsApp. {stats.per100 != null ? `No seu histórico, entram cerca de ${stats.per100} a cada 100 pedidos, então peça mais do que precisa.` : 'Costuma entrar só uma parte do que você pede, então peça mais do que precisa.'}
             </p>
           </div>
 
-          {/* Extract Button */}
-          <Button
-            onClick={handleExtract}
-            disabled={extracting}
-            className="group w-full h-11 bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 hover:from-green-500 hover:via-pink-600 hover:to-green-700 shadow-lg shadow-green-500/30 rounded-xl mt-5 relative overflow-hidden"
-          >
-            <AnimatedShinyText className="inline-flex items-center justify-center text-sm font-medium text-white dark:text-background">
-              {extracting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {currentAction}
-                </>
-              ) : (
-                <>
-                  <Zap className="mr-2 h-4 w-4" />
-                  Extrair leads com o orbit.ai
-                </>
-              )}
-            </AnimatedShinyText>
-          </Button>
-
-          {/* Progress */}
-          {extracting && (
-            <div className="space-y-2.5 mt-5">
-              <div className="w-full bg-muted/30 rounded-full h-1 overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-primary to-green-500 h-full transition-all duration-700"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] text-muted-foreground/60 font-light">{progress}% concluído</p>
-                {liveInserted > 0 && (
-                  <p className="text-[10px] text-emerald-500 font-medium">{liveInserted} com WhatsApp ✓</p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Resumo da sessão */}
-          {session && !extracting && (
-            <div className="mt-5 rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-primary uppercase tracking-wider">Resumo da sessão</p>
-                <button
-                  onClick={() => setSession(null)}
-                  className="text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
-                >
-                  Limpar
-                </button>
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-center">
-                <div>
-                  <p className="text-lg font-bold text-foreground">{session.processed}</p>
-                  <p className="text-[10px] text-muted-foreground">Processados</p>
-                </div>
-                <div>
-                  <p className="text-lg font-bold text-emerald-500">{session.inserted}</p>
-                  <p className="text-[10px] text-muted-foreground">Com WhatsApp</p>
-                </div>
-              </div>
-              {/* Achado ao vivo (Rodrigo, 2026-09-09) : "Descartados" escondia
-                  que a maior parte da perda é o Google Maps não ter telefone
-                  listado pro lugar, nada a ver com WhatsApp. Divide os dois
-                  motivos, cada um pede ação diferente. */}
-              <div className="grid grid-cols-2 gap-3 text-center pt-1 border-t border-primary/10">
-                <div>
-                  <p className="text-sm font-semibold text-amber-500">{session.semTelefone}</p>
-                  <p className="text-[10px] text-muted-foreground">Sem telefone no Maps</p>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-rose-400">{session.semWhatsapp}</p>
-                  <p className="text-[10px] text-muted-foreground">Telefone sem WhatsApp</p>
-                </div>
-              </div>
-              {session.runs > 1 && (
-                <p className="text-[10px] text-center text-muted-foreground/50">{session.runs} execuções nesta sessão</p>
-              )}
-            </div>
-          )}
-            </Card>
+          <div className="flex flex-col gap-2">
+            <FieldLabel htmlFor="ob-value" optional>Valor do projeto</FieldLabel>
+            <input id="ob-value" inputMode="decimal" className={FIELD} placeholder="R$ 0,00" value={projectValue} onChange={(e) => setProjectValue(e.target.value.replace(/[^\d.,]/g, ''))} />
+            <p className="text-[13px] text-muted-foreground">Se preencher, esse valor vale para todos os leads desta busca.</p>
           </div>
+
+          <div className="flex items-center justify-between gap-4">
+            <Button type="submit" className="h-[50px] px-8 text-base" disabled={starting}>{starting && <Loader2 className="h-4 w-4 animate-spin" />} Buscar leads</Button>
+            <span className="text-sm text-muted-foreground">Leva de 1 a 3 minutos.</span>
+          </div>
+        </form>
+
+        <div className="flex min-w-0 flex-1 flex-col gap-6">
+          <div className="grid gap-5 md:grid-cols-3">
+            <div className={cn(CARD, 'flex flex-col gap-2 px-6 py-5')}><p className="text-[15px] text-foreground/85">Buscas feitas</p><p className="text-[34px] font-semibold leading-[42px] tracking-tight text-foreground">{stats.count}</p><p className="text-sm text-muted-foreground">{stats.since ? `desde ${new Date(stats.since).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}` : 'nenhuma ainda'}</p></div>
+            <div className={cn(CARD, 'flex flex-col gap-2 px-6 py-5')}><p className="text-[15px] text-foreground/85">Empresas pedidas</p><p className="text-[34px] font-semibold leading-[42px] tracking-tight text-foreground">{stats.requested.toLocaleString('pt-BR')}</p><p className="text-sm text-muted-foreground">somando todas as buscas</p></div>
+            <div className={cn(CARD, 'flex flex-col gap-2 px-6 py-5')}><p className="text-[15px] text-foreground/85">Entraram no CRM</p><p className="flex items-baseline gap-2"><span className={cn('text-[34px] font-semibold leading-[42px] tracking-tight', LIME)}>{stats.inserted.toLocaleString('pt-BR')}</span>{stats.requested > 0 && <span className={cn('text-base font-semibold', LIME)}>{stats.pct}%</span>}</p><p className="text-sm text-muted-foreground">com WhatsApp confirmado</p></div>
+          </div>
+
+          <section className={cn(CARD, 'flex flex-col gap-3 px-7 py-7')}>
+            <div className="flex items-baseline justify-between"><h2 className="text-xl font-semibold text-foreground">Suas buscas</h2><span className="text-sm text-muted-foreground">Mais recentes primeiro</span></div>
+            {sessions.length === 0 ? (
+              <p className="py-10 text-center text-[15px] text-muted-foreground">Sua primeira busca aparece aqui.</p>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[560px] border-collapse">
+                    <thead><tr className="text-left text-[13px] tracking-[0.06em] text-muted-foreground"><th className="py-3 font-medium">QUANDO</th><th className="py-3 font-medium">SEGMENTO E CIDADE</th><th className="py-3 text-right font-medium">PEDIDAS</th><th className="py-3 pl-6 text-right font-medium">ENTRARAM</th></tr></thead>
+                    <tbody>
+                      {visible.map((s) => (
+                        <tr key={s.id} className="border-t border-border text-[15px]">
+                          <td className="py-3.5 pr-4 text-muted-foreground">{fmtWhen(s.created_at)}</td>
+                          <td className="py-3.5 pr-4 text-foreground">{title(s)}{s.status === 'running' && <span className="ml-2 text-xs text-muted-foreground">em andamento</span>}{s.status === 'error' && <span className="ml-2 text-xs text-red-600 dark:text-red-400">não terminou</span>}</td>
+                          <td className="py-3.5 text-right tabular-nums text-foreground">{s.requested}</td>
+                          <td className={cn('py-3.5 pl-6 text-right font-semibold tabular-nums', s.inserted > 0 ? LIME : 'font-normal text-muted-foreground')}>{s.inserted}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex items-center justify-between pt-1"><span className="text-sm text-muted-foreground">{visible.length} de {sessions.length} {sessions.length === 1 ? 'busca' : 'buscas'}</span>{sessions.length > 8 && <Button variant="secondary" className="h-9 px-4 text-sm" onClick={() => setShowAll((v) => !v)}>{showAll ? 'Ver menos' : 'Ver todas'}</Button>}</div>
+              </>
+            )}
+          </section>
+
+          <section className={cn(CARD, 'flex flex-col gap-4 px-7 py-7')}>
+            <CardTitle title="O que aconteceu com esses leads" hint={leadStats ? `${leadStats.total} ${leadStats.total === 1 ? 'lead do Orbit está' : 'leads do Orbit estão'} no CRM com nota e resumo.` : undefined} />
+            {!leadStats ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /> : leadStats.total === 0 ? <p className="text-[15px] text-muted-foreground">Quando a primeira busca terminar, você acompanha aqui o que aconteceu com os leads.</p> : (
+              <>
+                <div className="grid gap-3.5 sm:grid-cols-3">
+                  {[['Quentes', leadStats.quente], ['Mornos', leadStats.morno], ['Frios', leadStats.frio]].map(([label, n]) => (
+                    <div key={label as string} className="flex flex-col gap-1.5 rounded-xl border border-border bg-muted px-[18px] py-4"><span className="text-[15px] text-foreground/85">{label}</span><span className="text-[28px] font-semibold leading-8 tracking-tight text-foreground">{n}</span></div>
+                  ))}
+                </div>
+                <div className="flex h-2.5 overflow-hidden rounded-full bg-muted" role="img" aria-label="Distribuição dos leads por etapa do CRM">
+                  {leadStats.stages.map((s, i) => <div key={s.name} style={{ width: `${(s.n / leadStats.total) * 100}%`, backgroundColor: STAGE_COLORS[i % STAGE_COLORS.length] }} title={`${s.name}: ${s.n}`} />)}
+                </div>
+                <ul className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-foreground/85">
+                  {leadStats.stages.map((s, i) => <li key={s.name} className="flex items-center gap-2"><span className="h-2 w-2 rounded-sm" style={{ backgroundColor: STAGE_COLORS[i % STAGE_COLORS.length] }} />{s.name} {s.n}</li>)}
+                </ul>
+              </>
+            )}
+          </section>
         </div>
       </div>
-
     </div>
   );
 }

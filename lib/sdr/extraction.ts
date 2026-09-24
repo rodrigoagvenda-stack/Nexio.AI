@@ -226,6 +226,10 @@ export async function runExtraction(params: {
       return
     }
 
+    // A tela mostra o andamento real: quantas empresas vieram do Maps e quantas já foram conferidas
+    await supabase.from('extraction_sessions').update({ found: rawPlaces.length }).eq('id', sessionId)
+    let processedCount = 0
+
     const openaiKey = await resolveOpenAIKey(companyId)
     const openai = new OpenAI({ apiKey: openaiKey })
     const uazapi = await getUazapiForCompany(companyId).catch(() => null)
@@ -352,6 +356,9 @@ export async function runExtraction(params: {
           company_id: companyId,
           payload: { sessionId, whatsapp: raw.phone || raw.phoneUnformatted || null },
         })
+      } finally {
+        processedCount++
+        await supabase.from('extraction_sessions').update({ processed: processedCount }).eq('id', sessionId)
       }
     }
 

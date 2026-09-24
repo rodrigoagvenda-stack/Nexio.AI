@@ -74,7 +74,10 @@ export async function POST(request: NextRequest) {
     const serviceSupabase = createServiceClient();
     const { data: sessionData, error: sessionError } = await serviceSupabase
       .from('extraction_sessions')
-      .insert({ company_id: companyId, requested: leadsToExtract, inserted: 0, status: 'running' })
+      .insert({
+        company_id: companyId, requested: leadsToExtract, inserted: 0, status: 'running',
+        segmento: nicho || null, cidade: cidade || null, uf: estado || null,
+      })
       .select('id')
       .single();
 
