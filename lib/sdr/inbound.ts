@@ -11,6 +11,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { bufferMessage, findOrCreateLead, type BufferedMessage } from './engine'
 import { computeLeadScore } from './lead-score'
+import { notifyInboundMessage } from '@/lib/notifications/server'
 
 type Supabase = ReturnType<typeof createServiceClient>
 
@@ -357,7 +358,7 @@ async function insertInboundMessageRow(
 
   if (alreadySaved) return
 
-  await supabase.from('mensagens_do_whatsapp').insert({
+  const { error: insertError } = await supabase.from('mensagens_do_whatsapp').insert({
     company_id: params.companyId,
     id_da_conversacao: params.conversationId,
     id_do_lead: params.leadId,
@@ -369,6 +370,11 @@ async function insertInboundMessageRow(
     url_da_midia: params.mediaUrl ?? null,
     whatsapp_message_id: params.messageId,
   })
+  if (insertError) {
+    console.error(`[inbound:${params.companyId}] salvar mensagem falhou:`, insertError.message)
+    return
+  }
+  void notifyInboundMessage(supabase, { companyId: params.companyId, conversationId: params.conversationId, text: params.text })
 }
 
 export async function upsertSdrJob(companyId: number, phone: string, supabase: Supabase): Promise<void> {

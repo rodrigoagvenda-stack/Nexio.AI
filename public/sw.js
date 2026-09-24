@@ -38,7 +38,14 @@ self.addEventListener('push', (event) => {
     ],
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  // Com o Zaapply à vista o sino e o som do próprio sistema já avisam: não duplica com um aviso do navegador.
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      const looking = list.some((c) => c.visibilityState === 'visible' && c.focused);
+      if (looking) return;
+      return self.registration.showNotification(title, options);
+    })
+  );
 });
 
 // Notification click handler

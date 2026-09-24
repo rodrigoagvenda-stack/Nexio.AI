@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { runTenantSelfTest } from '@/lib/sdr/eval'
 import { syslog } from '@/lib/logger'
+import { logCompanyNotice } from '@/lib/notifications/server'
 
 export const runtime = 'nodejs'
 export const maxDuration = 280
@@ -56,22 +57,10 @@ async function handler(request: NextRequest) {
 }
 
 async function alertCompany(companyId: number, companyName: string, resumo: string, supabase: ReturnType<typeof createServiceClient>) {
-  // activity_logs.user_id é NOT NULL (FK pra auth.users) : não existe "usuário
-  // do sistema", então atribui ao admin/dono mais antigo da empresa.
-  const { data: owner } = await supabase
-    .from('users')
-    .select('auth_user_id')
-    .eq('company_id', companyId)
-    .eq('role', 'admin')
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle()
-
-  if (!owner?.auth_user_id) return // sem admin cadastrado : não tem pra quem atribuir o aviso
-
-  await supabase.from('activity_logs').insert({
-    user_id: owner.auth_user_id,
-    company_id: companyId,
+  // activity_logs.user_id aceita nulo (o aviso é da empresa, não de uma pessoa), então não precisa
+  // atribuir a um admin. Grava o aviso e manda push para quem ligou.
+  await logCompanyNotice(supabase, {
+    companyId,
     action: 'sdr_quality_alert',
     description: `Teste automático do SDR encontrou um problema : ${resumo}`,
     metadata: { source: 'sdr-health-check', company_name: companyName },

@@ -7,7 +7,7 @@ import { useUser } from '@/lib/hooks/useUser';
 import {
   ActivityLogRow, InboundMessageRow, NotifItem, alertsEnabled, groupMessages, logToItem,
 } from '@/lib/notifications/model';
-import { NotifPrefs, playNotifSound, showBrowserNotification, useNotifPrefs } from '@/lib/notifications/prefs';
+import { NotifPrefs, playNotifSound, useNotifPrefs } from '@/lib/notifications/prefs';
 
 const SEEN_KEY = 'notif_msg_seen';        // { [conversaId]: ISO } até quando cada conversa foi vista
 const FLOOR_KEY = 'notif_msg_last_seen';  // chave antiga: "marcar tudo" antes de existir o controle por conversa
@@ -75,8 +75,8 @@ export function useNotifications({ alerts = false }: { alerts?: boolean } = {}) 
       if (!alerts || !alertsEnabled(item, prefsRef.current)) return;
       // quem já está olhando a tela de Atendimento não precisa de som para as mensagens
       const looking = !document.hidden && pathRef.current?.startsWith('/atendimento');
+      // som com o Zaapply aberto; com a aba fechada quem avisa é o push do servidor (public/sw.js)
       if (prefsRef.current.sound && !looking) playNotifSound();
-      if (prefsRef.current.desktop) showBrowserNotification(item.title, item.body || 'Abra o Zaapply para ver.', item.id);
     };
 
     const supabase = createClient();

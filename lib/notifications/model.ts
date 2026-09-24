@@ -1,5 +1,5 @@
 import { isToday, format } from 'date-fns';
-import type { NotifPrefs } from './prefs';
+import type { NotifPrefs } from './prefs-shared';
 
 // Uma notificação na tela vem de duas fontes:
 //  - activity_logs: avisos do sistema (SDR pediu uma pessoa, teste do SDR) e ações da própria pessoa

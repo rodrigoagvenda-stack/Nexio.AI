@@ -12,6 +12,7 @@
  */
 import type OpenAI from 'openai'
 import type { createServiceClient } from '@/lib/supabase/server'
+import { logCompanyNotice } from '@/lib/notifications/server'
 import { readMessage } from './reader'
 import { answerFromKnowledge } from './box'
 import { splitOpening, stepFunnel } from './machine'
@@ -138,13 +139,13 @@ async function persistChecklist(
 async function notifyTeam(p: FunnelTurnParams, config: FunnelConfig, state: FunnelState, reason: string, memoria?: Memoria | null): Promise<void> {
   const resumo = dataSummary(config, state)
   const contexto = memoria?.resumo ? ` Resumo da conversa: ${memoria.resumo}` : ''
-  const { error } = await p.deps.supabase.from('activity_logs').insert({
-    company_id: p.companyId,
+  // Grava o aviso no sino e manda push para quem ligou o aviso com a aba fechada
+  await logCompanyNotice(p.deps.supabase, {
+    companyId: p.companyId,
     action: 'sdr_handoff',
     description: `${p.leadName || 'Lead'} ${reasonLabel(reason)}.${resumo ? ` Dados coletados: ${resumo}.` : ''}${contexto}`,
     metadata: { lead_id: p.leadId, conversation_id: p.conversationId, reason, data: state.data },
   })
-  if (error) console.error(`[Funnel:${p.companyId}] activity_logs falhou:`, error.message)
 }
 
 async function execute(

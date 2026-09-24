@@ -149,6 +149,10 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const { error: dbError } = await supabase.from('users').delete().eq('user_id', userId).eq('company_id', context.companyId);
     if (dbError) throw dbError;
 
+    // Quem sai da empresa deixa de receber aviso: apaga os aparelhos inscritos e as preferências
+    await supabase.from('push_subscriptions').delete().eq('user_id', userId);
+    await supabase.from('user_notification_prefs').delete().eq('auth_user_id', userId);
+
     await supabase.from('system_logs').insert({
       company_id: context.companyId,
       type: 'user_action',

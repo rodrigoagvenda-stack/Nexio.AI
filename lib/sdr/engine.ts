@@ -57,7 +57,7 @@ import {
   checkAndSendQuotaAlerts,
 } from '@/lib/billing/usage'
 import { sendInjectionAlertEmail } from '@/lib/email/resend'
-import { logCompanyNotice } from '@/lib/notifications/server'
+import { logCompanyNotice, notifyInboundMessage } from '@/lib/notifications/server'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -405,13 +405,12 @@ async function applyPendingHandoff(
       return
     }
     await log(ctx.companyId, 'agent_paused_handoff', { motivo: pendente.motivo }, supabase, ctx.leadPhone, ctx.leadId)
-    const { error: notifyError } = await supabase.from('activity_logs').insert({
-      company_id: ctx.companyId,
+    await logCompanyNotice(supabase, {
+      companyId: ctx.companyId,
       action: 'sdr_handoff',
       description: `${ctx.leadName || 'Lead'} foi passado para uma pessoa. Motivo: ${pendente.motivo}`,
       metadata: { lead_id: ctx.leadId, conversation_id: ctx.conversationId, reason: pendente.motivo, origem: 'sdr_orquestrador' },
     })
-    if (notifyError) console.error(`[SDR:${ctx.companyId}] aviso de handoff (sino) falhou:`, notifyError.message)
     distributeQueuedConversations(ctx.companyId, supabase).catch((e) =>
       console.error(`[SDR:${ctx.companyId}] distribuição pós-handoff falhou:`, e.message)
     )
@@ -2746,6 +2745,7 @@ async function saveInbound(
     whatsapp_message_id: messageId || null,
   })
   if (error) console.error(`[SDR:${ctx.companyId}] saveInbound INSERT error:`, error.message)
+  else void notifyInboundMessage(supabase, { companyId: ctx.companyId, conversationId, text: displayText })
 
   await supabase
     .from('conversas_do_whatsapp')
@@ -3591,8 +3591,8 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
           queue_entered_at: new Date().toISOString(),
         })
         .eq('id', conversationId)
-      await supabase.from('activity_logs').insert({
-        company_id: companyId,
+      await logCompanyNotice(supabase, {
+        companyId,
         action: 'sdr_handoff',
         description: `${ctx.leadName || 'Lead'} enviou ${mediaCount} arquivos de uma vez. O SDR parou e a conversa está na fila para uma pessoa.`,
         metadata: { lead_id: leadId, conversation_id: conversationId, reason: 'enxurrada_de_midia', media_count: mediaCount },

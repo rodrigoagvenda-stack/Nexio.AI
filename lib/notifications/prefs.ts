@@ -1,76 +1,76 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { DEFAULT_PREFS, NotifPrefs, sanitizePrefs } from './prefs-shared';
 
-// Preferências de notificação, guardadas neste navegador (localStorage).
-// Não há tabela no banco para isso ainda: cada pessoa configura em cada navegador.
-export interface NotifPrefs {
-  /** Toca um som quando chega mensagem ou um aviso que precisa de uma pessoa. */
-  sound: boolean;
-  /** Mostra um aviso do navegador quando o Zaapply está aberto em segundo plano. */
-  desktop: boolean;
-  /** "Pedidos de ajuda do agente": o SDR parou e precisa de uma pessoa. */
-  handoff: boolean;
-  /** Mensagens novas de leads (uma linha por conversa). */
-  messages: boolean;
-  /** Pagamento, franquia e conexão. */
-  billing: boolean;
-  /** Ações da própria pessoa (mover lead, editar, buscas no Orbit). */
-  ownActions: boolean;
-}
+export type { NotifPrefs };
+export { DEFAULT_PREFS };
 
-export const DEFAULT_PREFS: NotifPrefs = {
-  sound: true,
-  desktop: false,
-  handoff: true,
-  messages: true,
-  billing: true,
-  ownActions: false,
-};
-
-const KEY = 'zaapply_notif_prefs_v1';
+// As preferências ficam na conta (GET/PUT /api/notifications/preferences) e valem em qualquer navegador.
+// O localStorage é só um cache para a tela abrir já com o valor certo, sem piscar o padrão.
+const CACHE_KEY = 'zaapply_notif_prefs_v2';
 const EVENT = 'zaapply:notif-prefs';
 
-export function loadPrefs(): NotifPrefs {
+function readCache(): NotifPrefs {
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return DEFAULT_PREFS;
-    const parsed = JSON.parse(raw) as Partial<NotifPrefs>;
-    const next = { ...DEFAULT_PREFS };
-    for (const k of Object.keys(DEFAULT_PREFS) as (keyof NotifPrefs)[]) {
-      if (typeof parsed[k] === 'boolean') next[k] = parsed[k] as boolean;
-    }
-    return next;
+    const raw = localStorage.getItem(CACHE_KEY);
+    return raw ? sanitizePrefs(JSON.parse(raw)) : DEFAULT_PREFS;
   } catch {
     return DEFAULT_PREFS;
   }
 }
 
-export function savePrefs(prefs: NotifPrefs) {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(prefs));
-  } catch { /* navegador bloqueou o armazenamento: a preferência vale só nesta sessão */ }
-  window.dispatchEvent(new CustomEvent(EVENT, { detail: prefs }));
+function writeCache(prefs: NotifPrefs) {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(prefs)); } catch { /* sem cache */ }
 }
 
-export function useNotifPrefs(): [NotifPrefs, (p: NotifPrefs) => void] {
+// uma busca por vez, compartilhada entre o sino e a página
+let inflight: Promise<NotifPrefs | null> | null = null;
+function fetchServerPrefs(): Promise<NotifPrefs | null> {
+  inflight ??= fetch('/api/notifications/preferences')
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => (d?.prefs ? sanitizePrefs(d.prefs) : null))
+    .catch(() => null)
+    .finally(() => { inflight = null; });
+  return inflight;
+}
+
+export function useNotifPrefs(): [NotifPrefs, (p: NotifPrefs) => Promise<boolean>] {
   const [prefs, setPrefs] = useState<NotifPrefs>(DEFAULT_PREFS);
 
   useEffect(() => {
-    setPrefs(loadPrefs());
-    const onChange = (e: Event) => setPrefs((e as CustomEvent<NotifPrefs>).detail ?? loadPrefs());
-    const onStorage = (e: StorageEvent) => { if (e.key === KEY) setPrefs(loadPrefs()); };
+    setPrefs(readCache());
+    let alive = true;
+    fetchServerPrefs().then((p) => {
+      if (!alive || !p) return;
+      writeCache(p);
+      setPrefs(p);
+    });
+    const onChange = (e: Event) => setPrefs((e as CustomEvent<NotifPrefs>).detail);
     window.addEventListener(EVENT, onChange);
-    window.addEventListener('storage', onStorage);
     return () => {
+      alive = false;
       window.removeEventListener(EVENT, onChange);
-      window.removeEventListener('storage', onStorage);
     };
   }, []);
 
-  const save = useCallback((p: NotifPrefs) => {
-    setPrefs(p);
-    savePrefs(p);
+  /** Salva na conta. Devolve false se o servidor recusou (a tela mantém o valor antigo). */
+  const save = useCallback(async (next: NotifPrefs): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/notifications/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(next),
+      });
+      if (!res.ok) return false;
+      const saved = sanitizePrefs((await res.json()).prefs);
+      writeCache(saved);
+      setPrefs(saved);
+      window.dispatchEvent(new CustomEvent(EVENT, { detail: saved }));
+      return true;
+    } catch {
+      return false;
+    }
   }, []);
 
   return [prefs, save];
@@ -100,14 +100,4 @@ export function playNotifSound() {
       osc.stop(start + 0.18);
     });
   } catch { /* sem áudio */ }
-}
-
-/** Aviso do navegador. Só aparece com o Zaapply aberto em outra aba ou janela; com a aba fechada não chega. */
-export function showBrowserNotification(title: string, body: string, tag: string) {
-  try {
-    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
-    if (!document.hidden) return;
-    const n = new Notification(title, { body, tag, icon: '/favicon.ico' });
-    n.onclick = () => { window.focus(); n.close(); };
-  } catch { /* sem suporte */ }
 }
