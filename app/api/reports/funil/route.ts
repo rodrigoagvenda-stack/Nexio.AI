@@ -65,9 +65,9 @@ export async function GET(req: NextRequest) {
   const { data: leadsRows } = leadIds.length
     ? await supabase
         .from('leads')
-        .select('id, call_de_venda, call_agendada_para, call_status')
+        .select('id, call_de_venda, call_agendada_para, call_status, status, created_at, closed_at, project_value, motivo_perda')
         .in('id', leadIds)
-    : { data: [] as { id: number; call_de_venda: boolean | null; call_agendada_para: string | null; call_status: string | null }[] }
+    : { data: [] as { id: number; call_de_venda: boolean | null; call_agendada_para: string | null; call_status: string | null; status: string | null; created_at: string | null; closed_at: string | null; project_value: number | null; motivo_perda: string | null }[] }
 
   const agendadas = (leadsRows ?? []).filter(l =>
     l.call_de_venda && l.call_agendada_para && l.call_agendada_para >= since && l.call_agendada_para <= until
@@ -78,7 +78,42 @@ export async function GET(req: NextRequest) {
 
   const vendasFechadas = filtered.filter(c => c.kanban_stage === 'fechado').length
 
-  const base = { chegaram, responderam, agendadas, realizadas, vendas_fechadas: vendasFechadas }
+  const inRange = (iso: string | null | undefined) => !!iso && iso >= since && iso <= until
+  const leadsAll = leadsRows ?? []
+  const noShow = leadsAll.filter(l => l.call_status === 'no_show' && inRange(l.call_agendada_para)).length
+  // Agendada que já passou da data e ninguém marcou o que aconteceu: as taxas dependem disso
+  const semResultado = leadsAll.filter(l => l.call_status === 'agendada' && l.call_agendada_para && l.call_agendada_para < new Date().toISOString() && inRange(l.call_agendada_para)).length
+
+  // Vendas por lead (valor e tempo): fechadas dentro do período
+  const fechadosLeads = leadsAll.filter(l => l.status === 'Fechado' && inRange(l.closed_at))
+  const faturamentoCents = Math.round(fechadosLeads.reduce((sum, l) => sum + (l.project_value ?? 0), 0) * 100)
+  const ticketMedioCents = fechadosLeads.length > 0 ? Math.round(faturamentoCents / fechadosLeads.length) : null
+
+  const days = (a: string, b: string) => (new Date(b).getTime() - new Date(a).getTime()) / 86_400_000
+  const avg = (xs: number[]) => (xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10 : null)
+  const comReuniao = leadsAll.filter(l => l.call_agendada_para && l.created_at && inRange(l.call_agendada_para))
+  const velocidade = {
+    contato_reuniao_dias: avg(comReuniao.map(l => days(l.created_at!, l.call_agendada_para!)).filter(d => d >= 0)),
+    reuniao_fechamento_dias: avg(fechadosLeads.filter(l => l.call_agendada_para && l.closed_at).map(l => days(l.call_agendada_para!, l.closed_at!)).filter(d => d >= 0)),
+    lead_venda_dias: avg(fechadosLeads.filter(l => l.created_at && l.closed_at).map(l => days(l.created_at!, l.closed_at!)).filter(d => d >= 0)),
+    amostra_reunioes: comReuniao.length,
+    amostra_vendas: fechadosLeads.length,
+  }
+
+  // Perdidos e por que (motivo_perda só existe quando alguém preenche)
+  const perdidosLeads = leadsAll.filter(l => l.status === 'Perdido')
+  const motivos = new Map<string, number>()
+  perdidosLeads.forEach(l => { const m = (l.motivo_perda ?? '').trim(); if (m) motivos.set(m, (motivos.get(m) ?? 0) + 1) })
+  const perdidos = {
+    total: perdidosLeads.length,
+    com_motivo: Array.from(motivos.values()).reduce((a, b) => a + b, 0),
+    motivos: Array.from(motivos, ([motivo, count]) => ({ motivo, count })).sort((a, b) => b.count - a.count).slice(0, 5),
+  }
+
+  const base = {
+    chegaram, responderam, agendadas, realizadas, vendas_fechadas: vendasFechadas,
+    no_show: noShow, sem_resultado: semResultado, faturamento_cents: faturamentoCents, ticket_medio_cents: ticketMedioCents, velocidade, perdidos,
+  }
 
   if (origem !== 'inbound') {
     return NextResponse.json({ origem, since, until, ...base })
@@ -100,5 +135,7 @@ export async function GET(req: NextRequest) {
     custo_por_agendada_cents: agendadas > 0 ? Math.round(gastoTrafegoCents / agendadas) : null,
     custo_por_realizada_cents: realizadas > 0 ? Math.round(gastoTrafegoCents / realizadas) : null,
     cac_cents: vendasFechadas > 0 ? Math.round(gastoTrafegoCents / vendasFechadas) : null,
+    cpl_cents: chegaram > 0 ? Math.round(gastoTrafegoCents / chegaram) : null,
+    roas: gastoTrafegoCents > 0 && faturamentoCents > 0 ? Math.round((faturamentoCents / gastoTrafegoCents) * 10) / 10 : null,
   })
 }

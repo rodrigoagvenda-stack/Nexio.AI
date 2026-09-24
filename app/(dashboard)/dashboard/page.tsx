@@ -18,22 +18,11 @@ import { RecentSales } from '@/components/dashboard/RecentSales';
 import { MessageFunnelCard } from '@/components/dashboard/MessageFunnelCard';
 import { useFeatures } from '@/components/layout/FeaturesProvider';
 import { FirstStepsCard } from '@/components/onboarding/FirstStepsCard';
+import { FunilTab } from '@/components/dashboard/FunilTab';
 
 interface DateRange {
   from: Date | undefined;
   to: Date | undefined;
-}
-
-interface FunilData {
-  chegaram: number;
-  responderam: number;
-  agendadas: number;
-  realizadas: number;
-  vendas_fechadas: number;
-  gasto_trafego_cents?: number;
-  custo_por_agendada_cents?: number | null;
-  custo_por_realizada_cents?: number | null;
-  cac_cents?: number | null;
 }
 
 interface Lead {
@@ -126,9 +115,6 @@ export default function DashboardPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [viewTab, setViewTab] = useState<'geral' | 'funil'>('geral');
-  const [funilOrigem, setFunilOrigem] = useState<'inbound' | 'outbound'>('inbound');
-  const [funilData, setFunilData] = useState<FunilData | null>(null);
-  const [funilLoading, setFunilLoading] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -182,20 +168,6 @@ export default function DashboardPage() {
   const currentRange = useMemo(() => getPeriodRange(selectedPeriod, dateRange), [selectedPeriod, dateRange]);
   const previousRange = useMemo(() => getPreviousPeriodRange(selectedPeriod, dateRange), [selectedPeriod, dateRange]);
 
-  useEffect(() => {
-    if (viewTab !== 'funil' || !currentRange) return;
-    setFunilLoading(true);
-    const params = new URLSearchParams({
-      origem: funilOrigem,
-      since: currentRange.from.toISOString(),
-      until: currentRange.to.toISOString(),
-    });
-    fetch(`/api/reports/funil?${params}`)
-      .then((r) => r.json())
-      .then((json) => setFunilData(json))
-      .catch(() => setFunilData(null))
-      .finally(() => setFunilLoading(false));
-  }, [viewTab, funilOrigem, currentRange]);
 
   // ── Derived lead sets ─────────────────────────────────────────────────────
   const filteredLeads = useMemo(() => {
@@ -554,78 +526,7 @@ export default function DashboardPage() {
       )}
 
       {viewTab === 'funil' && (
-        <div className="space-y-6">
-          {/* Origem toggle */}
-          <div className="flex items-center rounded-full p-1 bg-muted w-fit">
-            {(['inbound', 'outbound'] as const).map(o => (
-              <button
-                key={o}
-                onClick={() => setFunilOrigem(o)}
-                className="px-4 py-1.5 text-xs font-medium rounded-full transition-all duration-150 whitespace-nowrap capitalize"
-                style={funilOrigem === o
-                  ? { backgroundColor: '#0F3D2B', color: '#fff', fontWeight: 600 }
-                  : { color: 'var(--muted-foreground)', background: 'transparent' }
-                }
-              >
-                {o}
-              </button>
-            ))}
-          </div>
-
-          {funilLoading ? (
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
-              {[...Array(5)].map((_, i) => <div key={i} className="h-28 animate-pulse bg-muted rounded-xl" />)}
-            </div>
-          ) : (
-            <>
-              {/* Funil base : chegaram → responderam → agendadas → realizadas → vendas */}
-              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
-                <MetricCard title="Leads chegaram" value={funilData?.chegaram ?? 0} subtitle="No período" icon={UserRoundPlus} format="number" />
-                <MetricCard title="Responderam" value={funilData?.responderam ?? 0} subtitle="Engajaram na conversa" icon={MessageCircleMore} format="number" />
-                <MetricCard title="Reuniões agendadas" value={funilData?.agendadas ?? 0} subtitle="No período" icon={CalendarCheck} format="number" />
-                <MetricCard title="Reuniões realizadas" value={funilData?.realizadas ?? 0} subtitle="Compareceram" icon={Users} format="number" />
-                <MetricCard title="Vendas fechadas" value={funilData?.vendas_fechadas ?? 0} subtitle="No período" icon={CircleDollarSign} format="number" />
-              </div>
-
-              {/* Camada de custo : só Inbound (gasto de tráfego pago) */}
-              {funilOrigem === 'inbound' && (
-                !funilData?.gasto_trafego_cents ? (
-                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
-                    <p className="font-semibold text-foreground">Sem gasto de tráfego sincronizado</p>
-                    <p className="text-muted-foreground mt-0.5">
-                      Conecte a conta de anúncio da Meta em Configurações → SDR pra ver custo por reunião e CAC aqui.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
-                    <MetricCard
-                      title="Custo por reunião agendada"
-                      value={(funilData.custo_por_agendada_cents ?? 0) / 100}
-                      subtitle="Gasto ÷ reuniões agendadas"
-                      icon={CalendarCheck}
-                      format="currency"
-                    />
-                    <MetricCard
-                      title="Custo por reunião realizada"
-                      value={(funilData.custo_por_realizada_cents ?? 0) / 100}
-                      subtitle="Gasto ÷ reuniões realizadas"
-                      icon={Target}
-                      format="currency"
-                    />
-                    <MetricCard
-                      title="CAC"
-                      value={(funilData.cac_cents ?? 0) / 100}
-                      subtitle="Gasto ÷ vendas fechadas"
-                      icon={CircleDollarSign}
-                      format="currency"
-                      highlight={{ bg: '#0F3D2B', text: '#fff' }}
-                    />
-                  </div>
-                )
-              )}
-            </>
-          )}
-        </div>
+        <FunilTab range={currentRange} prevRange={previousRange} periodLabel={PERIOD_LABELS[selectedPeriod]} />
       )}
     </div>
   );
