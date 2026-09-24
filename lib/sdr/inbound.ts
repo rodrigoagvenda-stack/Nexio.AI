@@ -99,7 +99,8 @@ async function ensureConversationAtWebhookTime(
     const updatePayload: Record<string, unknown> = {
       ultima_mensagem: displayText,
       hora_da_ultima_mensagem: ts,
-      contagem_nao_lida: (existing.contagem_nao_lida ?? 0) + 1,
+      // contagem_nao_lida NÃO soma aqui: o gatilho trigger_atualizar_conversa já soma 1 quando a mensagem é gravada
+      // logo depois (somar nos dois lugares contava cada mensagem do lead em dobro).
       ultima_mensagem_inbound_at: ts,
       mensagens_recebidas: mensagensRecebidas,
     }
@@ -140,7 +141,7 @@ async function ensureConversationAtWebhookTime(
       ultima_mensagem: displayText,
       hora_da_ultima_mensagem: ts,
       status_da_conversa: 'aberto',
-      contagem_nao_lida: 1,
+      contagem_nao_lida: 0, // o gatilho de mensagens_do_whatsapp soma a primeira mensagem
       ultima_mensagem_inbound_at: ts,
       mensagens_recebidas: 1,
       ctwa_clid: ctwaClid,

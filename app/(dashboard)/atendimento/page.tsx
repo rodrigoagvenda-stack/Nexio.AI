@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, PauseCircle, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, ChevronDown, X, Trash2, MoreVertical, Info, Wifi, WifiOff, Loader2 as Loader2Icon, QrCode, Pencil, FlaskConical, DollarSign, Zap, Calendar, CheckCircle2 } from 'lucide-react';
+import { SlidersHorizontal, MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, PauseCircle, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, ChevronDown, X, Trash2, MoreVertical, Info, Wifi, WifiOff, Loader2 as Loader2Icon, QrCode, Pencil, FlaskConical, DollarSign, Zap, Calendar, CheckCircle2 } from 'lucide-react';
 import NextImage from 'next/image';
 import { computeWindowState, formatWindowBadge } from '@/lib/sdr/window';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -39,6 +39,16 @@ import { WhatsAppConnectScreen } from '@/components/atendimento/WhatsAppConnectS
 import type { Lead } from '@/types/database.types';
 
 const atendimentoPhotoCache = new Map<string, string | null>()
+
+/** Há quanto tempo o lead espera: minutos, horas ou dias. */
+function fmtIdle(iso: string): string {
+  const mins = Math.max(1, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
+  if (mins < 60) return `${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} h`;
+  const days = Math.floor(hrs / 24);
+  return `${days} ${days === 1 ? 'dia' : 'dias'}`;
+}
 
 function fmtConvTime(iso: string): string {
   if (!iso) return '';
@@ -223,7 +233,7 @@ export default function AtendimentoPage() {
   const [showChargeModal, setShowChargeModal] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [convTab, setConvTab] = useState<'minhas' | 'nao_atribuidas' | 'todas'>('minhas');
+  const [convTab, setConvTab] = useState<'sua_vez' | 'aguardando' | 'sem_dono' | 'todas'>('sua_vez');
   // Filtro avançado (pedido do Bruno, 2026-09-08) : ele se perde navegando
   // muitos leads sem conseguir achar rápido quem tem potencial pra ligar
   // pessoalmente e fechar. Cada campo aqui é opcional (null = não filtra por
@@ -1291,11 +1301,60 @@ export default function AtendimentoPage() {
 
   const isAdmin = user?.role === 'admin' || user?.role === 'manager';
 
-  const tabFilteredConversations = conversations.filter((conv) => {
-    if (convTab === 'minhas') return conv.assigned_to === user?.id;
-    if (convTab === 'nao_atribuidas') return conv.assigned_to == null;
-    return true; // 'todas' : admin/manager only
-  });
+  // O lead falou por último quando a última mensagem da conversa é a última que ele mandou
+  const leadFalouPorUltimo = (conv: Conversation) => !!(conv.ultima_mensagem_inbound_at
+    && conv.hora_da_ultima_mensagem
+    && new Date(conv.hora_da_ultima_mensagem).getTime() <= new Date(conv.ultima_mensagem_inbound_at).getTime() + 1000);
+  const leadAtivo = (conv: Conversation) => !['Fechado', 'Perdido'].includes(conv.lead?.status ?? '');
+  // "Sua vez": o SDR parou (humano assumiu ou precisa assumir), o lead falou por último e ainda está no funil
+  const isSuaVez = (conv: Conversation) => !!conv.agente_pausado && leadFalouPorUltimo(conv) && leadAtivo(conv);
+
+  // Quem não é admin só vê o que é seu ou ainda não tem dono
+  const visibleConversations = isAdmin
+    ? conversations
+    : conversations.filter((c) => c.assigned_to === user?.id || c.assigned_to == null);
+
+  const tabMatchers: Record<'sua_vez' | 'aguardando' | 'sem_dono' | 'todas', (c: Conversation) => boolean> = {
+    sua_vez: isSuaVez,
+    aguardando: (c) => !isSuaVez(c) && !leadFalouPorUltimo(c) && leadAtivo(c),
+    sem_dono: (c) => c.assigned_to == null,
+    todas: () => true,
+  };
+  const tabCounts = {
+    sua_vez: visibleConversations.filter(tabMatchers.sua_vez).length,
+    aguardando: visibleConversations.filter(tabMatchers.aguardando).length,
+    sem_dono: visibleConversations.filter(tabMatchers.sem_dono).length,
+    todas: visibleConversations.length,
+  };
+
+  // Ao abrir, se ninguém espera por você, mostra tudo em vez de uma aba vazia
+  const tabAutoPicked = useRef(false);
+  useEffect(() => {
+    if (tabAutoPicked.current || conversations.length === 0) return;
+    tabAutoPicked.current = true;
+    if (tabCounts.sua_vez === 0) setConvTab('todas');
+  }, [conversations]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Quem responde: SDR (agente ativo) ou você (agente pausado nesta conversa)
+  async function setAgentPaused(novoPausado: boolean) {
+    if (!selectedConversation) return;
+    setConvAgentePausado(novoPausado);
+    try {
+      const res = await fetch(`/api/conversations/${selectedConversation.id}/agent`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pausado: novoPausado }),
+      });
+      if (!res.ok) throw new Error();
+      toast({ title: novoPausado ? 'Agora só você responde esta conversa' : 'O SDR voltou a responder esta conversa' });
+      fetchConversations();
+    } catch {
+      setConvAgentePausado(!novoPausado);
+      toast({ title: 'Não foi possível mudar quem responde', variant: 'destructive' });
+    }
+  }
+
+  const tabFilteredConversations = visibleConversations.filter(tabMatchers[convTab]);
 
   const advancedFilteredConversations = tabFilteredConversations.filter((conv) => {
     if (convFilters.estagio && conv.lead?.status !== convFilters.estagio) return false;
@@ -1303,27 +1362,27 @@ export default function AtendimentoPage() {
     if (convFilters.temperatura && conv.lead?.nivel_interesse !== convFilters.temperatura) return false;
     if (convFilters.origem && conv.origem_real !== convFilters.origem) return false;
     if (convFilters.semResposta) {
-      const suaVez = !!(conv.agente_pausado
-        && conv.ultima_mensagem_inbound_at
-        && conv.hora_da_ultima_mensagem
-        && new Date(conv.hora_da_ultima_mensagem).getTime() <= new Date(conv.ultima_mensagem_inbound_at).getTime() + 1000);
       const naFila = conv.kanban_stage === 'fila' && !conv.current_attendant_id;
-      if (!suaVez && !naFila) return false;
+      if (!isSuaVez(conv) && !naFila) return false;
     }
     return true;
   });
 
-  const filteredConversations = advancedFilteredConversations.filter((conv) =>
+  const searchedConversations = advancedFilteredConversations.filter((conv) =>
     conv.nome_do_contato?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     conv.numero_de_telefone.includes(searchQuery) ||
     conv.lead?.company_name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  // Em "Sua vez" os mais antigos primeiro: é quem espera há mais tempo
+  const filteredConversations = convTab === 'sua_vez'
+    ? [...searchedConversations].sort((a, b) => new Date(a.hora_da_ultima_mensagem ?? 0).getTime() - new Date(b.hora_da_ultima_mensagem ?? 0).getTime())
+    : searchedConversations;
 
   type ConvItem = { type: 'conv'; conv: Conversation } | { type: 'separator'; label: string };
   const conversationsWithSeparators: ConvItem[] = [];
   let lastDateLabel = '';
   for (const conv of filteredConversations) {
-    const label = conv.hora_da_ultima_mensagem ? fmtDateLabel(conv.hora_da_ultima_mensagem) : '';
+    const label = convTab !== 'sua_vez' && conv.hora_da_ultima_mensagem ? fmtDateLabel(conv.hora_da_ultima_mensagem) : '';
     if (label && label !== lastDateLabel) {
       conversationsWithSeparators.push({ type: 'separator', label });
       lastDateLabel = label;
@@ -1608,19 +1667,16 @@ export default function AtendimentoPage() {
     <div className="h-full w-full overflow-hidden">
       <div className="h-full grid grid-cols-12 gap-2 overflow-hidden">
         {/* Lista de Conversas */}
-        <div className={cn('col-span-12 lg:col-span-3 flex flex-col overflow-hidden bg-card border border-border/50 rounded-xl', selectedConversation ? 'hidden lg:flex' : 'flex')}>
-          <div className="flex-shrink-0 px-4 pt-4 pb-3 space-y-3 border-b border-border/40">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                <span className="font-semibold">Conversas</span>
-              </div>
-              {/* WhatsApp status dropdown */}
+        <div className={cn('col-span-12 lg:col-span-3 flex flex-col overflow-hidden bg-card border border-border rounded-[14px]', selectedConversation ? 'hidden lg:flex' : 'flex')}>
+          <div className="flex-shrink-0 px-[18px] pt-[18px] pb-3 space-y-3.5 border-b border-border">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-xl font-semibold leading-6 text-foreground">Conversas</h2>
+              {/* Status do WhatsApp */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400 bg-green-500/10 border border-green-500/20 px-2.5 py-1 rounded-full hover:bg-green-500/20 transition-colors self-start sm:self-auto">
-                    <Wifi className="h-3 w-3" />
-                    Conectado
+                  <button className="flex items-center gap-2 rounded-full bg-[#01573C]/10 px-3 py-1.5 text-[13px] font-semibold text-[#01573C] transition-colors hover:bg-[#01573C]/20 dark:bg-[#96F63C]/10 dark:text-[#96F63C]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#01573C] dark:bg-[#96F63C]" />
+                    WhatsApp conectado
                     <ChevronDown className="h-3 w-3" />
                   </button>
                 </DropdownMenuTrigger>
@@ -1641,51 +1697,48 @@ export default function AtendimentoPage() {
               </DropdownMenu>
             </div>
             <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar conversas..."
+              <label className="flex h-11 flex-1 items-center gap-2.5 rounded-full border border-border bg-muted px-4">
+                <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <input
+                  placeholder="Buscar conversa"
+                  aria-label="Buscar conversa"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
+                  className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
                 />
-              </div>
-              {/* Filtro avançado (pedido do Bruno, 2026-09-08) : achar rápido quem
-                  tem potencial pra ele ligar pessoalmente, sem abrir conversa por
-                  conversa. Cada grupo é opcional, todos combinam com AND. */}
+              </label>
+              {/* Filtros: achar rápido quem tem potencial, sem abrir conversa por conversa. Todos combinam com AND. */}
               <DropdownMenu open={filtersOpen} onOpenChange={setFiltersOpen}>
                 <DropdownMenuTrigger asChild>
-                  <button className={cn(
-                    "relative flex items-center gap-1.5 text-xs font-medium border px-2.5 py-2 rounded-md transition-colors",
-                    activeFilterCount > 0 ? "text-primary bg-primary/10 border-primary/30" : "text-muted-foreground border-border hover:bg-muted"
-                  )}>
-                    <Tag className="h-3.5 w-3.5" />
-                    Filtros
+                  <button
+                    aria-label="Filtros"
+                    className={cn(
+                      'relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-colors',
+                      activeFilterCount > 0 ? 'border-[#1E6B47] bg-accent text-foreground' : 'border-border bg-muted text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    <SlidersHorizontal className="h-4 w-4" />
                     {activeFilterCount > 0 && (
-                      <span className="ml-0.5 inline-flex items-center justify-center h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px]">
-                        {activeFilterCount}
-                      </span>
+                      <span className="absolute -right-0.5 -top-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#01573C] text-[10px] font-semibold text-white">{activeFilterCount}</span>
                     )}
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-72 p-3 space-y-3">
                   {([
-                    { key: 'estagio' as const, label: 'Estágio', options: ['Triagem', 'Outbound', 'Novo lead', 'Em contato', 'Interessado', 'Proposta enviada', 'Fechado', 'Perdido', 'Remarketing'] },
+                    { key: 'estagio' as const, label: 'Etapa', options: ['Triagem', 'Outbound', 'Lead novo', 'Em contato', 'Interessado', 'Proposta enviada', 'Fechado', 'Perdido', 'Remarketing'] },
                     { key: 'prioridade' as const, label: 'Prioridade', options: ['Alta', 'Média', 'Baixa'] },
                     { key: 'temperatura' as const, label: 'Temperatura', options: ['Quente 🔥', 'Morno 🌡️', 'Frio ❄️'] },
                   ]).map((group) => (
                     <div key={group.key}>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">{group.label}</p>
+                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{group.label}</p>
                       <div className="flex flex-wrap gap-1.5">
                         {group.options.map((opt) => (
                           <button
                             key={opt}
                             onClick={() => setConvFilters((f) => ({ ...f, [group.key]: f[group.key] === opt ? null : opt }))}
                             className={cn(
-                              "text-xs px-2 py-1 rounded-full border transition-colors",
-                              convFilters[group.key] === opt
-                                ? "bg-primary text-primary-foreground border-primary"
-                                : "border-border text-muted-foreground hover:bg-muted"
+                              'rounded-full border px-2.5 py-1 text-xs transition-colors',
+                              convFilters[group.key] === opt ? 'border-[#1E6B47] bg-accent font-semibold text-foreground' : 'border-border text-muted-foreground hover:bg-muted'
                             )}
                           >
                             {opt}
@@ -1695,17 +1748,15 @@ export default function AtendimentoPage() {
                     </div>
                   ))}
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Origem</p>
+                    <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Origem</p>
                     <div className="flex flex-wrap gap-1.5">
                       {([['inbound', 'Inbound'], ['outbound', 'Outbound']] as const).map(([val, label]) => (
                         <button
                           key={val}
                           onClick={() => setConvFilters((f) => ({ ...f, origem: f.origem === val ? null : val }))}
                           className={cn(
-                            "text-xs px-2 py-1 rounded-full border transition-colors",
-                            convFilters.origem === val
-                              ? "bg-primary text-primary-foreground border-primary"
-                              : "border-border text-muted-foreground hover:bg-muted"
+                            'rounded-full border px-2.5 py-1 text-xs transition-colors',
+                            convFilters.origem === val ? 'border-[#1E6B47] bg-accent font-semibold text-foreground' : 'border-border text-muted-foreground hover:bg-muted'
                           )}
                         >
                           {label}
@@ -1714,7 +1765,7 @@ export default function AtendimentoPage() {
                     </div>
                   </div>
                   <div>
-                    <label className="flex items-center gap-2 text-xs cursor-pointer">
+                    <label className="flex cursor-pointer items-center gap-2 text-xs">
                       <input
                         type="checkbox"
                         checked={convFilters.semResposta}
@@ -1729,7 +1780,7 @@ export default function AtendimentoPage() {
                       <DropdownMenuSeparator />
                       <button
                         onClick={() => setConvFilters({ estagio: null, prioridade: null, temperatura: null, origem: null, semResposta: false })}
-                        className="text-xs text-muted-foreground hover:text-foreground underline"
+                        className="text-xs text-muted-foreground underline hover:text-foreground"
                       >
                         Limpar filtros
                       </button>
@@ -1738,323 +1789,213 @@ export default function AtendimentoPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            {/* View tabs */}
-            {(() => {
-              type ConvTabKey = 'minhas' | 'nao_atribuidas' | 'todas';
-              const tabs: ConvTabKey[] = isAdmin
-                ? ['minhas', 'nao_atribuidas', 'todas']
-                : ['minhas', 'nao_atribuidas'];
-              const labels: Record<ConvTabKey, string> = { minhas: 'Minhas', nao_atribuidas: 'Sem dono', todas: 'Todas' };
-              const counts: Record<ConvTabKey, number> = {
-                minhas: conversations.filter(c => c.assigned_to === user?.id).length,
-                nao_atribuidas: conversations.filter(c => c.assigned_to == null).length,
-                todas: conversations.length,
-              };
-              return (
-                <div className="flex mt-2 bg-muted/40 rounded-lg p-0.5 gap-0.5">
-                  {tabs.map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setConvTab(t)}
-                      className={cn(
-                        'flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-medium transition-all',
-                        convTab === t
-                          ? 'bg-background text-foreground shadow-sm'
-                          : 'text-muted-foreground hover:text-foreground'
-                      )}
-                    >
-                      {labels[t]}
-                      {counts[t] > 0 && (
-                        <span className={cn(
-                          'text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[18px] text-center tabular-nums',
-                          convTab === t ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
-                        )}>
-                          {counts[t]}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              );
-            })()}
+            {/* Abas por ação: o que fazer agora */}
+            <div className="flex items-center gap-0.5 overflow-x-auto rounded-full bg-muted p-1" role="tablist" aria-label="Conversas por ação">
+              {(['sua_vez', 'aguardando', 'sem_dono', 'todas'] as const).map((t) => {
+                const labels = { sua_vez: 'Sua vez', aguardando: 'Aguardando', sem_dono: 'Sem dono', todas: 'Todas' } as const;
+                const on = convTab === t;
+                return (
+                  <button
+                    key={t}
+                    role="tab"
+                    aria-selected={on}
+                    onClick={() => setConvTab(t)}
+                    className={cn('flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] transition-colors', on ? 'bg-[#0F3D2B] font-semibold text-white' : 'font-medium text-muted-foreground hover:text-foreground')}
+                  >
+                    {labels[t]}
+                    <span className={cn('rounded-full px-1.5 text-[11px] tabular-nums', t === 'sua_vez' && tabCounts.sua_vez > 0 ? 'bg-red-500 font-semibold text-white' : on ? 'bg-white/15' : 'text-muted-foreground')}>{tabCounts[t]}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[13px] text-muted-foreground">
+              {convTab === 'sua_vez' ? 'Leads ativos esperando por você, os mais antigos primeiro.'
+                : convTab === 'aguardando' ? 'Você ou o SDR falou por último. Agora é a vez do lead.'
+                : convTab === 'sem_dono' ? 'Conversas que ninguém assumiu ainda.'
+                : 'Todas as conversas que você pode ver.'}
+            </p>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5 scrollbar-minimal">
+          <div className="flex-1 overflow-y-auto px-2.5 py-2 space-y-0.5 scrollbar-minimal">
             {conversationsWithSeparators.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">
-                Nenhuma conversa encontrada
+              <p className="py-10 text-center text-sm text-muted-foreground">
+                {convTab === 'sua_vez' ? 'Nenhum lead esperando por você agora.' : 'Nenhuma conversa encontrada'}
               </p>
             ) : (
               conversationsWithSeparators.map((item, idx) => item.type === 'separator' ? (
-                <div key={`sep-${idx}`} className="flex items-center gap-2 py-1.5">
-                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{item.label}</span>
-                  <div className="flex-1 h-px bg-border/40" />
+                <div key={`sep-${idx}`} className="flex items-center gap-2 px-2 py-1.5">
+                  <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{item.label}</span>
+                  <div className="h-px flex-1 bg-border" />
                 </div>
               ) : (
-                (() => { const conv = item.conv; return (
-                <div
-                  key={conv.id}
-                  className={`group w-full text-left p-3 rounded-xl border transition-colors relative ${
-                    selectedConversation?.id === conv.id
-                      ? 'bg-muted border-border'
-                      : 'bg-card border-border/40 hover:bg-accent hover:border-border'
-                  }`}
-                >
-                  <button className="w-full text-left" onClick={() => setSelectedConversation(conv)}>
-                  <div className="flex items-start gap-3">
-                    <div className="relative">
-                      <Avatar>
-                        <AvatarImage src={proxyPhoto(conv.whatsapp_photo_url)} />
-                        <AvatarFallback>
-                          {getInitials(conv.nome_do_contato || conv.numero_de_telefone)}
-                        </AvatarFallback>
-                      </Avatar>
-                      {conv.contagem_nao_lida > 0 && (
-                        <div className="absolute -top-1 -right-1 bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-semibold">
-                          {conv.contagem_nao_lida}
-                        </div>
+                (() => {
+                  const conv = item.conv;
+                  const suaVez = isSuaVez(conv);
+                  const filaSemDono = conv.kanban_stage === 'fila' && !conv.current_attendant_id;
+                  const temp = conv.lead?.nivel_interesse ? conv.lead.nivel_interesse.replace(/[^\p{L}\s]/gu, '').trim() : '';
+                  const chip = 'rounded-md px-2 py-0.5 text-[11px] font-semibold';
+                  return (
+                    <div
+                      key={conv.id}
+                      className={cn(
+                        'group relative rounded-[10px] border-l-[3px] transition-colors',
+                        selectedConversation?.id === conv.id ? 'bg-accent' : 'hover:bg-muted',
+                        suaVez ? 'border-l-red-500' : 'border-l-transparent'
                       )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1 mb-1">
-                        <p className="font-semibold text-sm truncate">
-                          {conv.nome_do_contato || conv.numero_de_telefone}
-                        </p>
-                        {conv.hora_da_ultima_mensagem && (
-                          <span className="text-[10px] text-muted-foreground flex-shrink-0">
-                            {fmtConvTime(conv.hora_da_ultima_mensagem)}
-                          </span>
-                        )}
-                      </div>
-                      {/* Achado ao vivo (Rodrigo repassando feedback do Bruno, 2026-09-05) :
-                          "não sei o que fazer, qual lead estou atendendo" -- a lista tinha
-                          badge técnico demais e nenhum sinal claro de PRÓXIMO PASSO. Um
-                          selo só, em português direto, na cor mais chamativa do card :
-                          "Sua vez" quando o SDR parou (agente_pausado = humano assumiu ou
-                          precisa assumir) E a última mensagem foi do LEAD (não adianta nada
-                          se um humano já respondeu por último -- aí é vez do lead, não sua;
-                          bug encontrado ao vivo comparando hora_da_ultima_mensagem, que
-                          reflete qualquer direção, com ultima_mensagem_inbound_at). */}
-                      {conv.agente_pausado
-                        && conv.ultima_mensagem_inbound_at
-                        && conv.hora_da_ultima_mensagem
-                        && new Date(conv.hora_da_ultima_mensagem).getTime() <= new Date(conv.ultima_mensagem_inbound_at).getTime() + 1000
-                      ? (
-                        <div className="flex items-center gap-1 mb-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
-                          <p className="text-xs font-semibold text-red-500">Sua vez de responder</p>
-                        </div>
-                      ) : conv.kanban_stage === 'fila' && !conv.current_attendant_id ? (
-                        <div className="flex items-center gap-1 mb-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
-                          <p className="text-xs font-semibold text-amber-500">Na fila, sem responsável</p>
-                        </div>
-                      ) : null}
-                      {conv.lead && (
-                        <div className="flex items-center gap-1 mb-1">
-                          <Building2 className="h-3 w-3 text-muted-foreground" />
-                          <p className="text-xs text-muted-foreground truncate">
-                            {conv.lead.company_name}
-                          </p>
-                        </div>
-                      )}
-                      <p className="text-xs text-muted-foreground truncate mt-1 line-clamp-2">
-                        {renderConvPreview(conv.ultima_mensagem)}
-                      </p>
-                      <div className="flex items-center gap-1 mt-2 flex-wrap">
-                        {(() => {
-                          const mb = fmtMeetingBadge(conv.lead)
-                          return mb ? (
-                            <Badge
-                              variant="outline"
-                              className={`text-[10px] px-1.5 py-0 gap-0.5 ${
-                                mb.realizada
-                                  ? 'border-muted-foreground/40 text-muted-foreground'
-                                  : 'border-blue-500/50 text-blue-500'
-                              }`}
-                            >
-                              {mb.realizada ? <CheckCircle2 className="h-2.5 w-2.5" /> : <Calendar className="h-2.5 w-2.5" />}
-                              {mb.label}
-                            </Badge>
-                          ) : null
-                        })()}
-                        {conv.origem_real && (
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] px-1.5 py-0 gap-0.5 ${
-                              conv.origem_real === 'outbound'
-                                ? 'border-violet-500/50 text-violet-500'
-                                : 'border-emerald-500/50 text-emerald-500'
-                            }`}
-                          >
-                            {conv.origem_real === 'outbound' ? <Zap className="h-2.5 w-2.5" /> : <MessageSquare className="h-2.5 w-2.5" />}
-                            {conv.origem_real === 'outbound' ? 'Outbound' : 'Inbound'}
-                          </Badge>
-                        )}
-                        {(() => {
-                          // Achado ao vivo (Rodrigo, 2026-09-05) : janela de 24h/CTWA é
-                          // regra da Meta Cloud API oficial, não existe pra números
-                          // conectados via uazapi (WhatsApp Web não-oficial) -- mostrar
-                          // esse badge pra empresa uazapi só confunde (Bruno), não reflete
-                          // nenhuma regra real aplicável ao número dela.
-                          if (waProvider !== 'meta') return null
-                          const wb = fmtWindowBadge(conv)
-                          return wb ? (
-                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${wb.style}`}>
-                              {wb.label}
-                            </Badge>
-                          ) : null
-                        })()}
-                        {conv.assigned_to && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/50 text-primary">
-                            <UserCircle2 className="h-2.5 w-2.5 mr-0.5" />
-                            Atribuído
-                          </Badge>
-                        )}
-                        {conv.etiquetas?.map((tag) => (
-                          <Badge
-                            key={tag}
-                            variant="outline"
-                            className="text-[10px] px-1.5 py-0"
-                            style={{
-                              borderColor: tag === 'VIP' ? '#22c55e' : undefined,
-                              color: tag === 'VIP' ? '#22c55e' : undefined
-                            }}
-                          >
-                            {tag}
-                          </Badge>
-                        ))}
-                        {conv.lead && (
-                          <>
-                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                              {conv.lead.status}
-                            </Badge>
-                            {conv.lead.priority && (
-                              <Badge
-                                variant="outline"
-                                className={`text-[10px] px-1.5 py-0 ${
-                                  conv.lead.priority === 'Alta' ? 'border-red-500 text-red-600' :
-                                  conv.lead.priority === 'Média' ? 'border-primary text-primary' :
-                                  'border-gray-400 text-gray-600'
-                                }`}
-                              >
-                                {conv.lead.priority}
-                              </Badge>
-                            )}
-                            {(conv.lead.lead_tags as any[])?.map((lt: any) => {
-                              const tag = lt.tags;
-                              if (!tag) return null;
-                              return (
-                                <Badge
-                                  key={lt.tag_id}
-                                  variant="outline"
-                                  className="text-[10px] px-1.5 py-0"
-                                  style={{ borderColor: `${tag.tag_color}88`, color: tag.tag_color }}
-                                >
-                                  {tag.tag_name}
-                                </Badge>
-                              );
-                            })}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  </button>
-                  <div className="flex justify-end items-center gap-1 mt-1.5">
-                    {(conv.current_status === 'livre' || (!conv.current_status && conv.assigned_to == null)) && (
-                      <button
-                        className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-primary/10 text-primary hover:bg-primary/20"
-                        title="Assumir esta conversa"
-                        onClick={(e) => handleTakeConversation(conv, e)}
-                      >
-                        Pegar
-                      </button>
-                    )}
-                    <button
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10"
-                      title="Apagar conversa"
-                      onClick={(e) => { e.stopPropagation(); setDeleteConvDialog({ open: true, conv }); }}
                     >
-                      <Trash2 className="h-3 w-3 text-destructive/60" />
-                    </button>
-                  </div>
-                </div>
-                ); })()
+                      <button className="w-full px-3.5 py-3 text-left" onClick={() => setSelectedConversation(conv)}>
+                        <div className="flex items-start gap-3">
+                          <div className="relative shrink-0">
+                            <Avatar className="h-10 w-10">
+                              <AvatarImage src={proxyPhoto(conv.whatsapp_photo_url)} />
+                              <AvatarFallback className="bg-accent text-xs font-semibold text-[#01573C] dark:text-[#96F63C]">
+                                {getInitials(conv.nome_do_contato || conv.numero_de_telefone)}
+                              </AvatarFallback>
+                            </Avatar>
+                            {conv.contagem_nao_lida > 0 && (
+                              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#01573C] px-1 text-[11px] font-semibold text-white">{conv.contagem_nao_lida}</span>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="truncate text-base font-semibold leading-5 text-foreground">{conv.nome_do_contato || conv.numero_de_telefone}</p>
+                              {conv.hora_da_ultima_mensagem && (
+                                <span className="shrink-0 text-xs text-muted-foreground">{fmtConvTime(conv.hora_da_ultima_mensagem)}</span>
+                              )}
+                            </div>
+                            <p className="mt-0.5 truncate text-sm text-muted-foreground">{renderConvPreview(conv.ultima_mensagem)}</p>
+                            {suaVez && conv.hora_da_ultima_mensagem ? (
+                              <p className="mt-1.5 flex items-center gap-1.5 text-[13px] font-semibold text-red-600 dark:text-red-400">
+                                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
+                                Sua vez há {fmtIdle(conv.hora_da_ultima_mensagem)}
+                              </p>
+                            ) : filaSemDono ? (
+                              <p className="mt-1.5 flex items-center gap-1.5 text-[13px] font-semibold text-amber-600 dark:text-amber-400">
+                                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                                Na fila, sem responsável
+                              </p>
+                            ) : null}
+                            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                              {conv.lead?.status && <span className={cn(chip, 'bg-green-500/15 text-green-700 dark:text-green-300')}>{conv.lead.status}</span>}
+                              {temp && <span className={cn(chip, temp.includes('Quente') ? 'bg-orange-500/15 text-orange-700 dark:text-orange-300' : temp.includes('Morno') ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300' : 'bg-muted text-muted-foreground')}>{temp}</span>}
+                              {conv.origem_real && <span className={cn(chip, conv.origem_real === 'outbound' ? 'bg-violet-500/15 text-violet-700 dark:text-violet-300' : 'bg-muted text-muted-foreground')}>{conv.origem_real === 'outbound' ? 'Outbound' : 'Inbound'}</span>}
+                              {(() => {
+                                const mb = fmtMeetingBadge(conv.lead);
+                                return mb ? <span className={cn(chip, mb.realizada ? 'bg-muted text-muted-foreground' : 'bg-blue-500/15 text-blue-700 dark:text-blue-300')}>{mb.label}</span> : null;
+                              })()}
+                              {waProvider === 'meta' && (() => {
+                                const wb = fmtWindowBadge(conv);
+                                return wb ? <Badge variant="outline" className={`text-[11px] px-1.5 py-0 ${wb.style}`}>{wb.label}</Badge> : null;
+                              })()}
+                              {conv.assigned_to && <span className={cn(chip, 'bg-muted text-muted-foreground')}>Atribuído</span>}
+                              {conv.etiquetas?.map((tag) => <span key={tag} className={cn(chip, tag === 'VIP' ? 'bg-green-500/15 text-green-700 dark:text-green-300' : 'bg-muted text-muted-foreground')}>{tag}</span>)}
+                              {(conv.lead?.lead_tags as any[])?.map((lt: any) => lt.tags ? (
+                                <span key={lt.tag_id} className={chip} style={{ backgroundColor: `${lt.tags.tag_color}22`, color: lt.tags.tag_color }}>{lt.tags.tag_name}</span>
+                              ) : null)}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                      <div className="absolute right-2 top-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                        {(conv.current_status === 'livre' || (!conv.current_status && conv.assigned_to == null)) && (
+                          <button
+                            className="rounded-md bg-[#01573C] px-2 py-0.5 text-[11px] font-semibold text-white hover:opacity-90"
+                            title="Assumir esta conversa"
+                            onClick={(e) => handleTakeConversation(conv, e)}
+                          >
+                            Pegar
+                          </button>
+                        )}
+                        <button
+                          className="rounded p-1 hover:bg-destructive/10"
+                          title="Apagar conversa"
+                          aria-label="Apagar conversa"
+                          onClick={(e) => { e.stopPropagation(); setDeleteConvDialog({ open: true, conv }); }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-destructive/70" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()
               ))
             )}
           </div>
         </div>
 
         {/* Área de Chat */}
-        <Card className={`col-span-12 ${selectedConversation ? (isSidebarOpen ? 'md:col-span-8 lg:col-span-6' : 'md:col-span-8 lg:col-span-9') : 'lg:col-span-6'} flex flex-col overflow-hidden rounded-2xl md:rounded-lg border-0 md:border ${!selectedConversation ? 'hidden lg:flex' : 'flex'} transition-all duration-300`}>
+        <Card className={`col-span-12 ${selectedConversation ? (isSidebarOpen ? 'md:col-span-8 lg:col-span-6' : 'md:col-span-8 lg:col-span-9') : 'lg:col-span-6'} flex flex-col overflow-hidden rounded-[14px] border border-border bg-card shadow-none ${!selectedConversation ? 'hidden lg:flex' : 'flex'} transition-all duration-300`}>
           {selectedConversation ? (
             <>
               {/* Header da Conversa */}
-              <CardHeader className="border-b flex-shrink-0 px-3 py-3">
-                <div className="flex items-center gap-2">
+              <div className="flex-shrink-0 border-b border-border px-5 py-3.5">
+                <div className="flex items-center gap-3">
                   {/* Voltar (mobile) */}
-                  <Button variant="ghost" size="icon" className="lg:hidden flex-shrink-0 -ml-1" onClick={() => setSelectedConversation(null)}>
+                  <Button variant="ghost" size="icon" className="lg:hidden flex-shrink-0 -ml-1" onClick={() => setSelectedConversation(null)} aria-label="Voltar">
                     <ArrowLeft className="h-5 w-5" />
                   </Button>
 
-                  {/* Avatar */}
-                  <Avatar className="h-9 w-9 flex-shrink-0">
+                  <Avatar className="h-11 w-11 flex-shrink-0">
                     <AvatarImage src={proxyPhoto(selectedConversation.whatsapp_photo_url)} />
-                    <AvatarFallback className="text-sm">
+                    <AvatarFallback className="bg-accent text-sm font-semibold text-[#01573C] dark:text-[#96F63C]">
                       {getInitials(selectedConversation.nome_do_contato || selectedConversation.numero_de_telefone)}
                     </AvatarFallback>
                   </Avatar>
 
-                  {/* Nome + empresa */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <p className="font-semibold text-sm truncate">
-                        {selectedConversation.nome_do_contato || selectedConversation.numero_de_telefone}
-                      </p>
-                      {selectedConversation.origem_real && (
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] px-1.5 py-0 gap-0.5 flex-shrink-0 ${
-                            selectedConversation.origem_real === 'outbound'
-                              ? 'border-violet-500/50 text-violet-500'
-                              : 'border-emerald-500/50 text-emerald-500'
-                          }`}
-                        >
-                          {selectedConversation.origem_real === 'outbound' ? <Zap className="h-2.5 w-2.5" /> : <MessageSquare className="h-2.5 w-2.5" />}
-                          {selectedConversation.origem_real === 'outbound' ? 'Outbound' : 'Inbound'}
-                        </Badge>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xl font-semibold leading-6 text-foreground">
+                      {selectedConversation.nome_do_contato || selectedConversation.numero_de_telefone}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px] text-muted-foreground">
+                      {selectedConversation.lead ? (
+                        <>
+                          <span className="rounded-md bg-green-500/15 px-2 py-0.5 text-[11px] font-semibold text-green-700 dark:text-green-300">{selectedConversation.lead.status}</span>
+                          {selectedConversation.lead.nivel_interesse && (
+                            <span className={cn('rounded-md px-2 py-0.5 text-[11px] font-semibold', selectedConversation.lead.nivel_interesse.includes('Quente') ? 'bg-orange-500/15 text-orange-700 dark:text-orange-300' : selectedConversation.lead.nivel_interesse.includes('Morno') ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300' : 'bg-muted text-muted-foreground')}>
+                              {selectedConversation.lead.nivel_interesse.replace(/[^\p{L}\s]/gu, '').trim()}
+                            </span>
+                          )}
+                          <span>{(selectedConversation.lead as any).project_value ? `R$ ${Number((selectedConversation.lead as any).project_value).toLocaleString('pt-BR')}` : 'Sem valor'}</span>
+                          {(selectedConversation.lead as any).created_at && <span>Entrou em {new Date((selectedConversation.lead as any).created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}</span>}
+                        </>
+                      ) : (
+                        <span>{selectedConversation.numero_de_telefone}</span>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {selectedConversation.lead?.company_name || selectedConversation.numero_de_telefone}
-                    </p>
+                  </div>
+
+                  {/* Quem responde nesta conversa */}
+                  <div className="hidden flex-col items-end gap-1 lg:flex">
+                    <span className="text-[11px] text-muted-foreground">Quem responde nesta conversa</span>
+                    <div className="flex rounded-full bg-muted p-1" role="radiogroup" aria-label="Quem responde nesta conversa">
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={!convAgentePausado}
+                        onClick={() => { if (convAgentePausado) void setAgentPaused(false); }}
+                        className={cn('flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] transition-colors', !convAgentePausado ? 'bg-[#0F3D2B] font-semibold text-white' : 'text-muted-foreground hover:text-foreground')}
+                      >
+                        <Bot className="h-3.5 w-3.5" /> SDR
+                      </button>
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={convAgentePausado}
+                        onClick={() => { if (!convAgentePausado) void setAgentPaused(true); }}
+                        className={cn('flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] transition-colors', convAgentePausado ? 'bg-[#0F3D2B] font-semibold text-white' : 'text-muted-foreground hover:text-foreground')}
+                      >
+                        <User className="h-3.5 w-3.5" /> Você
+                      </button>
+                    </div>
                   </div>
 
                   {/* Ações desktop */}
-                  <div className="hidden lg:flex items-center gap-2">
-                    <Button
-                      variant="outline" size="sm"
-                      onClick={async () => {
-                        if (!selectedConversation) return;
-                        const novoPausado = !convAgentePausado;
-                        setConvAgentePausado(novoPausado);
-                        try {
-                          const res = await fetch(`/api/conversations/${selectedConversation.id}/agent`, {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ pausado: novoPausado }),
-                          });
-                          if (!res.ok) { setConvAgentePausado(!novoPausado); toast({ title: 'Erro ao atualizar agente', variant: 'destructive' }); }
-                          else toast({ title: novoPausado ? 'Agente pausado nesta conversa' : 'Agente ativo nesta conversa' });
-                        } catch { setConvAgentePausado(!novoPausado); }
-                      }}
-                      className={!convAgentePausado ? 'border-emerald-500/50 text-emerald-600 hover:bg-emerald-500/10' : 'border-amber-500/50 text-amber-600 hover:bg-amber-500/10'}
-                    >
-                      {!convAgentePausado ? <><Bot className="h-4 w-4 mr-1.5" /><span className="text-xs">Agente ativo</span></> : <><PauseCircle className="h-4 w-4 mr-1.5" /><span className="text-xs">Agente pausado</span></>}
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => setScheduleDialog(true)} title="Agendar"><Clock className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+                  <div className="hidden items-center gap-1 lg:flex">
+                    <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full border border-border" onClick={() => setScheduleDialog(true)} title="Agendar mensagem" aria-label="Agendar mensagem"><Clock className="h-4 w-4" /></Button>
+                    {selectedConversation.numero_de_telefone && (
+                      <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full border border-border" onClick={() => window.open(`https://wa.me/${selectedConversation.numero_de_telefone.replace(/\D/g, '')}`, '_blank')} title="Abrir no WhatsApp" aria-label="Abrir no WhatsApp"><ExternalLink className="h-4 w-4" /></Button>
+                    )}
+                    <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full" onClick={() => setIsSidebarOpen(!isSidebarOpen)} title={isSidebarOpen ? 'Esconder o lead' : 'Mostrar o lead'} aria-label={isSidebarOpen ? 'Esconder o lead' : 'Mostrar o lead'}>
                       {isSidebarOpen ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
                     </Button>
                   </div>
@@ -2069,26 +2010,13 @@ export default function AtendimentoPage() {
                     )}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="flex-shrink-0">
+                        <Button variant="ghost" size="icon" className="flex-shrink-0" aria-label="Mais ações">
                           <MoreVertical className="h-5 w-5" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem onClick={async () => {
-                          if (!selectedConversation) return;
-                          const novoPausado = !convAgentePausado;
-                          setConvAgentePausado(novoPausado);
-                          try {
-                            const res = await fetch(`/api/conversations/${selectedConversation.id}/agent`, {
-                              method: 'PATCH',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ pausado: novoPausado }),
-                            });
-                            if (!res.ok) { setConvAgentePausado(!novoPausado); toast({ title: 'Erro ao atualizar agente', variant: 'destructive' }); }
-                            else toast({ title: novoPausado ? 'Agente pausado nesta conversa' : 'Agente ativo nesta conversa' });
-                          } catch { setConvAgentePausado(!novoPausado); }
-                        }}>
-                          {convAgentePausado ? <><Bot className="h-4 w-4 mr-2 text-emerald-500" />Ativar agente</> : <><PauseCircle className="h-4 w-4 mr-2 text-amber-500" />Pausar agente</>}
+                      <DropdownMenuContent align="end" className="w-52">
+                        <DropdownMenuItem onClick={() => void setAgentPaused(!convAgentePausado)}>
+                          {convAgentePausado ? <><Bot className="h-4 w-4 mr-2 text-emerald-500" />Devolver ao SDR</> : <><User className="h-4 w-4 mr-2 text-amber-500" />Responder eu mesmo</>}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setScheduleDialog(true)}>
                           <Clock className="h-4 w-4 mr-2" />Agendar mensagem
@@ -2103,10 +2031,10 @@ export default function AtendimentoPage() {
                     </DropdownMenu>
                   </div>
                 </div>
-              </CardHeader>
+              </div>
 
               {/* Mensagens */}
-              <CardContent className="flex-1 overflow-y-auto px-[20px] pb-[20px] pt-[40px] space-y-4 scrollbar-minimal chat-background">
+              <CardContent className="flex-1 overflow-y-auto px-6 pb-5 pt-6 space-y-3.5 scrollbar-minimal">
                 {messages.map((msg) => msg.tipo_de_mensagem === 'system' ? (
                   // ── Evento de sistema: chip centralizado bigtech ──
                   <div key={msg.id} className="flex items-center gap-3 py-0.5 select-none">
@@ -2124,14 +2052,6 @@ export default function AtendimentoPage() {
                       msg.direcao === 'outbound' ? 'justify-end' : 'justify-start'
                     }`}
                   >
-                    {msg.direcao === 'inbound' && (
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={proxyPhoto(selectedConversation.whatsapp_photo_url)} />
-                        <AvatarFallback className="text-xs">
-                          {getInitials(selectedConversation.nome_do_contato || 'C')}
-                        </AvatarFallback>
-                      </Avatar>
-                    )}
                     <MessageContextMenu
                       isOutbound={msg.direcao === 'outbound'}
                       onReply={typeof msg.id === 'number' ? () => setReplyingTo({ id: msg.id as number, text: msg.texto_da_mensagem, sender: msg.direcao === 'inbound' ? (selectedConversation?.nome_do_contato || 'Contato') : (msg.user?.name || 'Você'), waId: (msg as any).whatsapp_message_id }) : undefined}
@@ -2140,17 +2060,17 @@ export default function AtendimentoPage() {
                       onForward={() => setForwardDialog({ open: true, messageId: msg.id })}
                       onPin={() => handlePinMessage(msg.id, !msg.is_pinned)}
                       onDelete={msg.direcao === 'outbound' ? () => setDeleteDialog({ open: true, messageId: msg.id }) : undefined}
-                      className="max-w-[85%] sm:max-w-[65%]"
+                      className="max-w-[85%] sm:max-w-[70%]"
                     >
                         <div
-                          className={`w-full rounded-2xl p-3 cursor-pointer ${
+                          className={`w-full rounded-2xl px-4 py-3 cursor-pointer ${
                             msg.direcao === 'outbound'
-                              ? 'bg-green-500/30 text-foreground border border-green-500/20'
-                              : 'bg-muted'
+                              ? 'bg-accent text-foreground border border-[#1E6B47]/40'
+                              : 'bg-muted text-foreground border border-border'
                           } ${msg.status === 'sending' ? 'opacity-60' : ''}`}
                         >
                         {msg.direcao === 'outbound' && (
-                          <div className="flex items-center gap-1 mb-1 text-xs opacity-80">
+                          <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-[#01573C] dark:text-[#96F63C]">
                             {msg.sender_type === 'ai' ? (
                               <>
                                 {msg.nome_do_agente === 'Outbound' ? <Zap className="h-3 w-3" /> : <Bot className="h-3 w-3" />}
@@ -2196,24 +2116,34 @@ export default function AtendimentoPage() {
                         </p>
                       </div>
                     </MessageContextMenu>
-                    {msg.direcao === 'outbound' && (
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback className="text-xs bg-primary text-white">
-                          {msg.sender_type === 'ai' ? (
-                            <Bot className="h-4 w-4" />
-                          ) : (
-                            getInitials(msg.user?.name || user?.name || 'U')
-                          )}
-                        </AvatarFallback>
-                      </Avatar>
-                    )}
                   </div>
                 ))}
+                {(() => {
+                  const last = messages[messages.length - 1];
+                  if (!last || last.direcao !== 'inbound' || typeof last.id !== 'number') return null;
+                  const days = Math.floor((Date.now() - new Date(last.carimbo_de_data_e_hora).getTime()) / 86400000);
+                  if (days < 3) return null;
+                  return (
+                    <div className="flex justify-center pt-1">
+                      <span className="flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/10 px-4 py-1.5 text-[13px] font-medium text-red-700 dark:text-red-300">
+                        <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                        Ninguém respondeu há {days} dias. A última mensagem foi do lead.
+                      </span>
+                    </div>
+                  );
+                })()}
                 <div ref={messagesEndRef} />
               </CardContent>
 
               {/* Input de Mensagem */}
-              <div className="border-t flex-shrink-0">
+              <div className="border-t border-border flex-shrink-0">
+                {convAgentePausado && (
+                  <div className="mx-4 mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.08] px-4 py-3">
+                    <PauseCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-[#F5B544]" />
+                    <p className="min-w-0 flex-1 text-sm text-foreground">O SDR está pausado aqui. Só você responde esta conversa.</p>
+                    <Button variant="secondary" className="h-9 px-4 text-[13px]" onClick={() => void setAgentPaused(false)}>Devolver ao SDR</Button>
+                  </div>
+                )}
                 {replyingTo && (
                   <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 border-b border-border">
                     <div className="flex-1 min-w-0 flex items-stretch gap-0 rounded-lg overflow-hidden bg-background/60 border border-border">
@@ -2271,7 +2201,7 @@ export default function AtendimentoPage() {
                     onCancel={() => setShowAudioRecorder(false)}
                   />
                 ) : (
-                  <form onSubmit={handleSendMessage} className="flex gap-2">
+                  <form onSubmit={handleSendMessage} className="flex items-center gap-2">
                     <Button
                       type="button"
                       variant="ghost"
@@ -2298,7 +2228,8 @@ export default function AtendimentoPage() {
                     )}
                     <Input
                       ref={inputRef}
-                      placeholder="Digite uma mensagem..."
+                      placeholder="Escreva uma mensagem"
+                      className="h-12 rounded-full border-border bg-muted px-5"
                       value={newMessage}
                       onChange={(e) => handleMessageInputChange(e.target.value)}
                       onKeyDown={(e) => {
@@ -2311,6 +2242,16 @@ export default function AtendimentoPage() {
                       }}
                       disabled={loading}
                     />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => handleMessageInputChange('/')}
+                      disabled={loading}
+                      className="hidden h-10 shrink-0 gap-1.5 rounded-full border border-border px-4 text-[13px] text-muted-foreground sm:flex"
+                    >
+                      <Zap className="h-3.5 w-3.5" />
+                      Respostas rápidas
+                    </Button>
                     <Button
                       type={newMessage.trim() ? 'submit' : 'button'}
                       onClick={() => {
