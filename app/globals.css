@@ -4,35 +4,35 @@
 
 @layer base {
   :root {
-    --background: 0 0% 89%; /* #E3E3E3 - cinza médio */
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 98%; /* #FAFAFA - quase branco */
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 98%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 142 72% 29%; /* #15803d verde Zaapply */
+    --background: 150 11% 96.5%; /* #F5F7F6 neve */;
+    --foreground: 154 20% 7%; /* #0E1512 tinta */;
+    --card: 0 0% 100%; /* #FFFFFF */;
+    --card-foreground: 154 20% 7%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 154 20% 7%;
+    --primary: 161 98% 17%; /* #01573C verde da marca (igual ao escuro) */;
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 142 50% 92%; /* Verde claro para acentos */
-    --accent-foreground: 142 72% 29%;
-    --destructive: 0 84.2% 60.2%;
+    --secondary: 150 13% 94%; /* #EEF2F0 fundo suave */;
+    --secondary-foreground: 154 20% 7%;
+    --muted: 150 13% 94%;
+    --muted-foreground: 147 6% 38%; /* #5B6660 */;
+    --accent: 147 28% 92%; /* #E6F1EB item ativo */;
+    --accent-foreground: 161 98% 17%;
+    --destructive: 4 75% 41%; /* #B42318 */;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 142 72% 29%;
+    --border: 144 9% 89.6%; /* #E2E7E4 */;
+    --input: 144 9% 89.6%;
+    --ring: 161 98% 17%;
     --radius: 0.5rem;
     --chart-1: 142 72% 29%; /* #15803d */
     --chart-2: 0 0% 85%; /* #d8d8d8 */
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-background: 150 13% 94%; /* #EEF2F0 */;
+    --sidebar-foreground: 154 20% 7%;
     --sidebar-primary: 240 5.9% 10%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
+    --sidebar-accent: 147 28% 92%;
+    --sidebar-accent-foreground: 161 98% 17%;
+    --sidebar-border: 144 9% 89.6%;
     --sidebar-ring: 217.2 91.2% 59.8%;
     --scrollbar-thumb: #a0a0a0;
     --scrollbar-thumb-hover: #808080;
