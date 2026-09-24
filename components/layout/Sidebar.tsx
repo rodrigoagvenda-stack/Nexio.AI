@@ -530,19 +530,6 @@ export const Sidebar = memo(function Sidebar({
     if (flyoutTimeoutRef.current) clearTimeout(flyoutTimeoutRef.current);
   }, []);
 
-  // Auto-collapse on canvas, auto-expand when leaving
-  const autoCollapsedRef = useRef(false);
-  useEffect(() => {
-    const isCanvas = pathname === '/configuracoes/follow' || pathname.startsWith('/configuracoes/follow/');
-    if (isCanvas) {
-      autoCollapsedRef.current = true;
-      setIsCollapsed(true);
-    } else if (autoCollapsedRef.current) {
-      autoCollapsedRef.current = false;
-      setIsCollapsed(false);
-    }
-  }, [pathname]);
-
   const isCrmRoute = useMemo(() =>
     pathname === '/crm' || pathname.startsWith('/crm/'),
     [pathname]

@@ -13,21 +13,25 @@ import {
   useEdgesState,
   Handle,
   Position,
-  MarkerType,
   BackgroundVariant,
   BaseEdge,
   EdgeLabelRenderer,
-  getBezierPath,
+  getSmoothStepPath,
+  useNodeId,
+  useStore,
   type Connection,
   type Node,
   type Edge,
+  type NodeChange,
   type NodeProps,
   type EdgeProps,
   useReactFlow,
   ReactFlowProvider,
 } from '@xyflow/react';
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -91,6 +95,11 @@ import {
   CreditCard,
   Banknote,
   Hourglass,
+  Copy,
+  Calendar,
+  MoreHorizontal,
+  Minus,
+  Maximize,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
@@ -620,8 +629,7 @@ function buildTemplates(): CanvasTemplate[] {
 
 const EDGE_BASE = {
   type: 'deletable',
-  markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12, color: 'hsl(var(--border))' },
-  style: { stroke: 'hsl(var(--border))', strokeWidth: 1.5 },
+  style: { stroke: 'var(--zp-edge, #3A3A3A)', strokeWidth: 2 },
 } as const;
 
 function handleLabel(handle?: string, step?: FollowStep | null): string | undefined {
@@ -661,7 +669,7 @@ function stepsToNodes(steps: FollowStep[] | undefined | null, sequenceName: stri
   const nodes: Node<AutoNodeData>[] = [];
   // Primary trigger: skip if user explicitly deleted it
   if (!canvasConfig?.noDefaultTrigger) {
-    const triggerPos = canvasConfig?.triggerPos ?? { x: 0, y: 150 };
+    const triggerPos = canvasConfig?.triggerPos ?? { x: 0, y: 192 };
     nodes.push({
       id: 'trigger', type: 'triggerNode', position: triggerPos,
       data: { kind: 'trigger', label: sequenceName, condicao: 'Início da sequência',
@@ -686,7 +694,7 @@ function stepsToNodes(steps: FollowStep[] | undefined | null, sequenceName: stri
   const sorted = [...(steps ?? [])].sort((a, b) => a.ordem - b.ordem);
   sorted.forEach((step, idx) => {
     const stored = canvasConfig?.positions?.[idx];
-    const x = stored?.x ?? (idx + 1) * 280;
+    const x = stored?.x ?? 312 + idx * 320;
     const y = stored?.y ?? 150;
     const condicaoLower = step.condicao?.toLowerCase() ?? '';
     // Normalize tipo: DB may store EN ('text') or legacy PT ('texto'): map both to canvas PT
@@ -988,16 +996,39 @@ function newId() { return `new-${++nodeCounter}`; }
 // ─── Node Accent System ─────────────────────────────────────────────────────────
 
 const ACCENTS = {
-  primary:     { icon: 'text-[hsl(var(--primary))]', dot: 'bg-[hsl(var(--primary))]',  sel: 'ring-[hsl(var(--primary)/0.4)] border-[hsl(var(--primary)/0.25)]'  },
-  emerald:     { icon: 'text-emerald-500',            dot: 'bg-emerald-500',             sel: 'ring-emerald-500/35 border-emerald-500/20'                         },
-  amber:       { icon: 'text-amber-500',              dot: 'bg-amber-500',               sel: 'ring-amber-500/35 border-amber-500/20'                             },
-  violet:      { icon: 'text-violet-500',             dot: 'bg-violet-500',              sel: 'ring-violet-500/35 border-violet-500/20'                           },
-  destructive: { icon: 'text-destructive',            dot: 'bg-destructive',             sel: 'ring-destructive/35 border-destructive/20'                         },
-  blue:        { icon: 'text-blue-500',               dot: 'bg-blue-500',                sel: 'ring-blue-500/35 border-blue-500/20'                               },
-  cyan:        { icon: 'text-cyan-500',               dot: 'bg-cyan-500',                sel: 'ring-cyan-500/35 border-cyan-500/20'                               },
-  rose:        { icon: 'text-rose-500',               dot: 'bg-rose-500',                sel: 'ring-rose-500/35 border-rose-500/20'                               },
+  primary:     { icon: 'text-[#01573C] dark:text-[#96F63C]', box: 'bg-[#01573C]/10 dark:bg-[#96F63C]/[0.14]' },
+  emerald:     { icon: 'text-[#01573C] dark:text-[#96F63C]', box: 'bg-[#01573C]/10 dark:bg-[#96F63C]/[0.14]' },
+  amber:       { icon: 'text-[#B7791F] dark:text-[#F5B544]', box: 'bg-[#F5B544]/20 dark:bg-[#F5B544]/[0.14]' },
+  violet:      { icon: 'text-violet-600 dark:text-[#A5A3F5]', box: 'bg-violet-500/10 dark:bg-[#A5A3F5]/[0.14]' },
+  destructive: { icon: 'text-destructive',                    box: 'bg-destructive/10' },
+  blue:        { icon: 'text-blue-600 dark:text-[#60A5FA]',   box: 'bg-blue-500/10 dark:bg-[#60A5FA]/[0.14]' },
+  cyan:        { icon: 'text-cyan-600 dark:text-[#67E8F9]',   box: 'bg-cyan-500/10 dark:bg-[#67E8F9]/[0.14]' },
+  rose:        { icon: 'text-rose-600 dark:text-[#FB7185]',   box: 'bg-rose-500/10 dark:bg-[#FB7185]/[0.14]' },
 } as const;
 type AccentKey = keyof typeof ACCENTS;
+
+// Ações do cartão selecionado (testar, duplicar, excluir): o canvas fornece, o cartão só chama
+interface CanvasActions { testNode: (id: string) => void; duplicateNode: (id: string) => void; deleteNode: (id: string) => void; openPalette: () => void }
+const CanvasActionsCtx = createContext<CanvasActions | null>(null);
+const TESTABLE_KINDS = ['message', 'post_condition', 'scheduling'];
+
+function NodeToolbar({ id }: { id: string }) {
+  const actions = useContext(CanvasActionsCtx);
+  const kind = useStore((s) => (s.nodeLookup.get(id)?.data as { kind?: string } | undefined)?.kind);
+  if (!actions) return null;
+  const btn = 'flex h-6 w-6 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted';
+  return (
+    <div className="nodrag nopan absolute -top-[52px] left-1/2 z-20 flex h-[38px] -translate-x-1/2 items-center justify-around gap-1 rounded-full border border-border bg-card px-3 shadow-lg dark:border-[#2E2E2E] dark:bg-[#1A1A1A]">
+      {kind && TESTABLE_KINDS.includes(kind) && (
+        <button type="button" title="Testar este passo" aria-label="Testar este passo" onClick={(e) => { e.stopPropagation(); actions.testNode(id); }} className={btn}><Play className="h-4 w-4" fill="currentColor" /></button>
+      )}
+      <button type="button" title="Duplicar" aria-label="Duplicar passo" onClick={(e) => { e.stopPropagation(); actions.duplicateNode(id); }} className={btn}><Copy className="h-4 w-4" /></button>
+      {kind !== 'trigger' && (
+        <button type="button" title="Excluir" aria-label="Excluir passo" onClick={(e) => { e.stopPropagation(); actions.deleteNode(id); }} className={cn(btn, 'text-destructive hover:bg-destructive/10')}><Trash2 className="h-4 w-4" /></button>
+      )}
+    </div>
+  );
+}
 
 // ─── Node building blocks ───────────────────────────────────────────────────────
 
@@ -1045,7 +1076,7 @@ function ExecBadge({ state, error }: { state?: ExecState; error?: string }) {
   return null;
 }
 
-function NodeShell({ children, selected, accent = 'primary', header, execState, execError, leadCount, dlqCount, comment }: {
+function NodeShell({ children, selected, accent = 'primary', header, execState, execError, leadCount, dlqCount, comment, compact, fixedH, minH }: {
   children: React.ReactNode;
   selected?: boolean;
   accent?: AccentKey;
@@ -1055,44 +1086,46 @@ function NodeShell({ children, selected, accent = 'primary', header, execState, 
   leadCount?: number;
   dlqCount?: number;
   comment?: string;
+  compact?: boolean;
+  fixedH?: boolean;
+  minH?: number;
 }) {
+  const nodeId = useNodeId();
   const isRunning = execState === 'running';
   const isSuccess = execState === 'success';
   const isError = execState === 'error';
   const isSkipped = execState === 'skipped';
   const hasDlq = (dlqCount ?? 0) > 0;
-  const acc = ACCENTS[accent];
+  void accent;
+  void leadCount;
   return (
-    <div className={cn(
-      'relative bg-card rounded-xl w-[240px] border transition-all duration-100',
-      'shadow-[0_1px_3px_rgba(0,0,0,0.07),0_4px_14px_rgba(0,0,0,0.05)]',
+    <div style={minH ? { minHeight: minH } : undefined} className={cn(
+      'relative rounded-2xl border-[1.5px] bg-card transition-all duration-100 dark:bg-[#141414]',
+      compact ? 'h-[84px] w-[200px] px-4' : 'w-[208px] p-4',
+      fixedH && 'h-[168px]',
       isSkipped && 'opacity-40',
-      isRunning ? 'node-running border-border/30'
-        : isSuccess ? 'node-success border-border/30'
-        : isError ? 'node-error border-border/30'
+      isRunning ? 'node-running border-border'
+        : isSuccess ? 'node-success border-border'
+        : isError ? 'node-error border-border'
         : hasDlq ? 'border-destructive/40 ring-1 ring-destructive/20'
         : selected
-          ? cn('ring-2', acc.sel, 'shadow-[0_4px_24px_rgba(0,0,0,0.1)]')
-          : 'border-border/25 hover:border-border/40 hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)]',
+          ? 'border-[#01573C] shadow-[0_0_0_4px_rgba(1,87,60,0.12)] dark:border-[#96F63C] dark:shadow-[0_0_0_4px_rgba(150,246,60,0.10)]'
+          : 'border-border hover:border-muted-foreground/40 dark:border-[#2E2E2E] dark:hover:border-[#3E3E3E]',
     )}>
-      {leadCount != null && leadCount > 0 && (
-        <div className="absolute -top-2 -left-2 z-10 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold leading-none shadow-sm">
-          <Phone className="w-2 h-2" />{leadCount}
-        </div>
-      )}
+      {selected && nodeId && <NodeToolbar id={nodeId} />}
       {hasDlq && (
         <div className="absolute -top-2 -right-2 z-10 px-1.5 py-0.5 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold leading-none shadow-sm">
           DLQ {dlqCount}
         </div>
       )}
-      <div className="px-3.5 pt-2.5 pb-3 flex flex-col gap-0 relative">
-        <ExecBadge state={execState} error={execError} />
+      <ExecBadge state={execState} error={execError} />
+      <div className={cn('flex flex-col gap-3', (compact || fixedH) && 'h-full', compact && 'justify-center')}>
         {header}
-        <div className="mt-2 flex flex-col gap-1.5">{children}</div>
+        {children && <div className={cn('flex flex-col gap-1.5', fixedH && 'min-h-0 flex-1')}>{children}</div>}
         {comment && (
-          <div className="mt-2 pt-2 border-t border-border/20 flex items-start gap-1.5">
-            <MessageSquare className="w-2.5 h-2.5 text-amber-500/70 shrink-0 mt-px" />
-            <span className="text-[10px] text-muted-foreground/60 leading-snug line-clamp-2">{comment}</span>
+          <div className="flex items-start gap-1.5 border-t border-border pt-2">
+            <MessageSquare className="mt-px h-2.5 w-2.5 shrink-0 text-amber-500/70" />
+            <span className="line-clamp-2 text-[10px] leading-snug text-muted-foreground">{comment}</span>
           </div>
         )}
       </div>
@@ -1100,9 +1133,9 @@ function NodeShell({ children, selected, accent = 'primary', header, execState, 
   );
 }
 
-function NodeHeader({ icon: Icon, label, accent = 'primary', meta, nodeId, customLabel }: {
+function NodeHeader({ icon: Icon, label, accent = 'primary', meta, nodeId, customLabel, index, sublabel, large }: {
   icon: React.ElementType; label: string; accent?: AccentKey; meta?: string;
-  nodeId?: string; customLabel?: string;
+  nodeId?: string; customLabel?: string; index?: number; sublabel?: string; large?: boolean;
 }) {
   const { setNodes } = useReactFlow();
   const [editing, setEditing] = useState(false);
@@ -1129,12 +1162,14 @@ function NodeHeader({ icon: Icon, label, accent = 'primary', meta, nodeId, custo
     setEditing(false);
   }, [nodeId, draft, setNodes]);
 
+  const title = customLabel || (index ? `${label} ${index}` : label);
+
   return (
-    <div className="flex items-center justify-between gap-2 group" onDoubleClick={startEdit}>
-      <div className="flex items-center gap-2 min-w-0 flex-1">
-        <div className={cn('w-5 h-5 rounded-md flex items-center justify-center shrink-0 bg-muted/60')}>
-          <Icon className={cn('w-3 h-3', acc.icon)} />
-        </div>
+    <div className={cn('flex items-center', large ? 'gap-3' : 'gap-2.5')} onDoubleClick={startEdit}>
+      <div className={cn('flex shrink-0 items-center justify-center', large ? 'h-11 w-11 rounded-xl' : 'h-[34px] w-[34px] rounded-[10px]', acc.box)}>
+        <Icon className={cn(large ? 'h-[22px] w-[22px]' : 'h-[18px] w-[18px]', acc.icon)} />
+      </div>
+      <div className="min-w-0 flex-1">
         {editing ? (
           <input
             ref={inputRef}
@@ -1146,35 +1181,22 @@ function NodeHeader({ icon: Icon, label, accent = 'primary', meta, nodeId, custo
               if (e.key === 'Escape') { e.stopPropagation(); setEditing(false); }
             }}
             onClick={(e) => e.stopPropagation()}
-            placeholder={label}
-            className="text-[11px] font-semibold bg-muted/60 border border-primary/40 rounded px-1.5 py-0.5 outline-none text-foreground w-full min-w-0"
+            placeholder={title}
+            className="w-full min-w-0 rounded-md border border-[#01573C]/40 bg-muted px-1.5 py-0.5 text-sm font-semibold text-foreground outline-none dark:border-[#96F63C]/40"
           />
         ) : (
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1">
-              <span className="text-[11px] font-semibold text-foreground/50 tracking-wide uppercase leading-none truncate">{label}</span>
-              {nodeId && !customLabel && (
-                <PenLine className="w-2.5 h-2.5 text-muted-foreground/0 group-hover:text-muted-foreground/30 transition-colors shrink-0 cursor-text" />
-              )}
-            </div>
-            {customLabel && (
-              <p className="text-[11px] font-medium text-foreground/80 leading-snug truncate mt-0.5 flex items-center gap-1">
-                <span>:</span>
-                <span>{customLabel}</span>
-                <PenLine className="w-2.5 h-2.5 text-muted-foreground/0 group-hover:text-muted-foreground/40 transition-colors shrink-0 cursor-text" />
-              </p>
-            )}
-          </div>
+          <>
+            {sublabel && <p className="truncate text-xs leading-4 text-muted-foreground">{sublabel}</p>}
+            <p className={cn('text-sm font-semibold leading-[18px] text-foreground', large ? 'line-clamp-2' : 'truncate')}>{title}</p>
+            {meta && <p className="truncate text-xs leading-4 text-muted-foreground">{meta}</p>}
+          </>
         )}
       </div>
-      {meta && !editing && (
-        <span className="text-[10px] text-muted-foreground/40 font-mono shrink-0 bg-muted/40 px-1.5 py-0.5 rounded">{meta}</span>
-      )}
     </div>
   );
 }
 
-const HANDLE_CLS = '!w-2.5 !h-2.5 !bg-background !border !border-border/60 !rounded-full !transition-colors hover:!border-primary/50 hover:!bg-primary/10';
+const HANDLE_CLS = '!h-3 !w-3 !rounded-full !border-2 !border-[#B5BDB8] !bg-background dark:!border-[#7A7A7A] dark:!bg-[#0B0B0B] !transition-colors hover:!border-[#01573C] dark:hover:!border-[#96F63C]';
 
 // ─── Node Components ────────────────────────────────────────────────────────────
 
@@ -1192,31 +1214,52 @@ const ASAAS_EVENT_LABELS: Record<string, string> = {
   asaas_boleto_vencido:  'Boleto vencido',
 };
 
+const TRIGGER_TITLES: Record<string, string> = {
+  novo_lead: 'Novo lead',
+  mudanca_status: 'Mudança de status',
+  webhook: 'Webhook',
+  preco_informado: 'Preço informado',
+  formulario_preenchido: 'Formulário preenchido',
+  call_realizada: 'Call realizada',
+  tag_follow_up: 'Etiqueta Follow up',
+  tag_no_show: 'Etiqueta No-show',
+  tag_promocao: 'Etiqueta Promoção',
+};
+
+const MESSAGE_TYPE_LABELS: Record<string, string> = {
+  texto: 'Texto', audio: 'Áudio', ptt: 'Áudio', imagem: 'Imagem', video: 'Vídeo', documento: 'Documento',
+  localizacao: 'Localização', lista: 'Lista', botoes: 'Botões', carrossel: 'Carrossel', sticker: 'Sticker',
+};
+
+const PREVIEW_BOX = 'min-h-0 flex-1 overflow-hidden rounded-[10px] bg-muted px-3 py-2 text-[13px] leading-[145%] text-foreground dark:bg-[#1E1E1E]';
+
 function TriggerNode({ id, data, selected }: NodeProps) {
   const d = data as TriggerNodeData;
   const platformInfo = d.platform ? PAYMENT_PLATFORM_LABELS[d.platform] : null;
   const asaasEventLabel = d.platform === 'asaas' && d.eventoEntrada ? ASAAS_EVENT_LABELS[d.eventoEntrada] : null;
+  const title = (d.eventoEntrada && TRIGGER_TITLES[d.eventoEntrada]) || d.label;
   return (
-    <NodeShell selected={selected} accent="primary"
-      header={<NodeHeader icon={Zap} label="Gatilho" accent="primary" nodeId={id} customLabel={d.customLabel} />}
+    <NodeShell selected={selected} accent="amber" compact
+      header={<NodeHeader icon={Zap} label={title} sublabel="Gatilho" accent="amber" nodeId={id} customLabel={d.customLabel} large />}
       execState={d._execState} execError={d._execError} leadCount={d._leadCount}>
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
-      <p className="text-sm font-semibold text-foreground/90 leading-snug">{d.label}</p>
       {platformInfo ? (
         <>
           <p className={`text-xs font-medium ${platformInfo.color}`}>{platformInfo.label}</p>
-          {asaasEventLabel && <p className="text-xs text-muted-foreground/70">{asaasEventLabel}</p>}
+          {asaasEventLabel && <p className="text-xs text-muted-foreground">{asaasEventLabel}</p>}
         </>
-      ) : d.condicao && <p className="text-xs text-muted-foreground/70">{d.condicao}</p>}
+      ) : null}
     </NodeShell>
   );
 }
 
 function MessageNode({ id, data, selected }: NodeProps) {
-  const d = data as MessageNodeData;
-  const meta = (d.offset_unit === 'hours' || d.offset_unit === 'minutes')
+  const d = data as MessageNodeData & { _msgIndex?: number };
+  const typeLabel = MESSAGE_TYPE_LABELS[d.tipo_mensagem] ?? 'Mensagem';
+  const when = (d.offset_unit === 'hours' || d.offset_unit === 'minutes')
     ? formatHorasOffset(offsetToMins(d.dia_offset, d.offset_unit))
-    : `D${d.dia_offset} · ${d.horario}`;
+    : `Dia ${d.dia_offset}`;
+  const meta = `${when} · ${typeLabel}`;
 
   const docExt = d.media_name
     ? d.media_name.split('.').pop()?.toUpperCase() ?? 'DOC'
@@ -1227,23 +1270,23 @@ function MessageNode({ id, data, selected }: NodeProps) {
   // Blocks preview: use blocos[] if set, otherwise fall back to single mensagem
   const hasBlocos = d.blocos && d.blocos.length > 0;
 
-  const sentCount = d._sentCount ?? 0;
   const failedCount = d._failedCount ?? 0;
   const dlqCount = d._dlqCount ?? 0;
-  const showFunnel = (sentCount + failedCount + dlqCount) > 0;
+  const showFunnel = (failedCount + dlqCount) > 0;
+  const hint = 'flex items-center gap-2 py-1 text-xs text-muted-foreground';
 
   return (
-    <NodeShell selected={selected} accent="emerald"
-      header={<NodeHeader icon={MessageSquare} label="Mensagem" accent="emerald" meta={meta} nodeId={id} customLabel={d.customLabel} />}
+    <NodeShell selected={selected} accent="emerald" fixedH
+      header={<NodeHeader icon={(d.tipo_mensagem === 'audio' || d.tipo_mensagem === 'ptt') ? Mic : MessageSquare} label="Mensagem" index={d._msgIndex} accent="emerald" meta={meta} nodeId={id} customLabel={d.customLabel} />}
       execState={d._execState} execError={d._execError} leadCount={d._leadCount} dlqCount={dlqCount}
       comment={(d as any).comment as string | undefined}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
 
       {d.uploading && (
-        <div className="flex items-center gap-2 py-1">
+        <div className={cn(PREVIEW_BOX, 'flex items-center gap-2')}>
           {[0, 1, 2].map((i) => (
-            <div key={i} className="w-1 rounded-full bg-primary animate-bounce"
+            <div key={i} className="w-1 rounded-full bg-[#01573C] dark:bg-[#96F63C] animate-bounce"
               style={{ height: `${6 + i * 4}px`, animationDelay: `${i * 0.12}s` }} />
           ))}
           <span className="text-xs text-muted-foreground">Enviando…</span>
@@ -1252,125 +1295,90 @@ function MessageNode({ id, data, selected }: NodeProps) {
 
       {!d.uploading && d.tipo_mensagem === 'texto' && (
         hasBlocos ? (
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-500/70">
-                {(d.blocos as string[]).length} mensagens
-              </span>
-            </div>
-            <p className="text-xs text-foreground/80 leading-relaxed line-clamp-2 bg-muted/30 rounded-lg px-2.5 py-2">
-              {(d.blocos as string[])[0] || <span className="text-muted-foreground/40 italic">Sem conteúdo</span>}
-            </p>
+          <div className={cn(PREVIEW_BOX, 'space-y-1.5')}>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{(d.blocos as string[]).length} mensagens</p>
+            <p className="line-clamp-3">{(d.blocos as string[])[0] || <span className="italic text-muted-foreground">Sem conteúdo</span>}</p>
           </div>
         ) : d.mensagem
-          ? <p className="text-xs text-foreground/80 leading-relaxed line-clamp-3 bg-muted/30 rounded-lg px-2.5 py-2">{d.mensagem}</p>
-          : <p className="text-xs text-muted-foreground/50 italic">Sem mensagem</p>
+          ? <p className={cn(PREVIEW_BOX, 'line-clamp-4')}>{d.mensagem}</p>
+          : <p className={cn(PREVIEW_BOX, 'italic text-muted-foreground')}>Sem mensagem</p>
       )}
 
       {!d.uploading && d.tipo_mensagem === 'imagem' && (
         d.media_url ? (
-          <div className="flex items-start gap-2.5">
-            <img src={d.media_url} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0 border border-border/30" />
-            <div className="min-w-0 flex-1 py-0.5">
-              {d.mensagem
-                ? <p className="text-xs text-foreground/80 leading-snug line-clamp-2">{d.mensagem}</p>
-                : <p className="text-xs text-muted-foreground/50 italic">Sem legenda</p>}
-              <p className="text-[10px] text-muted-foreground/40 mt-1">Imagem</p>
-            </div>
+          <div className={cn(PREVIEW_BOX, 'flex items-start gap-2.5')}>
+            <img src={d.media_url} alt="" className="h-12 w-12 shrink-0 rounded-lg border border-border object-cover" />
+            <p className="line-clamp-3 min-w-0 flex-1 text-xs">{d.mensagem || <span className="italic text-muted-foreground">Sem legenda</span>}</p>
           </div>
         ) : (
-          <div className="flex items-center gap-2 py-1">
-            <ImageIcon className="w-3.5 h-3.5 text-emerald-500/60" />
-            <span className="text-xs text-muted-foreground/60">Adicionar imagem</span>
-          </div>
+          <div className={cn(PREVIEW_BOX, hint)}><ImageIcon className="h-3.5 w-3.5" />Adicionar imagem</div>
         )
       )}
 
       {!d.uploading && d.tipo_mensagem === 'video' && (
         d.media_url ? (
-          <div className="flex items-start gap-2.5">
-            <div className="w-12 h-12 rounded-lg bg-zinc-800 border border-border/30 flex items-center justify-center shrink-0">
-              <Play className="w-4 h-4 text-white/60 ml-0.5" fill="currentColor" />
+          <div className={cn(PREVIEW_BOX, 'flex items-start gap-2.5')}>
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-border bg-zinc-800">
+              <Play className="ml-0.5 h-4 w-4 text-white/70" fill="currentColor" />
             </div>
-            <div className="min-w-0 flex-1 py-0.5">
-              {d.mensagem
-                ? <p className="text-xs text-foreground/80 leading-snug line-clamp-2">{d.mensagem}</p>
-                : <p className="text-xs text-muted-foreground/50 italic">Sem legenda</p>}
-              <p className="text-[10px] text-muted-foreground/40 mt-1">Vídeo</p>
-            </div>
+            <p className="line-clamp-3 min-w-0 flex-1 text-xs">{d.mensagem || <span className="italic text-muted-foreground">Sem legenda</span>}</p>
           </div>
         ) : (
-          <div className="flex items-center gap-2 py-1">
-            <Video className="w-3.5 h-3.5 text-violet-500/60" />
-            <span className="text-xs text-muted-foreground/60">Adicionar vídeo</span>
-          </div>
+          <div className={cn(PREVIEW_BOX, hint)}><Video className="h-3.5 w-3.5" />Adicionar vídeo</div>
         )
       )}
 
       {!d.uploading && (d.tipo_mensagem === 'audio' || d.tipo_mensagem === 'ptt') && (
         d.media_url ? (
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-full bg-rose-500/10 flex items-center justify-center shrink-0">
-              <Mic className="w-3.5 h-3.5 text-rose-500" />
+          d.mensagem ? (
+            <p className={cn(PREVIEW_BOX, 'line-clamp-4')}>{d.mensagem}</p>
+          ) : (
+            <div className={cn(PREVIEW_BOX, 'flex items-center gap-2.5')}>
+              <div className="flex flex-1 items-end gap-px" style={{ height: 16 }}>
+                {BARS.map((h, i) => (
+                  <div key={i} className="flex-1 rounded-full bg-[#01573C]/50 dark:bg-[#96F63C]/50" style={{ height: `${h}px` }} />
+                ))}
+              </div>
+              <span className="font-mono text-[10px] text-muted-foreground">Voz</span>
             </div>
-            <div className="flex items-end gap-px flex-1" style={{ height: 16 }}>
-              {BARS.map((h, i) => (
-                <div key={i} className="rounded-full bg-rose-500/40 flex-1" style={{ height: `${Math.round(h * 14 / 14)}px` }} />
-              ))}
-            </div>
-            <span className="text-[10px] text-muted-foreground/50 font-mono">Voz</span>
-          </div>
+          )
         ) : (
-          <div className="flex items-center gap-2 py-1">
-            <Mic className="w-3.5 h-3.5 text-rose-500/60" />
-            <span className="text-xs text-muted-foreground/60">Gravar áudio</span>
-          </div>
+          <div className={cn(PREVIEW_BOX, hint)}><Mic className="h-3.5 w-3.5" />Gravar áudio</div>
         )
       )}
 
       {!d.uploading && d.tipo_mensagem === 'documento' && (
         d.media_url ? (
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
-              <FileText className="w-4 h-4 text-amber-500" />
-            </div>
+          <div className={cn(PREVIEW_BOX, 'flex items-center gap-2.5')}>
+            <FileText className="h-4 w-4 shrink-0 text-amber-500" />
             <div className="min-w-0 flex-1">
-              <p className="text-xs text-foreground/80 truncate font-medium">
-                {d.media_name || 'documento.' + docExt.toLowerCase()}
-              </p>
-              <p className="text-[10px] text-muted-foreground/50">{docExt}</p>
+              <p className="truncate text-xs font-medium">{d.media_name || 'documento.' + docExt.toLowerCase()}</p>
+              <p className="text-[10px] text-muted-foreground">{docExt}</p>
             </div>
           </div>
         ) : (
-          <div className="flex items-center gap-2 py-1">
-            <FileText className="w-3.5 h-3.5 text-amber-500/60" />
-            <span className="text-xs text-muted-foreground/60">Adicionar documento</span>
-          </div>
+          <div className={cn(PREVIEW_BOX, hint)}><FileText className="h-3.5 w-3.5" />Adicionar documento</div>
         )
       )}
 
       {!d.uploading && d.tipo_mensagem === 'localizacao' && (
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-            <MapPin className="w-4 h-4 text-emerald-500" />
-          </div>
+        <div className={cn(PREVIEW_BOX, 'flex items-center gap-2.5')}>
+          <MapPin className="h-4 w-4 shrink-0 text-[#01573C] dark:text-[#96F63C]" />
           <div className="min-w-0 flex-1">
             {d.location_name
-              ? <p className="text-xs text-foreground/80 truncate font-medium">{d.location_name as string}</p>
-              : <p className="text-xs text-muted-foreground/50 italic">
-                  {d.location_url ? 'Local configurado' : 'Local não configurado'}
-                </p>}
-            {d.location_address && <p className="text-[10px] text-muted-foreground/50 truncate">{d.location_address as string}</p>}
+              ? <p className="truncate text-xs font-medium">{d.location_name as string}</p>
+              : <p className="text-xs italic text-muted-foreground">{d.location_url ? 'Local configurado' : 'Local não configurado'}</p>}
+            {d.location_address && <p className="truncate text-[10px] text-muted-foreground">{d.location_address as string}</p>}
           </div>
         </div>
       )}
 
       {!d.uploading && d.tipo_mensagem === 'lista' && (
-        <div className="space-y-1">
-          {d.mensagem && <p className="text-xs text-foreground/80 leading-snug line-clamp-2 bg-muted/30 rounded-lg px-2.5 py-2">{d.mensagem}</p>}
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <List className="w-3 h-3 text-violet-500/60 shrink-0" />
-            <span className="text-[10px] text-muted-foreground/60">
+        <div className={cn(PREVIEW_BOX, 'space-y-1.5')}>
+          {d.mensagem && <p className="line-clamp-2 text-xs">{d.mensagem}</p>}
+          <div className="flex items-center gap-1.5">
+            <List className="h-3 w-3 shrink-0 text-muted-foreground" />
+            <span className="text-[10px] text-muted-foreground">
               {d.metaTemplateId
                 ? 'Template HSM selecionado'
                 : d.menu_choices
@@ -1382,28 +1390,28 @@ function MessageNode({ id, data, selected }: NodeProps) {
       )}
 
       {!d.uploading && d.tipo_mensagem === 'botoes' && (
-        <div className="space-y-1">
-          {d.mensagem && <p className="text-xs text-foreground/80 leading-snug line-clamp-2 bg-muted/30 rounded-lg px-2.5 py-2">{d.mensagem}</p>}
-          <div className="flex flex-wrap gap-1 mt-0.5">
+        <div className={cn(PREVIEW_BOX, 'space-y-1.5')}>
+          {d.mensagem && <p className="line-clamp-2 text-xs">{d.mensagem}</p>}
+          <div className="flex flex-wrap gap-1">
             {d.metaTemplateId
-              ? <span className="text-[10px] px-2 py-0.5 rounded-full border border-primary/30 bg-primary/10 text-primary">Template HSM selecionado</span>
+              ? <span className="rounded-full border border-[#01573C]/30 bg-[#01573C]/10 px-2 py-0.5 text-[10px] text-[#01573C] dark:border-[#96F63C]/30 dark:bg-[#96F63C]/10 dark:text-[#96F63C]">Template HSM selecionado</span>
               : d.menu_choices
                 ? (d.menu_choices as string).split('\n').filter(Boolean).slice(0, 3).map((btn, i) => (
-                    <span key={i} className="text-[10px] px-2 py-0.5 rounded-full border border-border bg-muted text-muted-foreground">
+                    <span key={i} className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
                       {String(btn).split('|')[0].trim()}
                     </span>
                   ))
-                : <span className="text-[10px] text-muted-foreground/50 italic">Botões não configurados</span>}
+                : <span className="text-[10px] italic text-muted-foreground">Botões não configurados</span>}
           </div>
         </div>
       )}
 
       {!d.uploading && d.tipo_mensagem === 'carrossel' && (
-        <div className="space-y-1">
-          {d.mensagem && <p className="text-xs text-foreground/80 leading-snug line-clamp-1 bg-muted/30 rounded-lg px-2.5 py-2">{d.mensagem}</p>}
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <GalleryHorizontal className="w-3 h-3 text-cyan-500/60 shrink-0" />
-            <span className="text-[10px] text-muted-foreground/60">
+        <div className={cn(PREVIEW_BOX, 'space-y-1.5')}>
+          {d.mensagem && <p className="line-clamp-1 text-xs">{d.mensagem}</p>}
+          <div className="flex items-center gap-1.5">
+            <GalleryHorizontal className="h-3 w-3 shrink-0 text-muted-foreground" />
+            <span className="text-[10px] text-muted-foreground">
               {d.metaTemplateId
                 ? 'Template HSM selecionado'
                 : d.carousel_json
@@ -1416,23 +1424,19 @@ function MessageNode({ id, data, selected }: NodeProps) {
 
       {!d.uploading && d.tipo_mensagem === 'sticker' && (
         d.media_url ? (
-          <div className="flex items-center gap-2.5">
-            <img src={d.media_url as string} alt="sticker" className="w-12 h-12 rounded-lg object-contain shrink-0 border border-border/30 bg-muted/30" />
-            <span className="text-[10px] text-muted-foreground/50">Sticker</span>
+          <div className={cn(PREVIEW_BOX, 'flex items-center gap-2.5')}>
+            <img src={d.media_url as string} alt="sticker" className="h-12 w-12 shrink-0 rounded-lg border border-border bg-muted object-contain" />
+            <span className="text-[10px] text-muted-foreground">Sticker</span>
           </div>
         ) : (
-          <div className="flex items-center gap-2 py-1">
-            <Smile className="w-3.5 h-3.5 text-primary/60" />
-            <span className="text-xs text-muted-foreground/60">Adicionar sticker</span>
-          </div>
+          <div className={cn(PREVIEW_BOX, hint)}><Smile className="h-3.5 w-3.5" />Adicionar sticker</div>
         )
       )}
 
       {showFunnel && (
-        <div className="flex items-center gap-2 pt-1 border-t border-border/20 mt-0.5">
-          <span className="text-[9px] text-emerald-500 font-semibold">✓{sentCount}</span>
-          {failedCount > 0 && <span className="text-[9px] text-amber-500 font-semibold">⚠{failedCount}</span>}
-          {dlqCount > 0 && <span className="text-[9px] text-destructive font-bold">DLQ·{dlqCount}</span>}
+        <div className="flex items-center gap-2 border-t border-border pt-1.5">
+          {failedCount > 0 && <span className="text-[10px] font-semibold text-amber-500">⚠{failedCount}</span>}
+          {dlqCount > 0 && <span className="text-[10px] font-bold text-destructive">DLQ·{dlqCount}</span>}
         </div>
       )}
 
@@ -1440,16 +1444,37 @@ function MessageNode({ id, data, selected }: NodeProps) {
   );
 }
 
+const BRANCH_TONES = {
+  green: { text: 'text-[#16A34A] dark:text-[#5FD98A]', handle: '!h-3 !w-3 !rounded-full !border-2 !border-card !bg-[#16A34A] dark:!border-[#0B0B0B] dark:!bg-[#5FD98A]' },
+  red: { text: 'text-[#DC2626] dark:text-[#F0736D]', handle: '!h-3 !w-3 !rounded-full !border-2 !border-card !bg-[#DC2626] dark:!border-[#0B0B0B] dark:!bg-[#F0736D]' },
+  gray: { text: 'text-muted-foreground', handle: HANDLE_CLS },
+} as const;
+
+// Saídas de um passo que decide: rótulo à direita e ponto de ligação alinhado a ele
+function BranchOutputs({ rows, first }: { rows: { id: string; label: string; tone: keyof typeof BRANCH_TONES }[]; first: number }) {
+  return (
+    <>
+      {rows.map((r, i) => {
+        const top = first + i * 36;
+        return (
+          <span key={r.id} className="contents">
+            <span style={{ top }} className={cn('pointer-events-none absolute right-4 -translate-y-1/2 text-[13px] font-semibold leading-4', BRANCH_TONES[r.tone].text)}>{r.label}</span>
+            <Handle id={r.id} type="source" position={Position.Right} style={{ top }} className={BRANCH_TONES[r.tone].handle} />
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
 function WaitNode({ id, data, selected }: NodeProps) {
   const d = data as WaitNodeData;
   return (
     <NodeShell selected={selected} accent="amber"
-      header={<NodeHeader icon={Clock} label="Aguardar" accent="amber" nodeId={id} customLabel={d.customLabel} />}
+      header={<NodeHeader icon={Clock} label="Aguardar" meta={`${d.dia_offset} ${d.dia_offset === 1 ? 'dia' : 'dias'} antes da próxima`} accent="amber" nodeId={id} customLabel={d.customLabel} />}
       execState={d._execState} execError={d._execError} comment={(d as any).comment as string | undefined}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
-      <p className="text-sm font-semibold text-foreground/90">{d.dia_offset} dia{d.dia_offset !== 1 ? 's' : ''}</p>
-      <p className="text-xs text-muted-foreground/60">antes da próxima mensagem</p>
     </NodeShell>
   );
 }
@@ -1457,21 +1482,15 @@ function WaitNode({ id, data, selected }: NodeProps) {
 function ConditionNode({ id, data, selected }: NodeProps) {
   const d = data as ConditionNodeData;
   const opLabel: Record<string, string> = { eq: '==', contains: 'contém', starts_with: 'começa', not_empty: '≠ vazio' };
-  const condExpr = d.variavel && d.valor != null
+  const condExpr = d.variavel && d.valor != null && d.valor !== ''
     ? `${d.variavel} ${opLabel[d.operador ?? 'eq'] ?? '=='} "${d.valor}"`
     : (d.condicao || 'Respondeu?');
   return (
-    <NodeShell selected={selected} accent="violet"
-      header={<NodeHeader icon={GitBranch} label="Condição" accent="violet" nodeId={id} customLabel={d.customLabel} />}
+    <NodeShell selected={selected} accent="violet" minH={128}
+      header={<NodeHeader icon={GitBranch} label="Condição" meta={condExpr} accent="violet" nodeId={id} customLabel={d.customLabel} />}
       execState={d._execState} execError={d._execError} comment={(d as any).comment as string | undefined}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
-      <Handle id="sim" type="source" position={Position.Top} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-primary/60 !border !border-primary/40 !rounded-full" />
-      <Handle id="nao" type="source" position={Position.Bottom} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-destructive/50 !border !border-destructive/30 !rounded-full" />
-      <p className="text-xs font-mono text-foreground/80 bg-muted/60 rounded px-1.5 py-0.5 truncate">{condExpr}</p>
-      <div className="flex gap-2 mt-0.5">
-        <span className="text-[10px] text-emerald-500 font-medium">↑ Sim</span>
-        <span className="text-[10px] text-destructive/70 font-medium">↓ Não</span>
-      </div>
+      <BranchOutputs first={61} rows={[{ id: 'sim', label: 'Sim', tone: 'green' }, { id: 'nao', label: 'Não', tone: 'red' }]} />
     </NodeShell>
   );
 }
@@ -1480,10 +1499,9 @@ function EndNode({ id, data, selected }: NodeProps) {
   const d = data as EndNodeData;
   return (
     <NodeShell selected={selected} accent="destructive"
-      header={<NodeHeader icon={XCircle} label="Fim" accent="destructive" nodeId={id} customLabel={d.customLabel} />}
+      header={<NodeHeader icon={XCircle} label="Encerrar" meta="Fim para este lead" accent="destructive" nodeId={id} customLabel={d.customLabel} />}
       execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
-      <p className="text-xs text-muted-foreground/60">Encerrar sequência</p>
     </NodeShell>
   );
 }
@@ -1492,13 +1510,9 @@ function GoalNode({ id, data, selected }: NodeProps) {
   const d = data as GoalNodeData;
   return (
     <NodeShell selected={selected} accent="emerald"
-      header={<NodeHeader icon={Target} label="Meta" accent="emerald" nodeId={id} customLabel={d.customLabel} />}
+      header={<NodeHeader icon={Target} label="Meta" meta={d.marcarStatus ? `Marca como ${d.marcarStatus}` : 'Marca como Convertido'} accent="emerald" nodeId={id} customLabel={d.customLabel} />}
       execState={d._execState} execError={d._execError} comment={(d as any).comment as string | undefined}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
-      <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-        {d.marcarStatus ? `→ ${d.marcarStatus}` : '→ Convertido'}
-      </p>
-      <p className="text-[10px] text-muted-foreground/60 mt-0.5">Marca lead como convertido</p>
     </NodeShell>
   );
 }
@@ -1506,19 +1520,11 @@ function GoalNode({ id, data, selected }: NodeProps) {
 function SentimentNode({ id, data, selected }: NodeProps) {
   const d = data as SentimentNodeData;
   return (
-    <NodeShell selected={selected} accent="violet"
-      header={<NodeHeader icon={MessageCircle} label="Sentimento" accent="violet" nodeId={id} customLabel={d.customLabel} />}
+    <NodeShell selected={selected} accent="violet" minH={168}
+      header={<NodeHeader icon={Smile} label="Sentimento" meta="Lê o tom da resposta" accent="violet" nodeId={id} customLabel={d.customLabel} />}
       execState={d._execState} execError={d._execError} comment={(d as any).comment as string | undefined}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
-      <Handle id="positivo" type="source" position={Position.Top} style={{ left: '25%' }} className="!w-2.5 !h-2.5 !bg-emerald-500/70 !border !border-emerald-500/40 !rounded-full" />
-      <Handle id="neutro" type="source" position={Position.Right} className={HANDLE_CLS} />
-      <Handle id="negativo" type="source" position={Position.Bottom} style={{ left: '25%' }} className="!w-2.5 !h-2.5 !bg-destructive/50 !border !border-destructive/30 !rounded-full" />
-      <p className="text-xs text-muted-foreground/70">Analisa última mensagem do lead via IA</p>
-      <div className="flex gap-2 mt-0.5">
-        <span className="text-[10px] text-emerald-500 font-medium">↑ Positivo</span>
-        <span className="text-[10px] text-muted-foreground/60 font-medium">→ Neutro</span>
-        <span className="text-[10px] text-destructive/70 font-medium">↓ Negativo</span>
-      </div>
+      <BranchOutputs first={69} rows={[{ id: 'positivo', label: 'Positivo', tone: 'green' }, { id: 'neutro', label: 'Neutro', tone: 'gray' }, { id: 'negativo', label: 'Negativo', tone: 'red' }]} />
     </NodeShell>
   );
 }
@@ -1650,29 +1656,58 @@ function SwitchNode({ id, data, selected }: NodeProps) {
 
 // ─── Deletable Edge ─────────────────────────────────────────────────────────────
 
-function DeletableEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style, markerEnd, label }: EdgeProps) {
+function pluralDias(n: number) { return `${n} ${n === 1 ? 'dia' : 'dias'}`; }
+
+// Tempo de espera entre dois passos: sai da diferença entre o "quando enviar" de cada um
+function delayLabel(src: { kind?: string; dia_offset?: number; offset_unit?: string } | undefined, tgt: { kind?: string; dia_offset?: number; offset_unit?: string } | undefined): string | undefined {
+  if (!src || !tgt || tgt.kind !== 'message') return undefined;
+  if (src.kind !== 'trigger' && src.kind !== 'message') return undefined;
+  const timed = (x: { offset_unit?: string }) => x.offset_unit === 'hours' || x.offset_unit === 'minutes';
+  if (timed(tgt) || (src.kind === 'message' && timed(src))) {
+    const toMins = (x: { kind?: string; dia_offset?: number; offset_unit?: string }) => x.kind === 'trigger' ? 0 : (timed(x) ? offsetToMins(x.dia_offset ?? 0, x.offset_unit) : (x.dia_offset ?? 0) * 1440);
+    const diff = toMins(tgt) - toMins(src);
+    if (src.kind === 'trigger' && tgt.offset_unit === 'minutes') return formatHorasOffset(diff);
+    if (diff <= 0) return src.kind === 'trigger' ? 'Agora' : 'Em seguida';
+    const h = Math.floor(diff / 60); const m = diff % 60;
+    if (h >= 24 && h % 24 === 0 && m === 0) return pluralDias(h / 24);
+    return h === 0 ? `${m}min` : m === 0 ? `${h}h` : `${h}h ${m}min`;
+  }
+  const diff = (tgt.dia_offset ?? 0) - (src.kind === 'trigger' ? 0 : (src.dia_offset ?? 0));
+  if (diff <= 0) return src.kind === 'trigger' ? 'Agora' : 'Mesmo dia';
+  return pluralDias(diff);
+}
+
+function DeletableEdge({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style, label, sourceHandleId }: EdgeProps) {
   const { setEdges } = useReactFlow();
-  const [edgePath, labelX, labelY] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+  const srcData = useStore((s) => s.nodeLookup.get(source)?.data as { kind?: string; dia_offset?: number; offset_unit?: string } | undefined);
+  const tgtData = useStore((s) => s.nodeLookup.get(target)?.data as { kind?: string; dia_offset?: number; offset_unit?: string } | undefined);
+  const [edgePath, labelX, labelY] = getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, borderRadius: 14 });
+  const delay = label ? undefined : delayLabel(srcData, tgtData);
+  const branchHandle = sourceHandleId === 'sim' || sourceHandleId === 'nao' || sourceHandleId === 'positivo' || sourceHandleId === 'negativo' || sourceHandleId === 'neutro';
+  const text = label && !branchHandle ? String(label) : delay;
+  const tone = sourceHandleId === 'sim' || sourceHandleId === 'positivo' ? 'var(--zp-green, #5FD98A)' : sourceHandleId === 'nao' || sourceHandleId === 'negativo' ? 'var(--zp-red, #F0736D)' : undefined;
 
   return (
     <>
-      <BaseEdge id={id} path={edgePath} style={style} markerEnd={markerEnd} />
+      <BaseEdge id={id} path={edgePath} style={tone ? { ...style, stroke: tone } : style} />
       <EdgeLabelRenderer>
         <div
           style={{ transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`, position: 'absolute', pointerEvents: 'all' }}
-          className="nodrag nopan flex items-center gap-1 group"
+          className="nodrag nopan group flex items-center gap-1"
         >
-          {label && (
-            <span className="text-[10px] text-muted-foreground bg-card border border-border rounded-md px-1.5 py-0.5 leading-none shadow-sm">
-              {String(label)}
+          {text && (
+            <span className="flex h-[26px] items-center gap-[5px] rounded-full border border-border bg-card px-3 text-xs font-medium leading-4 text-foreground/80 dark:border-[#2E2E2E] dark:bg-[#141414] dark:text-[#D0D0D0]">
+              {delay && <Clock className="h-3 w-3 text-muted-foreground" strokeWidth={2.2} />}
+              {text}
             </span>
           )}
           <button
             onClick={() => setEdges((eds) => eds.filter((e) => e.id !== id))}
             title="Remover conexão"
-            className="w-4 h-4 rounded-full bg-card border border-border flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors opacity-0 group-hover:opacity-100 shadow-sm"
+            aria-label="Remover conexão"
+            className="flex h-4 w-4 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-colors hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
           >
-            <X className="w-2.5 h-2.5" />
+            <X className="h-2.5 w-2.5" />
           </button>
         </div>
       </EdgeLabelRenderer>
@@ -1685,21 +1720,14 @@ function SchedulingNode({ id, data, selected }: NodeProps) {
   const hasBlocos = d.blocos && (d.blocos as string[]).length > 0;
   const firstText = hasBlocos ? (d.blocos as string[])[0] : d.mensagemInicial;
   return (
-    <NodeShell selected={selected} execState={d._execState} execError={d._execError}>
-      <Handle type="target" position={Position.Left} />
-      <NodeHeader icon={CalendarCheck} label="AGENDAR CALL" accent="emerald" nodeId={id} customLabel={d.customLabel} />
-      <div className="px-3 pb-3 space-y-1">
-        <p className="text-[10px] text-muted-foreground/60 font-medium">
-          {d.duracao ?? 60} min · dia {d.dia_offset ?? 0} às {d.horario ?? '09:00'}
-          {hasBlocos && <span className="ml-1 text-emerald-500/70">· {(d.blocos as string[]).length} msgs</span>}
-        </p>
-        {firstText ? (
-          <p className="text-xs line-clamp-2 bg-muted/30 rounded-lg px-2.5 py-2 text-foreground/80">{truncate(firstText, 80)}</p>
-        ) : (
-          <p className="text-[10px] text-muted-foreground/40 italic">Mensagem padrão do agente</p>
-        )}
-      </div>
-      <Handle type="source" position={Position.Right} />
+    <NodeShell selected={selected} accent="emerald"
+      header={<NodeHeader icon={Calendar} label="Agendar call" meta="Marca a reunião" accent="emerald" nodeId={id} customLabel={d.customLabel} />}
+      execState={d._execState} execError={d._execError} comment={(d as any).comment as string | undefined}>
+      <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
+      <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
+      {firstText ? (
+        <p className="line-clamp-3 rounded-[10px] bg-muted px-3 py-2.5 text-[13px] leading-[145%] text-foreground dark:bg-[#1E1E1E]">{truncate(firstText, 120)}</p>
+      ) : null}
     </NodeShell>
   );
 }
@@ -1709,23 +1737,14 @@ function PostConditionNode({ id, data, selected }: NodeProps) {
   const hasBlocos = d.blocos && (d.blocos as string[]).length > 0;
   const firstText = hasBlocos ? (d.blocos as string[])[0] : d.mensagem;
   return (
-    <NodeShell selected={selected} execState={d._execState} execError={d._execError}>
+    <NodeShell selected={selected} accent="amber"
+      header={<NodeHeader icon={Zap} label="Pós-condição" meta={hasBlocos ? `${(d.blocos as string[]).length} mensagens · por interação` : 'Só segue com interação'} accent="amber" nodeId={id} customLabel={d.customLabel} />}
+      execState={d._execState} execError={d._execError} comment={(d as any).comment as string | undefined}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
-      <NodeHeader icon={Zap} label="PÓS-CONDIÇÃO" accent="amber" nodeId={id} customLabel={d.customLabel} />
-      <div className="px-3 pb-3 space-y-1">
-        <div className="flex items-center gap-1 text-[10px] text-amber-500/80 font-medium">
-          <Zap className="w-3 h-3" />
-          {hasBlocos
-            ? <span>{(d.blocos as string[]).length} mensagens · por interação</span>
-            : <span>Disparado por interação</span>}
-        </div>
-        {firstText ? (
-          <p className="text-xs line-clamp-2 bg-muted/30 rounded-lg px-2.5 py-2 text-foreground/80">{truncate(firstText, 80)}</p>
-        ) : (
-          <p className="text-[10px] text-muted-foreground/40 italic">Nenhuma mensagem configurada</p>
-        )}
-      </div>
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
+      {firstText ? (
+        <p className="line-clamp-3 rounded-[10px] bg-muted px-3 py-2.5 text-[13px] leading-[145%] text-foreground dark:bg-[#1E1E1E]">{truncate(firstText, 120)}</p>
+      ) : null}
     </NodeShell>
   );
 }
@@ -1771,7 +1790,41 @@ function AguardarPagamentoNode({ id, data, selected }: NodeProps) {
   );
 }
 
+const ADD_NODE_ID = '__add__';
+// Passos que não têm uma única saída para continuar a sequência
+const NO_CHAIN_KINDS = ['condition', 'switch', 'ab_test', 'sentiment', 'lead_score', 'aguardar_pagamento', 'end', 'goal', 'scheduling'];
+
+function useIsDark() {
+  const [dark, setDark] = useState(true);
+  useEffect(() => {
+    const el = document.documentElement;
+    const sync = () => setDark(el.classList.contains('dark'));
+    sync();
+    const obs = new MutationObserver(sync);
+    obs.observe(el, { attributes: true, attributeFilter: ['class'] });
+    return () => obs.disconnect();
+  }, []);
+  return dark;
+}
+
+function AddStepNode() {
+  const actions = useContext(CanvasActionsCtx);
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); actions?.openPalette(); }}
+      aria-label="Adicionar passo"
+      title="Adicionar passo"
+      className="nodrag nopan relative flex h-8 w-8 items-center justify-center rounded-lg border-[1.5px] border-dashed border-[#B5BDB8] bg-card text-muted-foreground transition-colors hover:border-[#01573C] hover:text-[#01573C] dark:border-[#4A4A4A] dark:bg-[#141414] dark:hover:border-[#96F63C] dark:hover:text-[#96F63C]"
+    >
+      <Plus className="h-4 w-4" strokeWidth={2.4} />
+      <Handle type="target" position={Position.Left} className="!pointer-events-none !h-0 !min-h-0 !w-0 !min-w-0 !border-0 !bg-transparent" />
+    </button>
+  );
+}
+
 const nodeTypes = {
+  addNode: AddStepNode,
   triggerNode: TriggerNode,
   messageNode: MessageNode,
   waitNode: WaitNode,
@@ -1940,57 +1993,37 @@ const TIPO_OPTIONS = [
 
 // ─── Tipo selector dropdown ─────────────────────────────────────────────────────
 
-function TipoSelector({ value, onChange, onClear }: { value: string; onChange: (v: string) => void; onClear: () => void }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const current = TIPO_OPTIONS.find(o => o.value === value);
-  const Icon = current?.icon ?? MessageSquare;
+const TIPO_PRIMARY = ['texto', 'audio', 'imagem', 'video', 'documento'];
 
-  useEffect(() => {
-    function close(e: MouseEvent) {
-      if (ref.current && e.target instanceof Element && !ref.current.contains(e.target)) setOpen(false);
-    }
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, []);
+function TipoSelector({ value, onChange, onClear }: { value: string; onChange: (v: string) => void; onClear: () => void }) {
+  const active = value === 'ptt' ? 'audio' : value;
+  const [more, setMore] = useState(() => !TIPO_PRIMARY.includes(active));
+  const primary = TIPO_PRIMARY.map((v) => TIPO_OPTIONS.find((o) => o.value === v)!);
+  const others = TIPO_OPTIONS.filter((o) => !TIPO_PRIMARY.includes(o.value));
+  const showOthers = more || !TIPO_PRIMARY.includes(active);
+  const chip = (isActive: boolean) => cn(
+    'rounded-full px-3.5 py-1.5 text-[13px] transition-colors',
+    isActive ? 'bg-[#0F3D2B] font-semibold text-white' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+  );
 
   return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen(v => !v)}
-        className="field-input flex items-center gap-2 text-left cursor-pointer"
-      >
-        <Icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-        <span className="flex-1 text-foreground text-sm">{current?.label ?? value}</span>
-        <ChevronDown className={cn('w-3.5 h-3.5 text-muted-foreground transition-transform', open && 'rotate-180')} />
-      </button>
-      {open && (
-        <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-card border border-border rounded-xl shadow-2xl overflow-hidden">
-          {TIPO_OPTIONS.map(opt => {
-            const Ic = opt.icon;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => { onChange(opt.value); onClear(); setOpen(false); }}
-                className={cn(
-                  'w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-muted',
-                  opt.value === value && 'bg-primary/10'
-                )}
-              >
-                <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center shrink-0',
-                  opt.value === value ? 'bg-primary/20' : 'bg-muted/60')}>
-                  <Ic className={cn('w-3.5 h-3.5', opt.value === value ? 'text-primary' : 'text-muted-foreground')} />
-                </div>
-                <div className="min-w-0">
-                  <p className={cn('text-sm font-medium leading-tight', opt.value === value ? 'text-primary' : 'text-foreground')}>{opt.label}</p>
-                  <p className="text-[10px] text-muted-foreground leading-tight">{opt.desc}</p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+    <div className="flex flex-wrap items-center gap-x-1 gap-y-2">
+      {[...primary, ...(showOthers ? others : [])].map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          aria-pressed={active === opt.value}
+          onClick={() => { if (active !== opt.value) { onChange(opt.value); onClear(); } }}
+          className={chip(active === opt.value)}
+        >
+          {opt.label}
+        </button>
+      ))}
+      {!showOthers && (
+        <button type="button" onClick={() => setMore(true)} className={chip(false)}>Mais</button>
+      )}
+      {showOthers && TIPO_PRIMARY.includes(active) && (
+        <button type="button" onClick={() => setMore(false)} className={chip(false)}>Menos</button>
       )}
     </div>
   );
@@ -2334,7 +2367,7 @@ function ConditionConfig({ d, nodeId, allNodes, allEdges, onUpdate }: ConditionC
       <div className="flex flex-col gap-1.5">
         <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Variável</label>
         <Select value={variavel} onValueChange={(v) => onUpdate(nodeId, { variavel: v })}>
-          <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-[42px] rounded-xl border-border bg-muted text-sm dark:border-[#2A2A2A] dark:bg-[#181818]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="resposta_botao">Resposta do botão</SelectItem>
             <SelectItem value="ultima_resposta">Última resposta</SelectItem>
@@ -2352,7 +2385,7 @@ function ConditionConfig({ d, nodeId, allNodes, allEdges, onUpdate }: ConditionC
       <div className="flex flex-col gap-1.5">
         <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Operador</label>
         <Select value={operador} onValueChange={(v) => onUpdate(nodeId, { operador: v as ConditionNodeData['operador'] })}>
-          <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-[42px] rounded-xl border-border bg-muted text-sm dark:border-[#2A2A2A] dark:bg-[#181818]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="eq">igual a (=)</SelectItem>
             <SelectItem value="contains">contém</SelectItem>
@@ -2367,7 +2400,7 @@ function ConditionConfig({ d, nodeId, allNodes, allEdges, onUpdate }: ConditionC
           {upstreamChoices.length > 0 ? (
             <>
               <Select value={inUpstream ? valor : '__custom'} onValueChange={(v) => onUpdate(nodeId, { valor: v === '__custom' ? '' : v })}>
-                <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-[42px] rounded-xl border-border bg-muted text-sm dark:border-[#2A2A2A] dark:bg-[#181818]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {upstreamChoices.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                   <SelectItem value="__custom">Personalizado…</SelectItem>
@@ -2428,7 +2461,7 @@ function SwitchConfig({ d, nodeId, allNodes, allEdges, onUpdate }: SwitchConfigP
       <div className="flex flex-col gap-1.5">
         <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Variável</label>
         <Select value={d.variavel ?? 'resposta_botao'} onValueChange={(v) => onUpdate(nodeId, { variavel: v })}>
-          <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-[42px] rounded-xl border-border bg-muted text-sm dark:border-[#2A2A2A] dark:bg-[#181818]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="resposta_botao">Resposta do botão</SelectItem>
             <SelectItem value="ultima_resposta">Última resposta</SelectItem>
@@ -2442,7 +2475,7 @@ function SwitchConfig({ d, nodeId, allNodes, allEdges, onUpdate }: SwitchConfigP
             <span className={`text-[10px] font-bold w-4 shrink-0 ${CASE_COLORS[i % CASE_COLORS.length]}`}>{i + 1}</span>
             {upstreamChoices.length > 0 ? (
               <Select value={upstreamChoices.includes(c.value) ? c.value : '__custom'} onValueChange={(v) => updateCase(i, { value: v === '__custom' ? '' : v })}>
-                <SelectTrigger className="h-8 text-xs rounded-lg border-[#212121] bg-[#141414] flex-1"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 text-xs rounded-lg border-border bg-muted dark:border-[#2A2A2A] dark:bg-[#181818] flex-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {upstreamChoices.map(ch => <SelectItem key={ch} value={ch}>{ch}</SelectItem>)}
                   <SelectItem value="__custom">Personalizado…</SelectItem>
@@ -2629,6 +2662,8 @@ interface ConfigPanelProps {
   sequences?: FollowSequence[];
   currentSeqId?: string;
   whatsappProvider?: 'uazapi' | 'meta';
+  nodeIndex?: number;
+  onTest?: () => void;
 }
 
 function TrialWebhookField() {
@@ -2799,9 +2834,32 @@ function PaymentWebhookField({ platform }: { platform?: 'mercadopago' | 'kiwify'
   )
 }
 
-function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], edges: allEdges = [], sequenceTipo, remarketingCfg, onRemarketingChange, sequences = [], currentSeqId, whatsappProvider = 'uazapi' }: ConfigPanelProps) {
+const KIND_VISUAL: Record<string, { icon: React.ElementType; accent: AccentKey; title: string }> = {
+  trigger: { icon: Zap, accent: 'amber', title: 'Gatilho' },
+  message: { icon: MessageSquare, accent: 'emerald', title: 'Mensagem' },
+  wait: { icon: Clock, accent: 'amber', title: 'Aguardar' },
+  wait_event: { icon: Bell, accent: 'amber', title: 'Aguardar evento' },
+  post_condition: { icon: Zap, accent: 'amber', title: 'Pós-condição' },
+  scheduling: { icon: Calendar, accent: 'emerald', title: 'Agendar call' },
+  condition: { icon: GitBranch, accent: 'violet', title: 'Condição' },
+  switch: { icon: GitBranch, accent: 'violet', title: 'Switch' },
+  sentiment: { icon: Smile, accent: 'violet', title: 'Sentimento' },
+  sub_flow: { icon: Layers, accent: 'blue', title: 'Sub-fluxo' },
+  goal: { icon: Target, accent: 'emerald', title: 'Meta' },
+  end: { icon: XCircle, accent: 'destructive', title: 'Encerrar' },
+  webhook: { icon: Globe, accent: 'blue', title: 'Webhook' },
+  lead_score: { icon: Star, accent: 'amber', title: 'Lead score' },
+  ab_test: { icon: GitMerge, accent: 'violet', title: 'Teste A/B' },
+  gerar_cobranca: { icon: CreditCard, accent: 'emerald', title: 'Gerar cobrança' },
+  aguardar_pagamento: { icon: Hourglass, accent: 'amber', title: 'Aguardar pagamento' },
+};
+
+function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], edges: allEdges = [], sequenceTipo, remarketingCfg, onRemarketingChange, sequences = [], currentSeqId, whatsappProvider = 'uazapi', nodeIndex, onTest }: ConfigPanelProps) {
   if (!node) return null;
   const d = node.data;
+  const visual = KIND_VISUAL[d.kind as string] ?? KIND_VISUAL.end;
+  const HeaderIcon = d.kind === 'message' && (d.tipo_mensagem === 'audio' || d.tipo_mensagem === 'ptt') ? Mic : visual.icon;
+  const panelTitle = (d.customLabel as string | undefined) || (d.kind === 'message' && nodeIndex ? `${visual.title} ${nodeIndex}` : visual.title);
 
   const horarioValue = d.kind === 'message' ? (d.horario || '09:00').slice(0, 5) : '09:00';
 
@@ -2827,28 +2885,23 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
   }
 
   return (
-    <div className="w-72 bg-card border-l border-border h-full flex flex-col overflow-y-auto">
-      <div className="flex items-center justify-between px-4 h-12 border-b border-border flex-shrink-0">
-        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Configurar</span>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
-          <X className="w-4 h-4" />
+    <aside className="absolute right-0 top-0 z-20 flex h-full w-[400px] max-w-full flex-col border-l border-border bg-card shadow-[-12px_0_32px_rgba(0,0,0,0.25)] dark:border-[#2A2A2A] dark:bg-[#111111] animate-in slide-in-from-right-4 duration-150">
+      <div className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-border px-[22px] py-[22px] dark:border-[#1F1F1F]">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className={cn('flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px]', ACCENTS[visual.accent].box)}>
+            <HeaderIcon className={cn('h-[18px] w-[18px]', ACCENTS[visual.accent].icon)} />
+          </div>
+          <div className="min-w-0">
+            <h3 className="truncate text-lg font-semibold leading-[22px] text-foreground">{panelTitle}</h3>
+            <p className="text-[13px] leading-4 text-muted-foreground">Configurar passo</p>
+          </div>
+        </div>
+        <button onClick={onClose} aria-label="Fechar" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-foreground/80 transition-colors hover:bg-accent dark:bg-[#1A1A1A]">
+          <X className="h-3.5 w-3.5" strokeWidth={2.4} />
         </button>
       </div>
 
-      <div className="p-4 flex flex-col gap-5 overflow-y-auto flex-1">
-
-        {/* ── Nome do node (todos os tipos, exceto trigger) ── */}
-        {d.kind !== 'trigger' && (
-          <Field label="Nome do node">
-            <input
-              type="text"
-              value={(d.customLabel as string) ?? ''}
-              onChange={(e) => onUpdate(node.id, { customLabel: e.target.value || undefined })}
-              placeholder={`Ex: ${d.kind === 'message' ? 'Sequência 1' : d.kind === 'wait' ? 'Aguardar 2 dias' : 'Meu nó'}`}
-              className="field-input"
-            />
-          </Field>
-        )}
+      <div className="flex flex-1 flex-col gap-5 overflow-y-auto p-[22px]">
 
         {/* ── Message node ── */}
         {d.kind === 'message' && (
@@ -2863,25 +2916,25 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
               </Field>
             ) : (
               <>
-                <Field label="Quando disparar">
-                  <div className="flex rounded-xl border border-border overflow-hidden">
+                <Field label="Quando enviar">
+                  <div className="inline-flex w-fit rounded-full bg-muted p-[3px] dark:bg-[#181818]">
                     <button
                       type="button"
                       onClick={() => onUpdate(node.id, { offset_unit: 'days' })}
-                      className={cn('flex-1 py-1.5 text-xs font-medium transition-colors',
+                      className={cn('rounded-full px-4 py-1.5 text-[13px] transition-colors',
                         (d.offset_unit ?? 'days') === 'days'
-                          ? 'bg-primary text-primary-foreground'
-                          : 'text-muted-foreground hover:text-foreground')}
+                          ? 'bg-[#0F3D2B] font-semibold text-white'
+                          : 'font-medium text-muted-foreground hover:text-foreground')}
                     >
                       Dias
                     </button>
                     <button
                       type="button"
                       onClick={() => onUpdate(node.id, { offset_unit: 'hours' })}
-                      className={cn('flex-1 py-1.5 text-xs font-medium transition-colors',
+                      className={cn('rounded-full px-4 py-1.5 text-[13px] transition-colors',
                         d.offset_unit === 'hours'
-                          ? 'bg-primary text-primary-foreground'
-                          : 'text-muted-foreground hover:text-foreground')}
+                          ? 'bg-[#0F3D2B] font-semibold text-white'
+                          : 'font-medium text-muted-foreground hover:text-foreground')}
                     >
                       Horas
                     </button>
@@ -2889,7 +2942,7 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                 </Field>
 
                 {(d.offset_unit ?? 'days') === 'days' ? (
-                  <>
+                  <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-3">
                     <Field label="Dia">
                       <input type="number" min={0} value={d.dia_offset}
                         onChange={(e) => onUpdate(node.id, { dia_offset: Number(e.target.value) })}
@@ -2898,17 +2951,17 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                     <Field label="Horário">
                       <div className="flex items-center gap-1">
                         <Select value={horarioValue.slice(0, 2)} onValueChange={(v) => onUpdate(node.id, { horario: `${v}:${horarioValue.slice(3, 5)}` })}>
-                          <SelectTrigger className="h-9 flex-1 rounded-xl border-[#212121] bg-[#141414] font-mono text-center text-sm"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="h-[42px] flex-1 justify-center rounded-xl border-border bg-muted font-mono text-sm dark:border-[#2A2A2A] dark:bg-[#181818] [&>svg]:hidden"><SelectValue /></SelectTrigger>
                           <SelectContent>{Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}</SelectContent>
                         </Select>
                         <span className="text-muted-foreground font-bold">:</span>
                         <Select value={horarioValue.slice(3, 5)} onValueChange={(v) => onUpdate(node.id, { horario: `${horarioValue.slice(0, 2)}:${v}` })}>
-                          <SelectTrigger className="h-9 flex-1 rounded-xl border-[#212121] bg-[#141414] font-mono text-center text-sm"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="h-[42px] flex-1 justify-center rounded-xl border-border bg-muted font-mono text-sm dark:border-[#2A2A2A] dark:bg-[#181818] [&>svg]:hidden"><SelectValue /></SelectTrigger>
                           <SelectContent>{['00','05','10','15','20','25','30','35','40','45','50','55'].map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                     </Field>
-                  </>
+                  </div>
                 ) : (
                   <Field label="Horas após o início">
                     <input
@@ -2933,7 +2986,7 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                 value={d.sdr_ativo === null || d.sdr_ativo === undefined ? 'null' : String(d.sdr_ativo)}
                 onValueChange={(v) => onUpdate(node.id, { sdr_ativo: v === 'null' ? null : v === 'true' })}
               >
-                <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-[42px] rounded-xl border-border bg-muted text-sm dark:border-[#2A2A2A] dark:bg-[#181818]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="null">Sem mudança</SelectItem>
                   <SelectItem value="false">Pausar IA após este node</SelectItem>
@@ -3193,12 +3246,12 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
               <div className="flex items-center gap-1">
                 {(() => { const hv = ((d as SchedulingNodeData).horario ?? '09:00').slice(0, 5); return (<>
                   <Select value={hv.slice(0, 2)} onValueChange={(v) => onUpdate(node.id, { horario: `${v}:${hv.slice(3, 5)}` })}>
-                    <SelectTrigger className="h-9 flex-1 rounded-xl border-[#212121] bg-[#141414] font-mono text-center text-sm"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-[42px] flex-1 justify-center rounded-xl border-border bg-muted font-mono text-sm dark:border-[#2A2A2A] dark:bg-[#181818] [&>svg]:hidden"><SelectValue /></SelectTrigger>
                     <SelectContent>{Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}</SelectContent>
                   </Select>
                   <span className="text-muted-foreground font-bold">:</span>
                   <Select value={hv.slice(3, 5)} onValueChange={(v) => onUpdate(node.id, { horario: `${hv.slice(0, 2)}:${v}` })}>
-                    <SelectTrigger className="h-9 flex-1 rounded-xl border-[#212121] bg-[#141414] font-mono text-center text-sm"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-[42px] flex-1 justify-center rounded-xl border-border bg-muted font-mono text-sm dark:border-[#2A2A2A] dark:bg-[#181818] [&>svg]:hidden"><SelectValue /></SelectTrigger>
                     <SelectContent>{['00','05','10','15','20','25','30','35','40','45','50','55'].map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
                   </Select>
                 </>); })()}
@@ -3206,7 +3259,7 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
             </Field>
             <Field label="Duração da call">
               <Select value={String((d as SchedulingNodeData).duracao ?? 60)} onValueChange={(v) => onUpdate(node.id, { duracao: Number(v) })}>
-                <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-[42px] rounded-xl border-border bg-muted text-sm dark:border-[#2A2A2A] dark:bg-[#181818]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="30">30 minutos</SelectItem>
                   <SelectItem value="60">60 minutos</SelectItem>
@@ -3273,7 +3326,7 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
             {sequenceTipo !== 'pagamento' && (
               <Field label="Entrada automática por evento">
                 <Select value={(d as TriggerNodeData).eventoEntrada ?? 'none'} onValueChange={(v) => onUpdate(node.id, { eventoEntrada: v === 'none' ? undefined : (v as TriggerNodeData['eventoEntrada']) })}>
-                  <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue placeholder="Manual / cron padrão" /></SelectTrigger>
+                  <SelectTrigger className="h-[42px] rounded-xl border-border bg-muted text-sm dark:border-[#2A2A2A] dark:bg-[#181818]"><SelectValue placeholder="Manual / cron padrão" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Manual / cron padrão</SelectItem>
                     <SelectItem value="novo_lead">Novo lead criado</SelectItem>
@@ -3320,7 +3373,7 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                       onUpdate(node.id, { platform: plat, eventoEntrada: evento as TriggerNodeData['eventoEntrada'] });
                     }}
                   >
-                    <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]">
+                    <SelectTrigger className="h-[42px] rounded-xl border-border bg-muted text-sm dark:border-[#2A2A2A] dark:bg-[#181818]">
                       <SelectValue placeholder="Selecionar plataforma..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -3336,7 +3389,7 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                       value={(d as TriggerNodeData).eventoEntrada ?? 'asaas_pago'}
                       onValueChange={(v) => onUpdate(node.id, { eventoEntrada: v as TriggerNodeData['eventoEntrada'] })}
                     >
-                      <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-[42px] rounded-xl border-border bg-muted text-sm dark:border-[#2A2A2A] dark:bg-[#181818]"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="asaas_pago">Pagamento confirmado</SelectItem>
                         <SelectItem value="asaas_boleto_gerado">Boleto gerado</SelectItem>
@@ -3435,7 +3488,7 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
             </Field>
             <Field label="Método">
               <Select value={d.method ?? 'POST'} onValueChange={(v) => onUpdate(node.id, { method: v as 'POST' | 'GET' })}>
-                <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-[42px] rounded-xl border-border bg-muted text-sm dark:border-[#2A2A2A] dark:bg-[#181818]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="POST">POST</SelectItem>
                   <SelectItem value="GET">GET</SelectItem>
@@ -3488,7 +3541,7 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                   onUpdate(node.id, { subSequenceId: v, subSequenceName: chosen?.nome ?? '' } as any);
                 }}
               >
-                <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue placeholder="Selecionar sequência…" /></SelectTrigger>
+                <SelectTrigger className="h-[42px] rounded-xl border-border bg-muted text-sm dark:border-[#2A2A2A] dark:bg-[#181818]"><SelectValue placeholder="Selecionar sequência…" /></SelectTrigger>
                 <SelectContent>
                   {sequences.filter((s) => s.id !== currentSeqId).map((s) => (
                     <SelectItem key={s.id} value={s.id}>{s.nome} ({s.tipo})</SelectItem>
@@ -3525,7 +3578,7 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                 value={(d as WaitEventNodeData).event ?? 'reply'}
                 onValueChange={(v) => onUpdate(node.id, { event: v as 'reply' | 'keyword' })}
               >
-                <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-[42px] rounded-xl border-border bg-muted text-sm dark:border-[#2A2A2A] dark:bg-[#181818]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="reply">Qualquer resposta</SelectItem>
                   <SelectItem value="keyword">Palavra-chave específica</SelectItem>
@@ -3556,7 +3609,7 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
           <>
             <Field label="Tipo de cobrança">
               <Select value={(d as GerarCobrancaNodeData).billingType ?? 'PIX'} onValueChange={(v) => onUpdate(node.id, { billingType: v })}>
-                <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-[42px] rounded-xl border-border bg-muted text-sm dark:border-[#2A2A2A] dark:bg-[#181818]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="PIX">PIX</SelectItem>
                   <SelectItem value="BOLETO">Boleto bancário</SelectItem>
@@ -3601,6 +3654,18 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
           </Field>
         )}
 
+        {d.kind !== 'trigger' && (
+          <Field label="Nome do passo" hint="opcional">
+            <input
+              type="text"
+              value={(d.customLabel as string) ?? ''}
+              onChange={(e) => onUpdate(node.id, { customLabel: e.target.value || undefined })}
+              placeholder={d.kind === 'message' && nodeIndex ? `Mensagem ${nodeIndex}` : visual.title}
+              className="field-input"
+            />
+          </Field>
+        )}
+
         {/* ── Anotações (todos os nós exceto trigger) ── */}
         {d.kind !== 'trigger' && (
           <Field label="Anotações">
@@ -3613,14 +3678,23 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
           </Field>
         )}
 
-        {d.kind !== 'trigger' && (
-          <button onClick={() => { onDelete(node.id); onClose(); }}
-            className="mt-auto w-full py-2 rounded-xl bg-destructive/10 text-destructive text-sm font-medium hover:bg-destructive/20 transition-colors border border-destructive/20">
-            Remover nó
-          </button>
-        )}
       </div>
-    </div>
+
+      {(d.kind !== 'trigger' || onTest) && (
+        <div className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-border px-[22px] py-4 dark:border-[#1F1F1F]">
+          {d.kind !== 'trigger' ? (
+            <button type="button" onClick={() => { onDelete(node.id); onClose(); }} className="flex items-center gap-2 rounded-full px-1 py-2 text-sm font-semibold text-destructive transition-colors hover:opacity-80">
+              <Trash2 className="h-4 w-4" />Excluir passo
+            </button>
+          ) : <span />}
+          {onTest && (
+            <button type="button" onClick={onTest} className="flex h-10 items-center justify-center rounded-full bg-[#141414] px-5 text-sm font-semibold text-white shadow-[inset_0_1px_0_#FFFFFF14,0_3px_0_#000000] transition-transform active:translate-y-px">
+              Testar passo
+            </button>
+          )}
+        </div>
+      )}
+    </aside>
   );
 }
 
@@ -3628,8 +3702,8 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2">
-        <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">{label}</label>
-        {hint && <span className="text-[10px] text-muted-foreground/50 italic normal-case tracking-normal">{hint}</span>}
+        <label className="text-sm font-semibold text-foreground">{label}</label>
+        {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
       </div>
       {children}
     </div>
@@ -3641,91 +3715,77 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 type PaletteKind = 'message' | 'wait' | 'wait_event' | 'sub_flow' | 'condition' | 'switch' | 'end' | 'goal' | 'sentiment' | 'webhook' | 'lead_score' | 'ab_test' | 'scheduling' | 'post_condition' | 'gerar_cobranca' | 'aguardar_pagamento';
 
 interface PaletteItem {
-  label: string; desc: string; useCase: string; kind: PaletteKind;
-  icon: React.ElementType; bgClass: string; iconClass: string;
+  label: string; desc: string; kind: PaletteKind; group: string;
+  icon: React.ElementType; accent: AccentKey;
 }
 
 const PALETTE_ITEMS: PaletteItem[] = [
-  { label: 'Mensagem', desc: 'Envia uma mensagem WhatsApp ao lead: texto, áudio, imagem, vídeo, botões ou lista.', useCase: 'Use quando quiser mandar um conteúdo específico num ponto da sequência: apresentação, oferta, prova social ou CTA.', kind: 'message', icon: MessageSquare, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
-  { label: 'Aguardar', desc: 'Pausa a sequência por um tempo definido antes de executar o próximo node.', useCase: 'Use quando quiser dar um intervalo entre mensagens para não parecer spam: ex: esperar 2 dias antes de fazer follow-up.', kind: 'wait', icon: Clock, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
-  { label: 'Aguardar Evento', desc: 'Pausa a sequência e aguarda uma ação do lead antes de continuar: resposta, clique em link ou palavra-chave.', useCase: 'Use quando a próxima etapa só deve acontecer se o lead demonstrar interesse ativo.', kind: 'wait_event', icon: Bell, bgClass: 'bg-cyan-500/10', iconClass: 'text-cyan-500' },
-  { label: 'Sub-fluxo', desc: 'Insere o lead em outra sequência já criada sem interromper o fluxo atual.', useCase: 'Use quando tiver uma sequência reutilizável (ex: quebra de objeção) e quiser ativá-la em múltiplos fluxos sem duplicar nodes.', kind: 'sub_flow', icon: Layers, bgClass: 'bg-blue-500/10', iconClass: 'text-blue-500' },
-  { label: 'Condição', desc: 'Cria uma bifurcação com lógica Se/Senão baseada em variáveis do lead: tag, campo CRM, etapa no funil.', useCase: 'Use quando quiser tratar leads diferentes de formas diferentes: ex: "se respondeu, vai pro caminho Sim; senão, vai pro Não".', kind: 'condition', icon: GitBranch, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
-  { label: 'Sentimento', desc: 'Usa IA para analisar o tom da última mensagem do lead e rotear automaticamente: positivo, neutro ou negativo.', useCase: 'Use quando quiser adaptar a abordagem com base no humor da conversa sem precisar criar condições manuais.', kind: 'sentiment', icon: MessageCircle, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
-  { label: 'Encerrar', desc: 'Finaliza a sequência para o lead. Ele para de receber mensagens deste fluxo.', useCase: 'Use no fim de cada caminho: quando o lead converteu, pediu para parar ou chegou ao fim sem ação.', kind: 'end', icon: XCircle, bgClass: 'bg-destructive/10', iconClass: 'text-destructive' },
-  { label: 'Meta', desc: 'Marca o lead como convertido e registra a conversão no CRM.', useCase: 'Use quando o lead realizou a ação desejada: agendou, comprou ou respondeu positivamente.', kind: 'goal', icon: Target, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
-  { label: 'Agendar Call', desc: 'Envia blocos de mensagem e ativa o agente de agendamento que oferece horários disponíveis ao lead via WhatsApp.', useCase: 'Use quando quiser que o próprio fluxo feche uma reunião sem intervenção humana.', kind: 'scheduling', icon: CalendarCheck, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
-  { label: 'Pós-Condição', desc: 'Aguarda o lead responder ou clicar num botão antes de disparar a mensagem. Sem interação genuína, o fluxo fica pausado neste ponto.', useCase: 'Use na saída "NÃO" de uma Condição para evitar que o CRON dispare o caminho negativo sem o lead ter interagido de verdade.', kind: 'post_condition', icon: Zap, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
-  { label: 'Gerar Cobrança', desc: 'Cria um boleto, PIX ou link de pagamento no Asaas para o lead e envia o link via WhatsApp automaticamente.', useCase: 'Use quando quiser disparar uma cobrança diretamente do fluxo: ex: após o lead aceitar a proposta, gerar o boleto na hora.', kind: 'gerar_cobranca', icon: CreditCard, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
-  { label: 'Aguardar Pagamento', desc: 'Pausa o fluxo até o pagamento ser confirmado. Bifurca em "Pago" (topo) e "Vencido" (base) após o timeout.', useCase: 'Use depois de Gerar Cobrança para rotear automaticamente entre pós-venda (pago) e régua de cobrança (vencido).', kind: 'aguardar_pagamento', icon: Hourglass, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
+  { group: 'Enviar', label: 'Mensagem', desc: 'Texto, áudio, imagem, vídeo, botões ou lista', kind: 'message', icon: MessageSquare, accent: 'emerald' },
+  { group: 'Enviar', label: 'Agendar call', desc: 'O agente oferece horários e marca a reunião', kind: 'scheduling', icon: Calendar, accent: 'emerald' },
+  { group: 'Esperar', label: 'Aguardar', desc: 'Espera um tempo antes do próximo passo', kind: 'wait', icon: Clock, accent: 'amber' },
+  { group: 'Esperar', label: 'Aguardar evento', desc: 'Espera o lead responder, clicar ou dizer algo', kind: 'wait_event', icon: Bell, accent: 'amber' },
+  { group: 'Esperar', label: 'Pós-condição', desc: 'Só segue se o lead interagir de verdade', kind: 'post_condition', icon: Zap, accent: 'amber' },
+  { group: 'Decidir', label: 'Condição', desc: 'Se ou senão, por etiqueta, campo ou etapa', kind: 'condition', icon: GitBranch, accent: 'violet' },
+  { group: 'Decidir', label: 'Sentimento', desc: 'A IA lê o tom da resposta e escolhe o caminho', kind: 'sentiment', icon: Smile, accent: 'violet' },
+  { group: 'Fluxo', label: 'Sub-fluxo', desc: 'Coloca o lead em outra sequência', kind: 'sub_flow', icon: Layers, accent: 'blue' },
+  { group: 'Fluxo', label: 'Meta', desc: 'Marca o lead como convertido no CRM', kind: 'goal', icon: Target, accent: 'emerald' },
+  { group: 'Fluxo', label: 'Encerrar', desc: 'Para de enviar mensagens deste fluxo ao lead', kind: 'end', icon: XCircle, accent: 'destructive' },
+  { group: 'Cobrança', label: 'Gerar cobrança', desc: 'Cria boleto, PIX ou link de pagamento no Asaas', kind: 'gerar_cobranca', icon: CreditCard, accent: 'emerald' },
+  { group: 'Cobrança', label: 'Aguardar pagamento', desc: 'Espera a confirmação e separa pago de vencido', kind: 'aguardar_pagamento', icon: Hourglass, accent: 'amber' },
 ];
 
-function PalettePanel({ onAdd, onClose }: { onAdd: (kind: PaletteKind) => void; onClose: () => void }) {
+function PalettePanel({ onAdd, onClose, after }: { onAdd: (kind: PaletteKind) => void; onClose: () => void; after?: string }) {
   const [search, setSearch] = useState('');
-  const [hoveredKind, setHoveredKind] = useState<PaletteKind | null>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      const target = e.target;
-      if (panelRef.current && target instanceof Element && !panelRef.current.contains(target)) onClose();
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [onClose]);
-
-  const filtered = PALETTE_ITEMS.filter(
-    (item) => !search || item.label.toLowerCase().includes(search.toLowerCase()) || item.desc.toLowerCase().includes(search.toLowerCase()) || item.useCase.toLowerCase().includes(search.toLowerCase())
-  );
+  const q = search.trim().toLowerCase();
+  const filtered = PALETTE_ITEMS.filter((item) => !q || item.label.toLowerCase().includes(q) || item.desc.toLowerCase().includes(q));
+  const groups = Array.from(new Set(filtered.map((i) => i.group)));
 
   return (
-    <div ref={panelRef} className="absolute right-16 top-1/2 -translate-y-1/2 z-20 w-64 bg-card border border-border rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-right-2 duration-150">
-      <div className="px-4 py-3 border-b border-border space-y-2">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">O que acontece a seguir?</p>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors"><X className="w-3.5 h-3.5" /></button>
+    <aside className="absolute right-0 top-0 z-20 flex h-full w-[420px] max-w-full flex-col overflow-hidden border-l border-border bg-card shadow-[-12px_0_32px_rgba(0,0,0,0.25)] dark:border-[#2A2A2A] dark:bg-[#111111] animate-in slide-in-from-right-4 duration-150">
+      <div className="flex flex-col gap-3.5 px-[22px] pb-3.5 pt-[22px]">
+        <div className="flex items-start justify-between">
+          <div className="flex flex-col gap-1">
+            <h3 className="text-lg font-semibold leading-[22px] text-foreground">Adicionar passo</h3>
+            {after && <p className="text-[13px] leading-4 text-muted-foreground">Entra depois da {after}</p>}
+          </div>
+          <button type="button" onClick={onClose} aria-label="Fechar" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-foreground/80 transition-colors hover:bg-accent dark:bg-[#1A1A1A]"><X className="h-3.5 w-3.5" strokeWidth={2.4} /></button>
         </div>
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-          <input autoFocus value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar nó…"
-            className="w-full h-8 pl-8 pr-3 text-sm bg-muted rounded-lg outline-none text-foreground placeholder:text-muted-foreground" />
+        <div className="flex h-[42px] items-center gap-2.5 rounded-xl border border-border bg-muted px-3.5 dark:border-[#2A2A2A] dark:bg-[#181818]">
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <input autoFocus value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar passo" aria-label="Buscar passo" className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground" />
         </div>
       </div>
-      <div className="p-2 space-y-0.5">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
         {filtered.length === 0 ? (
-          <p className="text-center text-xs text-muted-foreground py-4">Nenhum resultado</p>
-        ) : filtered.map((item) => {
-          const Icon = item.icon;
-          const isExpanded = hoveredKind === item.kind;
-          return (
-            <button
-              key={item.kind}
-              onClick={() => { onAdd(item.kind); onClose(); }}
-              onMouseEnter={() => setHoveredKind(item.kind)}
-              onMouseLeave={() => setHoveredKind(null)}
-              className="w-full flex flex-col gap-0 px-3 py-2.5 rounded-xl text-sm hover:bg-muted transition-colors text-left"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', item.bgClass)}>
-                  <Icon className={cn('w-4 h-4', item.iconClass)} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-foreground">{item.label}</p>
-                  <p className={cn('text-xs text-muted-foreground transition-all duration-150', isExpanded ? '' : 'truncate')}>{item.desc}</p>
-                </div>
-              </div>
-              {isExpanded && (
-                <div className="mt-2 ml-10 pl-0.5 border-l-2 border-primary/20 pl-2">
-                  <p className="text-[11px] text-primary/70 leading-relaxed">
-                    <span className="font-semibold">Use quando:</span> {item.useCase}
-                  </p>
-                </div>
-              )}
-            </button>
-          );
-        })}
+          <p className="py-8 text-center text-sm text-muted-foreground">Nenhum passo encontrado.</p>
+        ) : groups.map((g, gi) => (
+          <div key={g} className="flex flex-col gap-0.5">
+            <p className={cn('px-2.5 pb-1.5 text-[12.5px] font-semibold leading-4 text-muted-foreground', gi === 0 ? 'pt-2' : 'pt-3.5')}>{g}</p>
+            {filtered.filter((i) => i.group === g).map((item) => {
+              const Icon = item.icon;
+              const acc = ACCENTS[item.accent];
+              return (
+                <button
+                  key={item.kind}
+                  type="button"
+                  onClick={() => { onAdd(item.kind); onClose(); }}
+                  className="flex items-center gap-3 rounded-xl p-2.5 text-left transition-colors hover:bg-[#E4F1E9] dark:hover:bg-[#17231C]"
+                >
+                  <div className={cn('flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px]', acc.box)}>
+                    <Icon className={cn('h-[18px] w-[18px]', acc.icon)} />
+                  </div>
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <p className="text-sm font-semibold leading-[18px] text-foreground">{item.label}</p>
+                    <p className="text-[12.5px] leading-4 text-muted-foreground">{item.desc}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </div>
-    </div>
+    </aside>
   );
 }
 
@@ -3750,9 +3810,10 @@ interface ConversionRow {
   converted_at: string
 }
 
-function ExecutionsView({ sequenceId, tipo }: { sequenceId: string | null; tipo: SequenceTipo }) {
-  const label: Record<SequenceTipo, string> = { follow_geral: 'Follow-up', anti_noshow: 'Anti-Noshow', remarketing: 'Remarketing', trial_saas: 'Trial SaaS', pagamento: 'Pagamento' };
+function ExecutionsView({ sequenceId, nodes = [] }: { sequenceId: string | null; tipo?: SequenceTipo; nodes?: Node<AutoNodeData>[] }) {
   const [tab, setTab] = useState<'execucoes' | 'conversoes'>('execucoes');
+  const [filter, setFilter] = useState<'all' | 'sent' | 'failed' | 'skipped'>('all');
+  const [visible, setVisible] = useState(8);
   const [executions, setExecutions] = useState<ExecLogReal[]>([]);
   const [loadingExec, setLoadingExec] = useState(false);
   const [execError, setExecError] = useState<string | null>(null);
@@ -3789,155 +3850,162 @@ function ExecutionsView({ sequenceId, tipo }: { sequenceId: string | null; tipo:
       .finally(() => setLoadingConv(false));
   }, [sequenceId, tab]);
 
-  function formatTs(ts: string | null): string {
-    if (!ts) return ':';
-    try {
-      const d = new Date(ts);
-      const now = new Date();
-      const isToday = d.toDateString() === now.toDateString();
-      const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      return isToday ? `hoje, ${time}` : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + time;
-    } catch { return ts; }
-  }
+  useEffect(() => { setVisible(8); }, [filter, tab, sequenceId]);
+
+  const fmtWhen = (ts: string | null) => {
+    if (!ts) return '';
+    const d = new Date(ts);
+    return `${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+  };
+
+  const since = Date.now() - 30 * 86_400_000;
+  const recent = executions.filter((e) => !e.ts || new Date(e.ts).getTime() >= since);
+  const counts = { all: recent.length, sent: recent.filter((e) => e.status === 'sent').length, failed: recent.filter((e) => e.status === 'failed').length, skipped: recent.filter((e) => e.status === 'skipped').length };
+  const rows = recent.filter((e) => filter === 'all' || e.status === filter);
+
+  // Faixa do fluxo com quantos leads receberam cada passo
+  const chain = nodes.filter((n) => n.data.kind === 'trigger' || n.data.kind === 'message').sort((a, b) => a.position.x - b.position.x);
+  const msgIndex = new Map(chain.filter((n) => n.data.kind === 'message').map((n, i) => [n.id, i + 1]));
+
+  const chip = (active: boolean) => cn('rounded-full px-3.5 py-1.5 text-[13px] transition-colors', active ? 'bg-[#0F3D2B] font-semibold text-white' : 'text-muted-foreground hover:text-foreground');
+  const statusChip: Record<string, string> = {
+    sent: 'bg-[#01573C]/10 text-[#01573C] dark:bg-[#96F63C]/[0.14] dark:text-[#96F63C]',
+    failed: 'bg-destructive/10 text-destructive',
+    skipped: 'bg-muted text-muted-foreground',
+  };
+  const statusLabel: Record<string, string> = { sent: 'Enviado', failed: 'Falhou', skipped: 'Pulado' };
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="max-w-2xl mx-auto p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex gap-1 p-1 rounded-lg bg-muted">
-            <button onClick={() => setTab('execucoes')}
-              className={cn('flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors',
-                tab === 'execucoes' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
-              <Play className="w-3 h-3" />Execuções
-            </button>
-            <button onClick={() => setTab('conversoes')}
-              className={cn('flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors',
-                tab === 'conversoes' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
-              <TrendingUp className="w-3 h-3" />Conversões
-            </button>
-          </div>
-          <span className="text-xs text-muted-foreground">{label[tipo]}</span>
-        </div>
-
-        {tab === 'execucoes' && (
-          <>
-            {loadingExec ? (
-              <div className="flex items-center justify-center py-20 gap-3">
-                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Carregando execuções…</span>
-              </div>
-            ) : execError ? (
-              <div className="flex flex-col items-center justify-center py-16 gap-3">
-                <AlertCircle className="w-8 h-8 text-destructive/50" />
-                <p className="text-sm text-destructive">{execError}</p>
-              </div>
-            ) : !sequenceId ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-4">
-                <Clock3 className="w-10 h-10 text-muted-foreground/30" />
-                <p className="text-sm text-muted-foreground">Selecione uma sequência para ver execuções</p>
-              </div>
-            ) : executions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-4">
-                <Clock3 className="w-10 h-10 text-muted-foreground/30" />
-                <div className="text-center">
-                  <p className="text-sm font-medium text-muted-foreground">Nenhuma execução registrada</p>
-                  <p className="text-xs text-muted-foreground/70">As execuções aparecerão aqui após os primeiros disparos</p>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {executions.map((exec) => (
-                  <div key={exec.id} className="flex items-center gap-3 p-3.5 rounded-xl border border-border bg-card">
-                    <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
-                      exec.status === 'sent' ? 'bg-primary/10' : exec.status === 'failed' ? 'bg-destructive/10' : 'bg-muted')}>
-                      {exec.status === 'sent' ? <CheckCheck className="w-4 h-4 text-primary" />
-                        : exec.status === 'failed' ? <AlertCircle className="w-4 h-4 text-destructive" />
-                        : <Clock3 className="w-4 h-4 text-muted-foreground" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{exec.lead}</p>
-                      <p className="text-xs text-muted-foreground truncate">{exec.step}</p>
-                      {exec.telefone && (
-                        <p className="text-[10px] text-muted-foreground/60 truncate font-mono">{exec.telefone}</p>
+    <div className="flex flex-col">
+      {chain.length > 0 && (
+        <div className="relative overflow-x-auto border-b border-border bg-[#FAFCFA] dark:border-[#1C1C1C] dark:bg-[#0A0A0A]" style={{ backgroundImage: 'radial-gradient(circle, var(--zp-dot, #2A2A2A) 1.2px, transparent 1.4px)', backgroundSize: '24px 24px' }}>
+          <div className="flex min-w-max items-center px-12 py-14">
+            {chain.map((n, i) => {
+              const d = n.data as unknown as MessageNodeData & { label?: string; eventoEntrada?: string };
+              const isTrigger = n.data.kind === 'trigger';
+              const prev = i > 0 ? (chain[i - 1].data as { kind?: string; dia_offset?: number; offset_unit?: string }) : undefined;
+              const pill = i > 0 ? delayLabel(prev, d as { kind?: string; dia_offset?: number; offset_unit?: string }) : undefined;
+              const sent = d._sentCount ?? 0;
+              return (
+                <div key={n.id} className="flex items-center">
+                  {i > 0 && (
+                    <div className="flex items-center">
+                      <span className="h-0.5 w-7 bg-[var(--zp-edge,#3A3A3A)]" />
+                      {pill && (
+                        <span className="flex h-[26px] items-center gap-[5px] rounded-full border border-border bg-card px-3 text-xs font-medium text-foreground/80 dark:border-[#2E2E2E] dark:bg-[#141414] dark:text-[#D0D0D0]"><Clock className="h-3 w-3 text-muted-foreground" strokeWidth={2.2} />{pill}</span>
                       )}
+                      <span className="h-0.5 w-7 bg-[var(--zp-edge,#3A3A3A)]" />
                     </div>
-                    <div className="text-right shrink-0">
-                      <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full border uppercase tracking-wide',
-                        exec.status === 'sent' ? 'bg-primary/10 text-primary border-primary/20'
-                          : exec.status === 'failed' ? 'bg-destructive/10 text-destructive border-destructive/20'
-                          : 'bg-muted text-muted-foreground border-border')}>
-                        {exec.status === 'sent' ? 'Enviado' : exec.status === 'failed' ? 'Falhou' : 'Pulado'}
-                      </span>
-                      <p className="text-[10px] text-muted-foreground mt-1">{formatTs(exec.ts)}</p>
+                  )}
+                  {isTrigger ? (
+                    <div className="flex h-[84px] w-[200px] items-center gap-3 rounded-2xl border-[1.5px] border-border bg-card px-4 dark:border-[#2E2E2E] dark:bg-[#141414]">
+                      <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', ACCENTS.amber.box)}><Zap className={cn('h-[22px] w-[22px]', ACCENTS.amber.icon)} /></span>
+                      <span className="min-w-0"><span className="block text-xs leading-4 text-muted-foreground">Gatilho</span><span className="line-clamp-2 text-sm font-semibold leading-[18px] text-foreground">{(d.eventoEntrada && TRIGGER_TITLES[d.eventoEntrada]) || d.label}</span></span>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-
-        {tab === 'conversoes' && (
-          <>
-            {loadingConv ? (
-              <div className="flex items-center justify-center py-20 gap-3">
-                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Carregando conversões…</span>
-              </div>
-            ) : !sequenceId ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-4">
-                <TrendingUp className="w-10 h-10 text-muted-foreground/30" />
-                <p className="text-sm text-muted-foreground">Selecione uma sequência para ver conversões</p>
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-4 rounded-xl border border-border bg-card">
-                    <p className="text-xs text-muted-foreground mb-1">Leads convertidos</p>
-                    <p className="text-2xl font-bold text-foreground">{convTotal}</p>
-                  </div>
-                  <div className="p-4 rounded-xl border border-border bg-card">
-                    <p className="text-xs text-muted-foreground mb-1">Taxa de conversão</p>
-                    <p className="text-2xl font-bold text-emerald-500">{convRate}%</p>
-                  </div>
-                </div>
-                {conversions.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 gap-4">
-                    <TrendingUp className="w-10 h-10 text-muted-foreground/30" />
-                    <div className="text-center">
-                      <p className="text-sm font-medium text-muted-foreground">Nenhuma conversão registrada</p>
-                      <p className="text-xs text-muted-foreground/70">Adicione nós de Meta/Goal ao canvas para rastrear conversões</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {conversions.map((c, i) => (
-                      <div key={`${c.lead_id}-${i}`} className="flex items-center gap-3 p-3.5 rounded-xl border border-border bg-card">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-emerald-500/10">
-                          <TrendingUp className="w-4 h-4 text-emerald-500" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">{c.lead_name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{c.goal_label}</p>
-                          {c.whatsapp && (
-                            <p className="text-[10px] text-muted-foreground/60 truncate font-mono">{c.whatsapp}</p>
-                          )}
-                        </div>
-                        <div className="text-right shrink-0">
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border uppercase tracking-wide bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
-                            {c.lead_status}
-                          </span>
-                          <p className="text-[10px] text-muted-foreground mt-1">{formatTs(c.converted_at)}</p>
-                        </div>
+                  ) : (
+                    <div className="flex h-[128px] w-[208px] flex-col justify-between rounded-2xl border-[1.5px] border-border bg-card p-4 dark:border-[#2E2E2E] dark:bg-[#141414]">
+                      <div className="flex items-center gap-2.5">
+                        <span className={cn('flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px]', ACCENTS.emerald.box)}>
+                          {(d.tipo_mensagem === 'audio' || d.tipo_mensagem === 'ptt') ? <Mic className={cn('h-[18px] w-[18px]', ACCENTS.emerald.icon)} /> : <MessageSquare className={cn('h-[18px] w-[18px]', ACCENTS.emerald.icon)} />}
+                        </span>
+                        <span className="min-w-0"><span className="block truncate text-sm font-semibold leading-[18px] text-foreground">{d.customLabel || `Mensagem ${msgIndex.get(n.id)}`}</span><span className="block truncate text-xs leading-4 text-muted-foreground">{(d.offset_unit === 'hours' || d.offset_unit === 'minutes') ? formatHorasOffset(offsetToMins(d.dia_offset, d.offset_unit)) : `Dia ${d.dia_offset}`} · {MESSAGE_TYPE_LABELS[d.tipo_mensagem] ?? 'Mensagem'}</span></span>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-          </>
+                      <p className="flex items-baseline gap-2"><span className="text-[32px] font-semibold leading-10 tracking-tight text-foreground">{sent}</span><span className="text-sm text-muted-foreground">{sent === 1 ? 'lead recebeu' : 'leads receberam'}</span></p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-5">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center rounded-full bg-muted p-[3px] dark:bg-[#141414]">
+            <button type="button" onClick={() => setTab('execucoes')} className={chip(tab === 'execucoes')}>Disparos</button>
+            <button type="button" onClick={() => setTab('conversoes')} className={chip(tab === 'conversoes')}>Conversões</button>
+          </div>
+          <span className="text-sm text-muted-foreground">Últimos 30 dias</span>
+        </div>
+        {tab === 'execucoes' && (
+          <div className="flex items-center gap-1.5">
+            {([['all', 'Todos'], ['sent', 'Enviados'], ['failed', 'Falharam'], ['skipped', 'Pulados']] as const).map(([k, l]) => (
+              <button key={k} type="button" aria-pressed={filter === k} onClick={() => setFilter(k)} className={chip(filter === k)}>{l} {counts[k]}</button>
+            ))}
+          </div>
         )}
       </div>
+
+      {tab === 'execucoes' && (
+        !sequenceId ? (
+          <p className="px-6 py-16 text-center text-sm text-muted-foreground">Selecione uma sequência para ver os disparos.</p>
+        ) : loadingExec ? (
+          <div className="flex items-center justify-center gap-3 py-16"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /><span className="text-sm text-muted-foreground">Carregando disparos…</span></div>
+        ) : execError ? (
+          <p className="px-6 py-16 text-center text-sm text-destructive">Não foi possível carregar os disparos ({execError}).</p>
+        ) : rows.length === 0 ? (
+          <div className="px-6 py-16 text-center"><p className="text-sm font-medium text-foreground">Nenhum disparo {filter === 'all' ? 'nos últimos 30 dias' : 'com esse filtro'}</p><p className="mt-1 text-sm text-muted-foreground">Os disparos aparecem aqui assim que a sequência começar a enviar.</p></div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] border-collapse">
+              <thead>
+                <tr className="border-y border-border text-left text-[13px] text-muted-foreground dark:border-[#1C1C1C]">
+                  <th className="px-6 py-3 font-normal">Quando</th><th className="py-3 font-normal">Lead</th><th className="py-3 font-normal">Passo</th><th className="px-6 py-3 text-right font-normal">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.slice(0, visible).map((e) => (
+                  <tr key={e.id} className="border-b border-border last:border-b-0 dark:border-[#1C1C1C]">
+                    <td className="whitespace-nowrap px-6 py-4 text-sm tabular-nums text-muted-foreground">{fmtWhen(e.ts)}</td>
+                    <td className="py-4 text-[15px] font-semibold text-foreground">{e.lead}</td>
+                    <td className="py-4 text-sm text-muted-foreground">{e.step}</td>
+                    <td className="px-6 py-4 text-right"><span className={cn('rounded-full px-3 py-1 text-xs font-semibold', statusChip[e.status])}>{statusLabel[e.status] ?? e.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {rows.length > visible && (
+              <button type="button" onClick={() => setVisible((v) => v + 20)} className="block w-full border-t border-border py-4 text-center text-sm font-semibold text-[#01573C] hover:underline dark:border-[#1C1C1C] dark:text-[#96F63C]">Ver mais</button>
+            )}
+          </div>
+        )
+      )}
+
+      {tab === 'conversoes' && (
+        <div className="px-6 pb-6">
+          {loadingConv ? (
+            <div className="flex items-center justify-center gap-3 py-16"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /><span className="text-sm text-muted-foreground">Carregando conversões…</span></div>
+          ) : (
+            <>
+              <div className="mb-4 grid max-w-md grid-cols-2 gap-3">
+                <div className="rounded-[14px] border border-border bg-card p-4"><p className="mb-1 text-xs text-muted-foreground">Leads convertidos</p><p className="text-2xl font-semibold text-foreground">{convTotal}</p></div>
+                <div className="rounded-[14px] border border-border bg-card p-4"><p className="mb-1 text-xs text-muted-foreground">Taxa de conversão</p><p className="text-2xl font-semibold text-[#01573C] dark:text-[#96F63C]">{convRate}%</p></div>
+              </div>
+              {conversions.length === 0 ? (
+                <div className="py-12 text-center"><p className="text-sm font-medium text-foreground">Nenhuma conversão registrada</p><p className="mt-1 text-sm text-muted-foreground">Adicione um passo Meta ao fluxo para acompanhar as conversões.</p></div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[560px] border-collapse">
+                    <thead><tr className="border-y border-border text-left text-[13px] text-muted-foreground dark:border-[#1C1C1C]"><th className="py-3 font-normal">Quando</th><th className="py-3 font-normal">Lead</th><th className="py-3 font-normal">Meta</th><th className="py-3 text-right font-normal">Situação</th></tr></thead>
+                    <tbody>
+                      {conversions.slice(0, visible).map((c, i) => (
+                        <tr key={`${c.lead_id}-${i}`} className="border-b border-border last:border-b-0 dark:border-[#1C1C1C]">
+                          <td className="whitespace-nowrap py-4 text-sm tabular-nums text-muted-foreground">{fmtWhen(c.converted_at)}</td>
+                          <td className="py-4 text-[15px] font-semibold text-foreground">{c.lead_name}</td>
+                          <td className="py-4 text-sm text-muted-foreground">{c.goal_label}</td>
+                          <td className="py-4 text-right"><span className="rounded-full bg-[#01573C]/10 px-3 py-1 text-xs font-semibold text-[#01573C] dark:bg-[#96F63C]/[0.14] dark:text-[#96F63C]">{c.lead_status}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {conversions.length > visible && <button type="button" onClick={() => setVisible((v) => v + 20)} className="block w-full border-t border-border py-4 text-center text-sm font-semibold text-[#01573C] hover:underline dark:border-[#1C1C1C] dark:text-[#96F63C]">Ver mais</button>}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -4492,7 +4560,7 @@ function VersionDiffModal({ versions, onClose }: { versions: CanvasVersion[]; on
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Versão anterior</label>
               <Select value={String(v1Idx)} onValueChange={(v) => setV1Idx(Number(v))}>
-                <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-[42px] rounded-xl border-border bg-muted text-sm dark:border-[#2A2A2A] dark:bg-[#181818]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {versions.map((v, i) => (
                     <SelectItem key={v.ts} value={String(i)}>{formatVersionLabel(v, i, versions.length)}</SelectItem>
@@ -4503,7 +4571,7 @@ function VersionDiffModal({ versions, onClose }: { versions: CanvasVersion[]; on
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Versão nova</label>
               <Select value={String(v2Idx)} onValueChange={(v) => setV2Idx(Number(v))}>
-                <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-[42px] rounded-xl border-border bg-muted text-sm dark:border-[#2A2A2A] dark:bg-[#181818]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {versions.map((v, i) => (
                     <SelectItem key={v.ts} value={String(i)}>{formatVersionLabel(v, i, versions.length)}</SelectItem>
@@ -4641,7 +4709,11 @@ function CanvasInner() {
   const [newFlowModalOpen, setNewFlowModalOpen] = useState(false);
 
   const [seqDropdownOpen, setSeqDropdownOpen] = useState(false);
-  const [catDropdownOpen, setCatDropdownOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [summary, setSummary] = useState<{ sent30: number; leads30: number } | null>(null);
+  const [stepTestId, setStepTestId] = useState<string | null>(null);
+  const [addSize, setAddSize] = useState<{ width: number; height: number } | null>(null);
+  const [newFlowTipo, setNewFlowTipo] = useState<SequenceTipo>('follow_geral');
 
   // Versioning
   const [versionsOpen, setVersionsOpen] = useState(false);
@@ -4706,9 +4778,24 @@ function CanvasInner() {
 
   // Auto-select first sequence when category changes
   useEffect(() => {
-    const first = sequences.find((s) => s.tipo === activeTipo);
-    setActiveSeqId(first?.id ?? null);
+    setActiveSeqId((cur) => {
+      const curSeq = sequences.find((s) => s.id === cur);
+      if (curSeq && curSeq.tipo === activeTipo) return cur;
+      return sequences.find((s) => s.tipo === activeTipo)?.id ?? null;
+    });
   }, [activeTipo]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    setSummary(null);
+    const id = currentSeq?.id;
+    if (!id || id.startsWith('new')) return;
+    let cancelled = false;
+    fetch(`/api/follow/sequences/${id}/summary`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d && !cancelled) setSummary(d); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [currentSeq?.id]);
 
   useEffect(() => {
     if (!currentSeq) { setNodes([]); setEdges([]); return; }
@@ -4758,9 +4845,11 @@ function CanvasInner() {
 
   function addPaletteNode(kind: PaletteKind) {
     const id = newId();
+    const anchor = chainEnd;
     const center = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+    const lastDay = anchor?.data.kind === 'message' && (anchor.data.offset_unit ?? 'days') === 'days' ? anchor.data.dia_offset : 0;
     let data: AutoNodeData;
-    if (kind === 'message') data = { kind: 'message', label: 'Mensagem', dia_offset: 1, horario: '09:00', mensagem: '', tipo_mensagem: 'texto', stepId: id } satisfies MessageNodeData;
+    if (kind === 'message') data = { kind: 'message', label: 'Mensagem', dia_offset: lastDay + 1, horario: '09:00', mensagem: '', tipo_mensagem: 'texto', stepId: id } satisfies MessageNodeData;
     else if (kind === 'wait') data = { kind: 'wait', label: 'Aguardar', dia_offset: 1, stepId: id } satisfies WaitNodeData;
     else if (kind === 'condition') data = { kind: 'condition', label: 'Condição', condicao: 'Respondeu?', variavel: 'resposta_botao', operador: 'eq', valor: '', stepId: id } satisfies ConditionNodeData;
     else if (kind === 'switch') data = { kind: 'switch', label: 'Switch', variavel: 'resposta_botao', cases: [{ value: '', label: 'Caso 1' }], stepId: id } satisfies SwitchNodeData;
@@ -4784,13 +4873,19 @@ function CanvasInner() {
       post_condition: 'postConditionNode', gerar_cobranca: 'gerarCobrancaNode', aguardar_pagamento: 'aguardarPagamentoNode',
     };
 
+    const position = anchor
+      ? { x: anchor.position.x + (anchor.measured?.width ?? 208) + 112, y: anchor.position.y + (anchor.measured?.height ?? 168) / 2 - 84 }
+      : { x: center.x - 105, y: center.y - 60 };
     const newNode: Node<AutoNodeData> = {
       id,
       type: typeMap[kind],
-      position: { x: center.x - 105, y: center.y - 60 },
+      position,
       data,
+      selected: true,
     };
-    setNodes((nds) => [...nds, newNode]);
+    setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), newNode]);
+    if (anchor) setEdges((eds) => [...eds, { id: `e-${anchor.id}-${id}`, source: anchor.id, target: id, ...EDGE_BASE }]);
+    setSelectedNodeId(id);
   }
 
   function handleUpdateNode(id: string, patch: Partial<AutoNodeData>) {
@@ -4855,22 +4950,23 @@ function CanvasInner() {
     finally { setStagingLoading(false); }
   }
 
-  async function createSequence(name?: string) {
+  async function createSequence(name?: string, tipo: SequenceTipo = activeTipo) {
     const categoryLabels: Record<SequenceTipo, string> = { follow_geral: 'Follow-up', anti_noshow: 'Anti-Noshow', remarketing: 'Remarketing', trial_saas: 'Trial SaaS', pagamento: 'Pagamento' };
-    const count = seqsInCategory.length + 1;
-    const nome = name?.trim() || `${categoryLabels[activeTipo]} ${count}`;
+    const count = sequences.filter((s) => s.tipo === tipo).length + 1;
+    const nome = name?.trim() || `${categoryLabels[tipo]} ${count}`;
     try {
       setLoading(true);
-      const res = await fetch('/api/follow/sequences', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome, tipo: activeTipo, ativo: false, steps: [] }) });
+      const res = await fetch('/api/follow/sequences', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome, tipo, ativo: false, steps: [] }) });
       if (!res.ok) throw new Error('post failed');
       const json = (await res.json()) as { sequence?: FollowSequence; sequences?: FollowSequence[] };
       if (json.sequence) {
         setSequences((seqs) => [...seqs, json.sequence!]);
+        setActiveTipo(tipo);
         setActiveSeqId(json.sequence!.id);
       } else if (json.sequences) {
         setSequences(json.sequences);
-        const newest = json.sequences.filter((s) => s.tipo === activeTipo).at(-1);
-        if (newest) setActiveSeqId(newest.id);
+        const newest = json.sequences.filter((s) => s.tipo === tipo).at(-1);
+        if (newest) { setActiveTipo(tipo); setActiveSeqId(newest.id); }
       }
     } catch (err) { console.error('[AutomationCanvas] create', err); }
     finally { setLoading(false); }
@@ -4883,7 +4979,8 @@ function CanvasInner() {
       if (!res.ok) throw new Error('delete failed');
       setSequences((seqs) => {
         const updated = seqs.filter((s) => s.id !== seqId);
-        const next = updated.find((s) => s.tipo === activeTipo);
+        const next = updated.find((s) => s.tipo === activeTipo) ?? updated[0];
+        if (next) setActiveTipo(next.tipo);
         setActiveSeqId(next?.id ?? null);
         return updated;
       });
@@ -5409,363 +5506,391 @@ function CanvasInner() {
     setSelectedNodeId(null);
   }
 
-  return (
-    <div className="flex flex-col bg-background" style={{ height: '100%' }}>
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-4 bg-card border-b border-border flex-shrink-0 gap-4" style={{ height: 48 }}>
-        <div className="flex items-center gap-3">
-          {/* Editor / Execuções */}
-          <div className="flex items-center bg-muted rounded-lg p-0.5">
-            <button onClick={() => setMode('editor')}
-              className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all',
-                mode === 'editor' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
-              <PenLine className="w-3 h-3" />Editor
-            </button>
-            <button onClick={() => setMode('execucoes')}
-              className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all',
-                mode === 'execucoes' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
-              <Play className="w-3 h-3" />Execuções
-            </button>
-          </div>
-          <div className="w-px h-5 bg-border" />
-          {/* Category dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => { setCatDropdownOpen((v) => !v); setSeqDropdownOpen(false); }}
-              className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
-                catDropdownOpen ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50')}>
-              {SEQ_TABS.find((t) => t.tipo === activeTipo)?.label ?? 'Canvas'}
-              <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', catDropdownOpen && 'rotate-180')} />
-            </button>
-            {catDropdownOpen && (
-              <div className="absolute left-0 top-full mt-1.5 z-30 w-44 bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
-                {SEQ_TABS.map((tab) => (
-                  <button key={tab.tipo}
-                    onClick={() => { setActiveTipo(tab.tipo); setCatDropdownOpen(false); }}
-                    className={cn('flex items-center justify-between w-full px-3 py-2.5 text-sm text-left transition-colors',
-                      activeTipo === tab.tipo ? 'bg-muted text-foreground font-medium' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
-                    {tab.label}
-                    {activeTipo === tab.tipo && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+  const isDark = useIsDark();
 
-          {/* Sequence selector within category */}
-          {seqsInCategory.length > 0 && (
-            <>
-              <span className="text-muted-foreground/40 text-sm">/</span>
-              <div className="relative">
-                <button
-                  onClick={() => { setSeqDropdownOpen((v) => !v); setCatDropdownOpen(false); }}
-                  className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors max-w-[160px]',
-                    seqDropdownOpen ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50')}>
-                  <span className="truncate">{currentSeq?.nome ?? 'Selecionar'}</span>
-                  <ChevronDown className={cn('w-3.5 h-3.5 flex-shrink-0 transition-transform', seqDropdownOpen && 'rotate-180')} />
-                </button>
-                {seqDropdownOpen && (
-                  <div className="absolute left-0 top-full mt-1.5 z-30 w-52 bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
-                    {seqsInCategory.map((seq) => (
-                      <button key={seq.id}
-                        onClick={() => { setActiveSeqId(seq.id); setSeqDropdownOpen(false); }}
-                        className={cn('flex items-center justify-between w-full px-3 py-2.5 text-sm text-left transition-colors gap-2',
-                          seq.id === activeSeqId ? 'bg-muted text-foreground font-medium' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
-                        <span className="truncate flex-1">{seq.nome}</span>
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          {seq.ativo && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
-                          {seq.id === activeSeqId && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setSeqDropdownOpen(false); deleteSequence(seq.id); }}
-                              className="text-muted-foreground/40 hover:text-destructive transition-colors p-0.5 rounded">
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          )}
-                        </div>
+  const msgIndexById = useMemo(() => {
+    const msgs = nodes.filter((n) => n.data.kind === 'message').sort((a, b) => a.position.x - b.position.x);
+    return new Map(msgs.map((n, i) => [n.id, i + 1]));
+  }, [nodes]);
+
+  // Última ponta da sequência: onde um novo passo entra e é ligado automaticamente
+  const chainEnd = useMemo(() => {
+    const withOut = new Set(edges.map((e) => e.source));
+    const open = nodes.filter((n) => !withOut.has(n.id));
+    if (open.length === 0) return null;
+    const last = open.reduce((a, b) => (b.position.x > a.position.x ? b : a));
+    return NO_CHAIN_KINDS.includes(last.data.kind as string) ? null : last;
+  }, [nodes, edges]);
+
+  const displayNodes = useMemo(() => {
+    const base = nodes.map((n) => (n.data.kind === 'message' ? { ...n, data: { ...n.data, _msgIndex: msgIndexById.get(n.id) } as AutoNodeData } : n));
+    if (!chainEnd) return base;
+    const w = chainEnd.measured?.width ?? 208;
+    const h = chainEnd.measured?.height ?? 168;
+    const add = {
+      id: ADD_NODE_ID, type: 'addNode',
+      position: { x: chainEnd.position.x + w + 52, y: chainEnd.position.y + h / 2 - 16 },
+      data: { kind: 'add' } as unknown as AutoNodeData,
+      draggable: false, selectable: false, deletable: false, connectable: false, focusable: false,
+      measured: addSize ?? undefined,
+    } as Node<AutoNodeData>;
+    return [...base, add];
+  }, [nodes, msgIndexById, chainEnd, addSize]);
+
+  const displayEdges = useMemo(() => chainEnd ? [...edges, {
+    id: '__add_edge__', source: chainEnd.id, target: ADD_NODE_ID, type: 'straight',
+    style: { stroke: 'var(--zp-edge, #3A3A3A)', strokeWidth: 2, strokeDasharray: '6 5' },
+    selectable: false, deletable: false, focusable: false, reconnectable: false,
+  } as Edge] : edges, [edges, chainEnd]);
+
+  const handleNodesChange = useCallback((changes: NodeChange<Node<AutoNodeData>>[]) => {
+    const rest: NodeChange<Node<AutoNodeData>>[] = [];
+    for (const c of changes) {
+      if ('id' in c && c.id === ADD_NODE_ID) {
+        if (c.type === 'dimensions' && c.dimensions) setAddSize(c.dimensions);
+        continue;
+      }
+      rest.push(c);
+    }
+    if (rest.length) onNodesChange(rest);
+  }, [onNodesChange]);
+
+  function duplicateNodeById(id: string) {
+    const node = nodes.find((n) => n.id === id);
+    if (!node) return;
+    const newNodeId = newId();
+    const duplicated: Node<AutoNodeData> = {
+      ...node,
+      id: newNodeId,
+      position: { x: node.position.x + 40, y: node.position.y + 40 },
+      data: { ...node.data, stepId: newNodeId } as AutoNodeData,
+      selected: true,
+    };
+    setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), duplicated]);
+    setSelectedNodeId(newNodeId);
+  }
+
+  async function runStepTest(nodeId: string, phone: string) {
+    const node = nodes.find((n) => n.id === nodeId);
+    if (!node || !currentSeq) return;
+    const d = node.data as { stepId?: string; customLabel?: string; label?: string };
+    const name = d.customLabel || d.label || 'passo';
+    if (String(d.stepId ?? '').startsWith('new-')) {
+      setNodeExecError({ name, msg: 'Salve a sequência antes de testar este passo.' });
+      return;
+    }
+    setNodeExecError(null);
+    setNodeExecState(nodeId, 'running');
+    try {
+      const res = await fetch(`/api/follow/sequences/${currentSeq.id}/send-test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stepId: d.stepId, phone }),
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error((errJson as { error?: string }).error ?? `HTTP ${res.status}`);
+      }
+      setNodeExecState(nodeId, 'success');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Não foi possível enviar o teste';
+      setNodeExecState(nodeId, 'error', msg);
+      setNodeExecError({ name, msg });
+    }
+    setTimeout(() => setNodeExecState(nodeId, 'idle'), 4000);
+  }
+
+  const actions: CanvasActions = {
+    testNode: (id) => { setStepTestId(id); setTestModalOpen(true); },
+    duplicateNode: duplicateNodeById,
+    deleteNode: (id) => { handleDeleteNode(id); setSelectedNodeId(null); },
+    openPalette: () => { setSelectedNodeId(null); setPaletteOpen(true); },
+  };
+
+  const pill3d = 'flex h-10 items-center justify-center rounded-full bg-[#141414] text-sm font-semibold text-white shadow-[inset_0_1px_0_#FFFFFF14,0_3px_0_#000000] transition-transform active:translate-y-px disabled:opacity-60';
+  const menuItem = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-foreground transition-colors hover:bg-muted';
+  const anyDropdown = seqDropdownOpen || menuOpen;
+  const catLabel = SEQ_TABS.find((t) => t.tipo === (currentSeq?.tipo ?? activeTipo))?.label ?? 'Sequência';
+  const summaryText = !currentSeq ? '' : summary == null ? '' : summary.sent30 === 0
+    ? 'Nenhum envio nos últimos 30 dias'
+    : `${summary.sent30} ${summary.sent30 === 1 ? 'envio' : 'envios'} para ${summary.leads30} ${summary.leads30 === 1 ? 'lead' : 'leads'} em 30 dias`;
+  const anchorTitle = chainEnd
+    ? ((chainEnd.data.customLabel as string | undefined) || (chainEnd.data.kind === 'message' && msgIndexById.get(chainEnd.id) ? `Mensagem ${msgIndexById.get(chainEnd.id)}` : (KIND_VISUAL[chainEnd.data.kind as string]?.title ?? 'passo')))
+    : undefined;
+
+  return (
+    <CanvasActionsCtx.Provider value={actions}>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card dark:border-[#1C1C1C] dark:bg-[#101010]">
+      {anyDropdown && <div className="fixed inset-0 z-20" onClick={() => { setSeqDropdownOpen(false); setMenuOpen(false); }} />}
+
+      {/* Top bar */}
+      <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-4 px-6 py-[18px]">
+        <div className="flex min-w-0 items-center gap-[18px]">
+          <div className="relative z-30">
+            <button
+              type="button"
+              onClick={() => { setSeqDropdownOpen((v) => !v); setMenuOpen(false); }}
+              aria-haspopup="listbox"
+              aria-expanded={seqDropdownOpen}
+              className="flex items-center gap-3 rounded-xl border border-border bg-muted px-4 py-2.5 text-left transition-colors hover:bg-accent dark:border-[#242424] dark:bg-[#141414] dark:hover:bg-[#181818]"
+            >
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-xs leading-4 text-muted-foreground">{catLabel}</span>
+                <span className="max-w-[280px] truncate text-base font-semibold leading-5 text-foreground">{currentSeq?.nome ?? 'Nenhuma sequência'}</span>
+              </span>
+              <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', seqDropdownOpen && 'rotate-180')} />
+            </button>
+            {seqDropdownOpen && (
+              <div className="absolute left-0 top-full mt-2 max-h-[420px] w-80 overflow-y-auto rounded-xl border border-border bg-card p-1.5 shadow-xl dark:border-[#2A2A2A] dark:bg-[#141414]">
+                {SEQ_TABS.filter((t) => sequences.some((s) => s.tipo === t.tipo)).map((t) => (
+                  <div key={t.tipo} className="flex flex-col gap-0.5 pb-1">
+                    <p className="px-2.5 pb-1 pt-2 text-[12.5px] font-semibold text-muted-foreground">{t.label}</p>
+                    {sequences.filter((s) => s.tipo === t.tipo).map((seq) => (
+                      <button
+                        key={seq.id}
+                        type="button"
+                        onClick={() => { setActiveTipo(seq.tipo); setActiveSeqId(seq.id); setSeqDropdownOpen(false); }}
+                        className={cn('flex items-center justify-between gap-2 rounded-lg px-2.5 py-2.5 text-left text-sm transition-colors hover:bg-muted', seq.id === activeSeqId ? 'bg-muted font-semibold text-foreground' : 'text-foreground/90')}
+                      >
+                        <span className="truncate">{seq.nome}</span>
+                        <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                          <span className={cn('h-1.5 w-1.5 rounded-full', seq.ativo ? 'bg-[#01573C] dark:bg-[#96F63C]' : 'bg-muted-foreground/40')} />
+                          {seq.ativo ? 'Ligada' : 'Desligada'}
+                        </span>
                       </button>
                     ))}
-                    <div className="h-px bg-border mx-2" />
-                    <button
-                      onClick={() => { setSeqDropdownOpen(false); setNewFlowName(''); setNewFlowModalOpen(true); }}
-                      className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left text-primary hover:bg-primary/10 transition-colors font-medium">
-                      <Plus className="w-3.5 h-3.5" />Novo fluxo
-                    </button>
                   </div>
-                )}
+                ))}
+                <div className="mt-1 border-t border-border pt-1.5 dark:border-[#2A2A2A]">
+                  <button type="button" onClick={() => { setSeqDropdownOpen(false); setNewFlowName(''); setNewFlowTipo(currentSeq?.tipo ?? activeTipo); setNewFlowModalOpen(true); }} className={cn(menuItem, 'font-semibold text-[#01573C] dark:text-[#96F63C]')}>
+                    <Plus className="h-4 w-4" />Nova sequência
+                  </button>
+                </div>
               </div>
-            </>
-          )}
-
+            )}
+          </div>
+          {summaryText && <p className="hidden text-sm text-muted-foreground md:block">{summaryText}</p>}
         </div>
 
-        {/* Right controls */}
-        {mode === 'editor' && currentSeq && (
-          <div className="flex items-center gap-1.5">
-            {/* Conflict badge: compacto, com tooltip */}
-            {conflictCount >= 2 && (
-              <div className="relative group">
-                <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-semibold cursor-default">
-                  <AlertCircle className="w-3 h-3" />{conflictCount}
-                </div>
-                <div className="absolute right-0 top-full mt-1.5 z-30 w-64 bg-card border border-border rounded-xl shadow-xl p-3 text-xs text-muted-foreground leading-relaxed opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-150">
-                  {conflictCount} sequências ativas. Leads podem receber mensagens simultâneas: considere ativar apenas uma por vez.
-                </div>
-              </div>
-            )}
+        {currentSeq && (
+          <div className="flex flex-shrink-0 items-center gap-3.5">
+            <div className="flex items-center rounded-full bg-muted p-[3px] dark:bg-[#141414]" role="tablist" aria-label="Modo">
+              {(['editor', 'execucoes'] as const).map((m) => (
+                <button key={m} type="button" role="tab" aria-selected={mode === m} onClick={() => setMode(m)}
+                  className={cn('rounded-full px-4 py-[7px] text-[13px] transition-colors', mode === m ? 'bg-[#0F3D2B] font-semibold text-white' : 'font-medium text-muted-foreground hover:text-foreground')}>
+                  {m === 'editor' ? 'Editor' : 'Execuções'}
+                </button>
+              ))}
+            </div>
 
-            {/* Anti-noshow / Remarketing force trigger */}
-            {activeTipo === 'anti_noshow' && (
-              <button onClick={() => setNoshowCronTestOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20">
-                <Zap className="w-3.5 h-3.5" />Disparar agora
-              </button>
-            )}
-            {activeTipo === 'remarketing' && (
-              <button onClick={() => setRemarketingTestOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors border border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-400 hover:bg-violet-500/20">
-                <Zap className="w-3.5 h-3.5" />Disparar agora
-              </button>
-            )}
-
-            {/* Biblioteca: Templates + Versões em dropdown único */}
-            <div className="relative">
+            <div className="flex items-center gap-2.5">
+              <span className="text-sm text-foreground">{currentSeq.ativo ? 'Ligada' : 'Desligada'}</span>
               <button
-                onClick={() => setVersionsOpen((v) => !v)}
-                title="Biblioteca: Templates e Versões"
-                className={cn('flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors border',
-                  versionsOpen ? 'border-primary/40 bg-primary/10 text-primary' : 'border-border bg-muted text-muted-foreground hover:bg-accent hover:text-foreground')}>
-                <Library className="w-3.5 h-3.5" />Biblioteca
+                type="button"
+                role="switch"
+                aria-checked={!!currentSeq.ativo}
+                aria-label="Ligar ou desligar a sequência"
+                onClick={toggleAtivo}
+                className={cn('flex h-[26px] w-[46px] shrink-0 items-center rounded-full px-[3px] transition-colors', currentSeq.ativo ? 'justify-end bg-[#01573C]' : 'justify-start bg-muted-foreground/30 dark:bg-[#2A2A2A]')}
+              >
+                <span className="h-5 w-5 rounded-full bg-white shadow" />
               </button>
-              {versionsOpen && (
-                <div className="absolute right-0 top-full mt-1.5 z-30 bg-card border border-border rounded-xl shadow-xl overflow-hidden min-w-[180px]">
-                  <button
-                    onClick={() => { setTemplatesOpen(true); setVersionsOpen(false); }}
-                    className="flex items-center gap-2 w-full px-3 py-2.5 text-xs text-left hover:bg-muted transition-colors">
-                    <LayoutTemplate className="w-3.5 h-3.5 text-muted-foreground" />Templates
-                  </button>
-                  <div className="h-px bg-border mx-2" />
-                  <div className="px-3 py-1.5 text-[10px] text-muted-foreground/60 font-medium uppercase tracking-wide">Versões salvas</div>
-                  {versions.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-3">Nenhuma versão salva</p>
-                  ) : (
-                    <div className="p-1 space-y-0.5 max-h-40 overflow-y-auto">
-                      {[...versions].reverse().map((v, i) => (
-                        <button key={v.ts} onClick={() => { restoreVersion(v); setVersionsOpen(false); }}
-                          className="w-full text-left px-3 py-2 rounded-lg text-xs text-foreground hover:bg-muted transition-colors">
-                          {formatVersionLabel(v, versions.length - 1 - i, versions.length)}
+            </div>
+
+            {mode === 'editor' && (
+              <>
+                {testRunning ? (
+                  <button type="button" onClick={stopTest} className={cn(pill3d, 'gap-2 px-5 text-red-400')}><StopCircle className="h-4 w-4" />Parar</button>
+                ) : (
+                  <button type="button" onClick={() => { setStepTestId(null); setTestModalOpen(true); }} className={cn(pill3d, 'px-5')}>Testar</button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="flex h-10 items-center justify-center gap-2 rounded-full px-[22px] text-sm font-semibold text-white transition-transform active:translate-y-px disabled:opacity-60"
+                  style={{ backgroundColor: '#01573C', boxShadow: '#FFFFFF26 0px 1px 0px inset, #003526 0px 3px 0px' }}
+                >
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saveOk ? <CheckCircle2 className="h-4 w-4" /> : null}
+                  {saveOk ? 'Salvo' : 'Salvar'}
+                </button>
+              </>
+            )}
+
+            <div className="relative z-30">
+              <button type="button" onClick={() => { setMenuOpen((v) => !v); setSeqDropdownOpen(false); }} aria-label="Mais opções" aria-haspopup="menu" aria-expanded={menuOpen} className={cn(pill3d, 'w-10')}>
+                <MoreHorizontal className="h-[18px] w-[18px]" />
+              </button>
+              {menuOpen && (
+                <div role="menu" className="absolute right-0 top-full mt-2 w-72 rounded-xl border border-border bg-card p-1.5 shadow-xl dark:border-[#2A2A2A] dark:bg-[#141414]">
+                  {conflictCount >= 2 && (
+                    <p className="mb-1 flex items-start gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs leading-snug text-amber-700 dark:text-amber-400">
+                      <AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" />
+                      {conflictCount} sequências ligadas ao mesmo tempo. O lead pode receber mensagens simultâneas.
+                    </p>
+                  )}
+                  <button type="button" role="menuitem" className={menuItem} onClick={() => { setTemplatesOpen(true); setMenuOpen(false); }}><LayoutTemplate className="h-4 w-4 text-muted-foreground" />Modelos de fluxo</button>
+                  {versions.length > 0 && (
+                    <div className="my-1 border-t border-border pt-1 dark:border-[#2A2A2A]">
+                      <p className="px-3 pb-1 pt-1.5 text-[12.5px] font-semibold text-muted-foreground">Versões salvas</p>
+                      {[...versions].reverse().slice(0, 5).map((v, i) => (
+                        <button key={v.ts} type="button" role="menuitem" className={cn(menuItem, 'py-2')} onClick={() => { restoreVersion(v); setMenuOpen(false); }}>
+                          <History className="h-4 w-4 text-muted-foreground" />{formatVersionLabel(v, versions.length - 1 - i, versions.length)}
                         </button>
                       ))}
                     </div>
                   )}
                   {versions.length >= 2 && (
-                    <>
-                      <div className="h-px bg-border mx-2" />
-                      <button
-                        onClick={() => { setDiffOpen(true); setVersionsOpen(false); }}
-                        className="flex items-center gap-2 w-full px-3 py-2.5 text-xs text-left hover:bg-muted transition-colors">
-                        <GitCompare className="w-3.5 h-3.5 text-muted-foreground" />Comparar versões
-                      </button>
-                    </>
+                    <button type="button" role="menuitem" className={menuItem} onClick={() => { setDiffOpen(true); setMenuOpen(false); }}><GitCompare className="h-4 w-4 text-muted-foreground" />Comparar versões</button>
                   )}
+                  <div className="my-1 border-t border-border dark:border-[#2A2A2A]" />
+                  <button type="button" role="menuitem" className={menuItem} disabled={stagingLoading} onClick={() => { toggleStaging(); setMenuOpen(false); }}>
+                    {stagingLoading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : <TestTube2 className="h-4 w-4 text-muted-foreground" />}
+                    <span className="flex-1">Modo de teste (staging)</span>
+                    <span className={cn('text-xs', currentSeq.staging ? 'font-semibold text-amber-600 dark:text-amber-400' : 'text-muted-foreground')}>{currentSeq.staging ? 'Ligado' : 'Desligado'}</span>
+                  </button>
+                  {activeTipo === 'anti_noshow' && <button type="button" role="menuitem" className={menuItem} onClick={() => { setNoshowCronTestOpen(true); setMenuOpen(false); }}><Zap className="h-4 w-4 text-amber-500" />Disparar agora</button>}
+                  {activeTipo === 'remarketing' && <button type="button" role="menuitem" className={menuItem} onClick={() => { setRemarketingTestOpen(true); setMenuOpen(false); }}><Zap className="h-4 w-4 text-violet-500" />Disparar agora</button>}
+                  {activeTipo === 'pagamento' && (['mercadopago', 'kiwify', 'asaas'] as const).map((p) => (
+                    <button key={p} type="button" role="menuitem" className={menuItem} onClick={() => { addPaymentTrigger(p); setMenuOpen(false); }}>
+                      <Plus className="h-4 w-4 text-muted-foreground" />Gatilho {p === 'mercadopago' ? 'Mercado Pago' : p === 'kiwify' ? 'Kiwify' : 'Asaas'}
+                    </button>
+                  ))}
+                  <div className="my-1 border-t border-border dark:border-[#2A2A2A]" />
+                  <button type="button" role="menuitem" className={cn(menuItem, 'text-destructive')} onClick={() => { setMenuOpen(false); deleteSequence(currentSeq.id); }}><Trash2 className="h-4 w-4" />Excluir sequência</button>
                 </div>
               )}
             </div>
-
-            {/* Executar teste / Parar */}
-            {testRunning ? (
-              <button onClick={stopTest}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors border border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20">
-                <StopCircle className="w-3.5 h-3.5" />Parar
-              </button>
-            ) : (
-              <button onClick={() => setTestModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors border border-border bg-muted text-muted-foreground hover:bg-accent hover:text-foreground">
-                <FlaskConical className="w-3.5 h-3.5" />Testar
-              </button>
-            )}
-
-            <div className="w-px h-5 bg-border mx-0.5" />
-
-            {/* Staging: ícone compacto com tooltip */}
-            <button
-              onClick={toggleStaging}
-              disabled={stagingLoading}
-              title={currentSeq.staging ? 'Staging ativo: clique para desligar' : 'Ligar modo staging'}
-              className={cn('flex items-center justify-center w-7 h-7 rounded-lg transition-colors border',
-                currentSeq.staging
-                  ? 'bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400'
-                  : 'bg-muted border-border text-muted-foreground hover:bg-accent hover:text-foreground')}>
-              {stagingLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <TestTube2 className="w-3.5 h-3.5" />}
-            </button>
-
-            {/* Ativo / Inativo */}
-            <button onClick={toggleAtivo}
-              className={cn('flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors border',
-                currentSeq.ativo ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-muted border-border text-muted-foreground hover:bg-accent')}>
-              <span className={cn('w-1.5 h-1.5 rounded-full', currentSeq.ativo ? 'bg-primary' : 'bg-muted-foreground/40')} />
-              {currentSeq.ativo ? 'Ativo' : 'Inativo'}
-            </button>
-
-            {/* Salvar */}
-            <button onClick={handleSave} disabled={saving}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold transition-all active:translate-y-px disabled:opacity-60"
-              style={saveOk
-                ? { backgroundColor: '#0F3D2B', color: '#6ee7b7', boxShadow: '0 2px 0 0 #07261C' }
-                : { backgroundColor: '#01573C', color: '#D8D8D8', boxShadow: '0 2px 0 0 #07261C' }}>
-              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : saveOk ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
-              {saveOk ? 'Salvo!' : 'Salvar'}
-            </button>
           </div>
         )}
       </div>
 
       {/* Save error banner */}
       {saveError && (
-        <div className="flex items-center gap-3 px-4 py-2 bg-destructive/10 border-b border-destructive/20 flex-shrink-0">
+        <div className="flex items-center gap-3 px-4 py-2 bg-destructive/10 border-y border-destructive/20 flex-shrink-0">
           <AlertCircle className="w-4 h-4 text-destructive shrink-0" />
           <span className="text-xs text-destructive flex-1">Erro ao salvar: {saveError}</span>
-          <button onClick={() => setSaveError(null)} className="text-destructive/60 hover:text-destructive transition-colors"><X className="w-3.5 h-3.5" /></button>
+          <button onClick={() => setSaveError(null)} aria-label="Fechar aviso" className="text-destructive/60 hover:text-destructive transition-colors"><X className="w-3.5 h-3.5" /></button>
         </div>
       )}
 
       {/* Waiting for lead reply banner */}
       {testWaitingReply && (
-        <div className="flex items-center gap-3 px-4 py-2 bg-primary/10 border-b border-primary/20 flex-shrink-0">
-          <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />
-          <span className="text-xs text-primary flex-1 font-medium">Aguardando resposta do lead… (timeout: 2 min)</span>
-          <button onClick={stopTest} className="text-primary/60 hover:text-primary transition-colors text-xs">Cancelar</button>
+        <div className="flex items-center gap-3 px-4 py-2 bg-[#01573C]/10 border-y border-[#01573C]/20 flex-shrink-0">
+          <Loader2 className="w-4 h-4 text-[#01573C] dark:text-[#96F63C] animate-spin shrink-0" />
+          <span className="text-xs text-[#01573C] dark:text-[#96F63C] flex-1 font-medium">Aguardando resposta do lead… (tempo máximo: 2 min)</span>
+          <button onClick={stopTest} className="text-[#01573C]/70 dark:text-[#96F63C]/70 hover:opacity-100 transition-colors text-xs">Cancelar</button>
         </div>
       )}
 
       {/* Node exec error banner */}
       {nodeExecError && (
-        <div className="flex items-center gap-3 px-4 py-2 bg-destructive/10 border-b border-destructive/20 flex-shrink-0">
+        <div className="flex items-center gap-3 px-4 py-2 bg-destructive/10 border-y border-destructive/20 flex-shrink-0">
           <AlertCircle className="w-4 h-4 text-destructive shrink-0" />
-          <span className="text-xs text-destructive flex-1">Erro no nó <strong>{nodeExecError.name}</strong>: {nodeExecError.msg}</span>
-          <button onClick={() => setNodeExecError(null)} className="text-destructive/60 hover:text-destructive transition-colors"><X className="w-3.5 h-3.5" /></button>
+          <span className="text-xs text-destructive flex-1">Erro no passo <strong>{nodeExecError.name}</strong>: {nodeExecError.msg}</span>
+          <button onClick={() => setNodeExecError(null)} aria-label="Fechar aviso" className="text-destructive/60 hover:text-destructive transition-colors"><X className="w-3.5 h-3.5" /></button>
         </div>
       )}
 
       {/* Body */}
-      <div className="flex min-h-0" style={{ flex: 1 }}>
+      <div className="relative flex min-h-0 flex-1 border-t border-border dark:border-[#1C1C1C]">
         {mode === 'execucoes' ? (
-          <ExecutionsView sequenceId={currentSeq?.id ?? null} tipo={activeTipo} />
+          <div className="min-w-0 flex-1 overflow-y-auto">
+            <ExecutionsView sequenceId={currentSeq?.id ?? null} tipo={activeTipo} nodes={nodes} />
+          </div>
         ) : (
-          <>
-            {/* Canvas */}
-            <div className="relative overflow-hidden" style={{ flex: 1 }}>
-              {loading ? (
-                <div className="flex items-center justify-center h-full">
-                  <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
-                </div>
-              ) : !currentSeq ? (
-                <div className="flex flex-col items-center justify-center h-full gap-4">
-                  <p className="text-muted-foreground text-sm">Nenhum fluxo nesta categoria.</p>
-                  <button onClick={() => { setNewFlowName(''); setNewFlowModalOpen(true); }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 border border-primary/30 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors">
-                    <Plus className="w-4 h-4" />Criar primeiro fluxo
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <ReactFlow
-                    nodes={nodes} edges={edges}
-                    onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
-                    nodeTypes={nodeTypes} edgeTypes={edgeTypes}
-                    onNodeClick={(_, node) => setSelectedNodeId(node.id)}
-                    onPaneClick={() => { setSelectedNodeId(null); setPaletteOpen(false); }}
-                    fitView fitViewOptions={{ padding: 0.2 }} minZoom={0.3} maxZoom={1.5}
-                    reconnectRadius={12}
-                    onReconnect={onReconnect}
-                    onReconnectStart={onReconnectStart}
-                    onReconnectEnd={onReconnectEnd}
-                    style={{ width: '100%', height: '100%' }}
-                    className="!bg-background dark:!bg-[#0e0e0e]"
+          <div className="relative min-w-0 flex-1 overflow-hidden bg-[#FAFCFA] dark:bg-[#0A0A0A]">
+            {loading ? (
+              <div className="flex h-full items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : !currentSeq ? (
+              <div className="flex h-full flex-col items-center justify-center gap-4">
+                <p className="text-sm text-muted-foreground">Você ainda não tem nenhuma sequência.</p>
+                <button
+                  type="button"
+                  onClick={() => { setNewFlowName(''); setNewFlowTipo(activeTipo); setNewFlowModalOpen(true); }}
+                  className="flex h-10 items-center justify-center gap-2 rounded-full px-[22px] text-sm font-semibold text-white"
+                  style={{ backgroundColor: '#01573C', boxShadow: '#FFFFFF26 0px 1px 0px inset, #003526 0px 3px 0px' }}
+                >
+                  <Plus className="h-4 w-4" />Criar primeira sequência
+                </button>
+              </div>
+            ) : (
+              <>
+                <ReactFlow
+                  nodes={displayNodes} edges={displayEdges}
+                  onNodesChange={handleNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
+                  nodeTypes={nodeTypes} edgeTypes={edgeTypes}
+                  onNodeClick={(_, node) => { if (node.id === ADD_NODE_ID) return; setPaletteOpen(false); setSelectedNodeId(node.id); }}
+                  onPaneClick={() => { setSelectedNodeId(null); setPaletteOpen(false); }}
+                  fitView fitViewOptions={{ padding: 0.2, maxZoom: 1 }} minZoom={0.3} maxZoom={1.5}
+                  reconnectRadius={12}
+                  onReconnect={onReconnect}
+                  onReconnectStart={onReconnectStart}
+                  onReconnectEnd={onReconnectEnd}
+                  proOptions={{ hideAttribution: true }}
+                  style={{ width: '100%', height: '100%' }}
+                  className="!bg-transparent"
+                >
+                  <Background variant={BackgroundVariant.Dots} gap={24} size={1.2} color="var(--zp-dot, #2A2A2A)" />
+                  <Controls
+                    showInteractive={false}
+                    position="bottom-left"
+                    className="!bottom-5 !left-5 !m-0 !overflow-hidden !rounded-xl !border !border-border !shadow-none dark:!border-[#2A2A2A] [&>button]:!h-10 [&>button]:!w-10 [&>button]:!border-0 [&>button]:!border-b [&>button]:!border-border [&>button]:!bg-card dark:[&>button]:!border-[#2A2A2A] dark:[&>button]:!bg-[#141414] [&>button:last-child]:!border-b-0 [&>button:hover]:!bg-muted dark:[&>button:hover]:!bg-[#1C1C1C] [&>button_svg]:!fill-foreground/80 dark:[&>button_svg]:!fill-[#D0D0D0]"
+                  />
+                  <MiniMap
+                    position="bottom-right"
+                    pannable
+                    zoomable
+                    nodeColor={(n) => n.id === ADD_NODE_ID ? 'transparent' : (n.data as { kind?: string })?.kind === 'trigger' ? '#F5B544' : n.selected ? '#96F63C' : isDark ? '#3A3A3A' : '#C4CBC6'}
+                    nodeBorderRadius={4}
+                    nodeStrokeWidth={0}
+                    maskColor="rgba(0,0,0,0)"
+                    maskStrokeColor="#96F63C"
+                    maskStrokeWidth={1}
+                    className="!bottom-5 !right-5 !m-0 !h-[100px] !w-[200px] !overflow-hidden !rounded-xl !border !border-border !bg-card !shadow-none dark:!border-[#2A2A2A] dark:!bg-[#141414]"
+                  />
+                </ReactFlow>
+
+                {!selectedNode && !paletteOpen && (
+                  <button
+                    type="button"
+                    onClick={() => setPaletteOpen(true)}
+                    className="absolute right-5 top-5 z-10 flex h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold text-white transition-transform active:translate-y-px"
+                    style={{ backgroundColor: '#01573C', boxShadow: '#FFFFFF26 0px 1px 0px inset, #003526 0px 3px 0px' }}
                   >
-                    <Background variant={BackgroundVariant.Dots} gap={20} size={1}
-                      color="hsl(var(--muted-foreground) / 0.2)"
-                      className="!opacity-40 dark:!opacity-100" />
-                    <Controls className="[&>button]:bg-card [&>button]:border-border [&>button]:text-muted-foreground [&>button:hover]:bg-muted [&>button:hover]:text-foreground" />
-                    <MiniMap nodeColor="hsl(var(--card))" maskColor="hsl(var(--background) / 0.6)"
-                      style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
-                  </ReactFlow>
+                    <Plus className="h-4 w-4" strokeWidth={2.4} />Adicionar passo
+                  </button>
+                )}
 
-                  {/* Right-edge strip */}
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-2">
-                    <div className="relative group/strip">
-                      <button onClick={() => setPaletteOpen((v) => !v)}
-                        className={cn('w-10 h-10 rounded-xl bg-card border flex items-center justify-center shadow-md transition-all',
-                          paletteOpen ? 'border-primary/50 text-primary bg-primary/10' : 'border-border text-muted-foreground hover:border-primary/40 hover:text-primary')}>
-                        <Plus className="w-5 h-5" />
-                      </button>
-                      <span className="pointer-events-none absolute right-12 top-1/2 -translate-y-1/2 hidden group-hover/strip:flex items-center whitespace-nowrap bg-[#1a1a1a] text-xs text-foreground px-2.5 py-1.5 rounded-lg border border-border shadow-lg">
-                        Adicionar nó
-                      </span>
-                    </div>
-                    {activeTipo === 'pagamento' && (
-                      <>
-                        <div className="relative group/mp">
-                          <button onClick={() => addPaymentTrigger('mercadopago')}
-                            className="w-10 h-10 rounded-xl bg-card border border-[#009EE3]/40 flex items-center justify-center shadow-md text-[#009EE3] hover:bg-[#009EE3]/10 transition-all"
-                            style={{ fontSize: 10, fontWeight: 700, letterSpacing: '-0.5px' }}>
-                            MP
-                          </button>
-                          <span className="pointer-events-none absolute right-12 top-1/2 -translate-y-1/2 hidden group-hover/mp:flex items-center whitespace-nowrap bg-[#1a1a1a] text-xs text-foreground px-2.5 py-1.5 rounded-lg border border-border shadow-lg">
-                            Adicionar gatilho <span className="text-[#009EE3] font-semibold ml-1">Mercado Pago</span>
-                          </span>
-                        </div>
-                        <div className="relative group/kw">
-                          <button onClick={() => addPaymentTrigger('kiwify')}
-                            className="w-10 h-10 rounded-xl bg-card border border-[#2db56f]/40 flex items-center justify-center shadow-md text-[#2db56f] hover:bg-[#2db56f]/10 transition-all"
-                            style={{ fontSize: 10, fontWeight: 700, letterSpacing: '-0.5px' }}>
-                            KW
-                          </button>
-                          <span className="pointer-events-none absolute right-12 top-1/2 -translate-y-1/2 hidden group-hover/kw:flex items-center whitespace-nowrap bg-[#1a1a1a] text-xs text-foreground px-2.5 py-1.5 rounded-lg border border-border shadow-lg">
-                            Adicionar gatilho <span className="text-[#2db56f] font-semibold ml-1">Kiwify</span>
-                          </span>
-                        </div>
-                        <div className="relative group/as">
-                          <button onClick={() => addPaymentTrigger('asaas')}
-                            className="w-10 h-10 rounded-xl bg-card border border-[#00AEEF]/40 flex items-center justify-center shadow-md text-[#00AEEF] hover:bg-[#00AEEF]/10 transition-all"
-                            style={{ fontSize: 10, fontWeight: 700, letterSpacing: '-0.5px' }}>
-                            AS
-                          </button>
-                          <span className="pointer-events-none absolute right-12 top-1/2 -translate-y-1/2 hidden group-hover/as:flex items-center whitespace-nowrap bg-[#1a1a1a] text-xs text-foreground px-2.5 py-1.5 rounded-lg border border-border shadow-lg">
-                            Adicionar gatilho <span className="text-[#00AEEF] font-semibold ml-1">Asaas</span>
-                          </span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  {paletteOpen && (
-                    <PalettePanel onAdd={(kind) => { addPaletteNode(kind); setPaletteOpen(false); }} onClose={() => setPaletteOpen(false)} />
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Config panel */}
-            {selectedNode && (
-              <ConfigPanel node={selectedNode} onClose={() => setSelectedNodeId(null)}
-                onUpdate={handleUpdateNode} onDelete={handleDeleteNode}
-                nodes={nodes} edges={edges}
-                sequenceTipo={activeTipo}
-                remarketingCfg={remarketingCfg}
-                onRemarketingChange={setRemarketingCfg}
-                sequences={sequences}
-                currentSeqId={currentSeq?.id}
-                whatsappProvider={whatsappProvider} />
+                {paletteOpen && (
+                  <PalettePanel after={anchorTitle} onAdd={(kind) => { addPaletteNode(kind); }} onClose={() => setPaletteOpen(false)} />
+                )}
+                {selectedNode && !paletteOpen && (
+                  <ConfigPanel node={selectedNode} onClose={() => setSelectedNodeId(null)}
+                    onUpdate={handleUpdateNode} onDelete={handleDeleteNode}
+                    nodes={nodes} edges={edges}
+                    sequenceTipo={activeTipo}
+                    remarketingCfg={remarketingCfg}
+                    onRemarketingChange={setRemarketingCfg}
+                    sequences={sequences}
+                    currentSeqId={currentSeq?.id}
+                    whatsappProvider={whatsappProvider}
+                    nodeIndex={msgIndexById.get(selectedNode.id)}
+                    onTest={TESTABLE_KINDS.includes(selectedNode.data.kind) ? () => actions.testNode(selectedNode.id) : undefined} />
+                )}
+              </>
             )}
-          </>
+          </div>
         )}
       </div>
 
       {/* Modals */}
       {testModalOpen && (
         <TestRunModal
-          onStart={(phone) => { setTestModalOpen(false); runTest(phone); }}
-          onClose={() => setTestModalOpen(false)}
+          onStart={(phone) => { setTestModalOpen(false); if (stepTestId) { const sid = stepTestId; setStepTestId(null); void runStepTest(sid, phone); } else { runTest(phone); } }}
+          onClose={() => { setTestModalOpen(false); setStepTestId(null); }}
         />
       )}
 
@@ -5801,19 +5926,28 @@ function CanvasInner() {
         <ModalOverlay onClose={() => setNewFlowModalOpen(false)}>
           <div className="bg-card border border-border rounded-2xl shadow-2xl w-[360px] p-5 flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold">Novo fluxo: {SEQ_TABS.find((t) => t.tipo === activeTipo)?.label}</p>
+              <p className="text-sm font-semibold">Nova sequência</p>
               <button onClick={() => setNewFlowModalOpen(false)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Nome do fluxo</label>
+              <label className="text-sm font-semibold text-foreground">Categoria</label>
+              <div className="flex flex-wrap gap-1">
+                {SEQ_TABS.map((t) => (
+                  <button key={t.tipo} type="button" aria-pressed={newFlowTipo === t.tipo} onClick={() => setNewFlowTipo(t.tipo)}
+                    className={cn('rounded-full px-3.5 py-1.5 text-[13px] transition-colors', newFlowTipo === t.tipo ? 'bg-[#0F3D2B] font-semibold text-white' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              <label className="mt-2 text-sm font-semibold text-foreground">Nome da sequência</label>
               <input
                 autoFocus
                 className="field-input"
-                placeholder={`Ex: ${SEQ_TABS.find((t) => t.tipo === activeTipo)?.label} ${seqsInCategory.length + 1}`}
+                placeholder={`Ex: ${SEQ_TABS.find((t) => t.tipo === newFlowTipo)?.label} ${sequences.filter((sq) => sq.tipo === newFlowTipo).length + 1}`}
                 value={newFlowName}
                 onChange={(e) => setNewFlowName(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') { setNewFlowModalOpen(false); createSequence(newFlowName); }
+                  if (e.key === 'Enter') { setNewFlowModalOpen(false); createSequence(newFlowName, newFlowTipo); }
                   if (e.key === 'Escape') setNewFlowModalOpen(false);
                 }}
               />
@@ -5824,10 +5958,10 @@ function CanvasInner() {
                 Cancelar
               </button>
               <button
-                onClick={() => { setNewFlowModalOpen(false); createSequence(newFlowName); }}
+                onClick={() => { setNewFlowModalOpen(false); createSequence(newFlowName, newFlowTipo); }}
                 className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all active:translate-y-px"
                 style={{ backgroundColor: '#01573C', color: '#D8D8D8', boxShadow: '0 2px 0 0 #07261C' }}>
-                <Plus className="w-3.5 h-3.5" />Criar fluxo
+                <Plus className="w-3.5 h-3.5" />Criar sequência
               </button>
             </div>
           </div>
@@ -5842,14 +5976,21 @@ function CanvasInner() {
           border: 1px solid hsl(var(--border));
           border-radius: 0.75rem;
           color: hsl(var(--foreground));
-          font-size: 0.8125rem;
-          padding: 0.5rem 0.75rem;
+          font-size: 0.875rem;
+          padding: 0.6rem 0.9rem;
           outline: none;
           transition: border-color 0.15s;
           appearance: none;
           -webkit-appearance: none;
         }
         .field-input:focus { border-color: hsl(var(--primary) / 0.5); }
+        .dark .field-input { background: #181818; border-color: #2A2A2A; }
+        :root { --zp-edge: #C4CBC6; }
+        .dark { --zp-edge: #3A3A3A; }
+        :root { --zp-green: #16A34A; --zp-red: #DC2626; }
+        .dark { --zp-green: #5FD98A; --zp-red: #F0736D; }
+        :root { --zp-dot: #D0D6D1; }
+        .dark { --zp-dot: #2A2A2A; }
         .field-input option { background: hsl(var(--card)); color: hsl(var(--foreground)); }
         select.field-input {
           background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
@@ -5874,6 +6015,7 @@ function CanvasInner() {
         }
       `}</style>
     </div>
+    </CanvasActionsCtx.Provider>
   );
 }
 
