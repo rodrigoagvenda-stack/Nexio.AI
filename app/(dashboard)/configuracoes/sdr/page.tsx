@@ -2088,6 +2088,12 @@ export default function SdrConfigPage() {
 
   useEffect(() => { loadConfig() }, [loadConfig])
 
+  // Abre direto numa aba quando o endereço traz ?tab= (ex.: vindo dos Templates para conectar a API oficial)
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tab')
+    if (t && TABS.some((x) => x.id === t)) setActiveTab(t as TabId)
+  }, [])
+
   useEffect(() => {
     fetch('/api/payment-integrations')
       .then((r) => r.ok ? r.json() : null)

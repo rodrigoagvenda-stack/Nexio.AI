@@ -1,12 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Loader2, Trash2, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
-import { Loader2, Plus, Zap, Trash2, Hash } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CARD, CardTitle, FIELD, FieldLabel } from './cfg-ui';
 
 interface QuickReply {
   id: string;
@@ -18,36 +17,31 @@ interface QuickReply {
   created_at: string;
 }
 
-const TYPE_LABELS = { text: 'Texto', media: 'Mídia', template: 'Template' };
+const TYPE_LABELS = { text: 'Texto', media: 'Mídia', template: 'Template' } as const;
+const EMPTY_FORM = { shortcut: '/', content_type: 'text' as QuickReply['content_type'], content: '', media_url: '' };
 
 export function RespostasRapidasContent() {
   const [replies, setReplies] = useState<QuickReply[]>([]);
   const [loading, setLoading] = useState(true);
-  const [addOpen, setAddOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    shortcut: '/',
-    content_type: 'text' as 'text' | 'media' | 'template',
-    content: '',
-    media_url: '',
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
 
   useEffect(() => {
     fetch('/api/quick-replies')
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.data) setReplies(d.data); })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.data) setReplies(d.data); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
-  const handleAdd = async () => {
+  async function handleAdd() {
     if (!form.shortcut.startsWith('/') || form.shortcut.length < 2) {
-      toast({ title: 'Atalho deve começar com / e ter ao menos um caractere', variant: 'destructive' });
+      toast({ variant: 'destructive', title: 'Atalho inválido', description: 'Comece com a barra e escreva pelo menos uma letra.' });
       return;
     }
     if (!form.content.trim()) {
-      toast({ title: 'Conteúdo obrigatório', variant: 'destructive' });
+      toast({ variant: 'destructive', title: 'Escreva a mensagem', description: 'O atalho precisa de um texto para enviar.' });
       return;
     }
     setSaving(true);
@@ -59,158 +53,133 @@ export function RespostasRapidasContent() {
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error);
-      setReplies(prev => [...prev, d.data]);
-      setForm({ shortcut: '/', content_type: 'text', content: '', media_url: '' });
-      setAddOpen(false);
-      toast({ title: `Atalho ${d.data.shortcut} criado!` });
+      setReplies((prev) => [...prev, d.data].sort((a, b) => a.shortcut.localeCompare(b.shortcut)));
+      setForm(EMPTY_FORM);
+      toast({ variant: 'success', title: `Atalho ${d.data.shortcut} criado` });
     } catch (err: any) {
-      toast({ title: err.message || 'Erro ao criar atalho', variant: 'destructive' });
-    } finally {
-      setSaving(false);
-    }
-  };
+      toast({ variant: 'destructive', title: 'Não foi possível criar o atalho', description: err?.message });
+    } finally { setSaving(false); }
+  }
 
-  const handleDelete = async (id: string, shortcut: string) => {
+  async function handleDelete(id: string, shortcut: string) {
     setDeleting(id);
     try {
       const res = await fetch(`/api/quick-replies/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
-      setReplies(prev => prev.filter(r => r.id !== id));
+      setReplies((prev) => prev.filter((r) => r.id !== id));
       toast({ title: `Atalho ${shortcut} removido` });
     } catch {
-      toast({ title: 'Erro ao remover', variant: 'destructive' });
-    } finally {
-      setDeleting(null);
-    }
-  };
+      toast({ variant: 'destructive', title: 'Não foi possível remover o atalho' });
+    } finally { setDeleting(null); }
+  }
 
-  const company = replies.filter(r => !r.attendant_id);
+  const list = replies.filter((r) => !r.attendant_id);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Atalhos de resposta rápida. Digite <code className="bg-muted px-1 rounded text-xs">/atalho</code> no chat para inserir automaticamente.
-        </p>
-        <Button size="sm" onClick={() => setAddOpen(o => !o)}>
-          <Plus className="h-4 w-4 mr-1.5" />
-          Novo atalho
-        </Button>
+    <div className="flex min-w-0 flex-1 flex-col gap-4">
+      <div className="flex flex-col gap-1.5">
+        <h2 className="text-2xl font-semibold leading-8 tracking-tight text-foreground">Respostas rápidas</h2>
+        <p className="text-[15px] text-muted-foreground">Mensagens prontas para o time. No chat do Atendimento, digite a barra e o nome do atalho, por exemplo /proposta, e o texto entra sozinho.</p>
       </div>
 
-      {addOpen && (
-        <div className="p-5 rounded-2xl border border-primary/30 bg-primary/5 space-y-3">
-          <p className="text-sm font-semibold">Novo atalho</p>
-          <div className="grid gap-3">
-            <div>
-              <Label className="text-xs">Atalho (começa com /)</Label>
-              <Input
-                value={form.shortcut}
-                onChange={e => {
-                  let v = e.target.value;
-                  if (!v.startsWith('/')) v = '/' + v;
-                  setForm(f => ({ ...f, shortcut: v.toLowerCase().replace(/\s/g, '_') }));
-                }}
-                placeholder="/proposta"
-                className="h-9 mt-1 text-sm font-mono"
-              />
+      <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
+        <div className="min-w-0 flex-1">
+          {loading ? (
+            <div className="flex h-40 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          ) : list.length === 0 ? (
+            <div className="flex min-h-[420px] flex-col items-center justify-center gap-3 rounded-[14px] border border-dashed border-border px-8 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-card"><Zap className="h-6 w-6 text-muted-foreground" strokeWidth={1.8} /></div>
+              <h3 className="text-lg font-semibold text-foreground">Nenhum atalho ainda</h3>
+              <p className="max-w-[380px] text-[15px] leading-[1.55] text-muted-foreground">Crie atalhos para as respostas que você repete todo dia, como preço, endereço e horário. O time responde mais rápido.</p>
             </div>
-            <div>
-              <Label className="text-xs">Tipo</Label>
-              <div className="flex gap-2 mt-1">
-                {(['text', 'media', 'template'] as const).map(t => (
-                  <button
-                    key={t}
-                    onClick={() => setForm(f => ({ ...f, content_type: t }))}
-                    className={cn(
-                      'flex-1 h-9 rounded-lg border text-xs font-medium transition-colors',
-                      form.content_type === t
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border text-muted-foreground hover:border-foreground/30'
-                    )}
-                  >
-                    {TYPE_LABELS[t]}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <Label className="text-xs">Conteúdo</Label>
-              <textarea
-                value={form.content}
-                onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
-                placeholder={form.content_type === 'text' ? 'Texto da mensagem...' : form.content_type === 'media' ? 'Legenda da mídia...' : 'Nome do template...'}
-                rows={3}
-                className="mt-1 w-full bg-muted rounded-lg border border-border text-sm px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground"
-              />
-            </div>
-            {form.content_type === 'media' && (
-              <div>
-                <Label className="text-xs">URL da mídia</Label>
-                <Input
-                  value={form.media_url}
-                  onChange={e => setForm(f => ({ ...f, media_url: e.target.value }))}
-                  placeholder="https://..."
-                  className="h-9 mt-1 text-sm"
-                />
-              </div>
-            )}
-          </div>
-          <div className="flex gap-2 pt-1">
-            <Button variant="ghost" size="sm" onClick={() => setAddOpen(false)} className="text-muted-foreground">Cancelar</Button>
-            <Button size="sm" onClick={handleAdd} disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar atalho'}
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {loading ? (
-        <div className="flex items-center justify-center h-32">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        </div>
-      ) : replies.length === 0 ? (
-        <div className="p-8 rounded-2xl border border-dashed border-border flex flex-col items-center gap-3 text-center">
-          <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
-            <Zap className="h-6 w-6 text-muted-foreground" />
-          </div>
-          <div>
-            <p className="font-medium text-sm">Nenhum atalho cadastrado</p>
-            <p className="text-xs text-muted-foreground mt-1">Crie atalhos para acelerar o atendimento</p>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {company.length > 0 && (
-            <>
-              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider px-1">Empresa</p>
-              {company.map(r => (
-                <div key={r.id} className="flex items-start gap-3 p-3 rounded-xl border border-border bg-card">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <Hash className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <code className="text-xs font-mono font-semibold text-primary">{r.shortcut}</code>
-                      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
-                        {TYPE_LABELS[r.content_type]}
-                      </span>
+          ) : (
+            <ul className="flex flex-col gap-2.5">
+              {list.map((r) => (
+                <li key={r.id} className={cn(CARD, 'flex items-start gap-3 px-5 py-4')}>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2.5">
+                      <code className="font-mono text-[15px] font-semibold text-[#01573C] dark:text-[#96F63C]">{r.shortcut}</code>
+                      <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">{TYPE_LABELS[r.content_type]}</span>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{r.content}</p>
+                    <p className="mt-1 line-clamp-2 text-sm leading-normal text-muted-foreground">{r.content}</p>
                   </div>
                   <button
+                    type="button"
                     onClick={() => handleDelete(r.id, r.shortcut)}
                     disabled={deleting === r.id}
-                    className="text-muted-foreground/50 hover:text-red-400 transition-colors shrink-0"
+                    aria-label={`Remover ${r.shortcut}`}
+                    className="shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
                   >
                     {deleting === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                   </button>
-                </div>
+                </li>
               ))}
-            </>
+            </ul>
           )}
         </div>
-      )}
+
+        <form
+          onSubmit={(e) => { e.preventDefault(); void handleAdd(); }}
+          className={cn(CARD, 'flex w-full shrink-0 flex-col gap-5 px-[30px] py-[26px] xl:w-[560px]')}
+        >
+          <CardTitle title="Novo atalho" />
+          <div className="flex flex-col gap-2">
+            <FieldLabel htmlFor="qr-shortcut">Atalho</FieldLabel>
+            <input
+              id="qr-shortcut"
+              className={FIELD}
+              placeholder="/proposta"
+              value={form.shortcut}
+              onChange={(e) => {
+                let v = e.target.value;
+                if (!v.startsWith('/')) v = `/${v}`;
+                setForm((f) => ({ ...f, shortcut: v.toLowerCase().replace(/\s/g, '_') }));
+              }}
+            />
+            <p className="text-[13px] text-muted-foreground">Começa com a barra, sem espaços.</p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-semibold text-foreground">O que envia</p>
+            <div className="flex gap-3" role="radiogroup" aria-label="O que o atalho envia">
+              {(['text', 'media', 'template'] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  role="radio"
+                  aria-checked={form.content_type === t}
+                  onClick={() => setForm((f) => ({ ...f, content_type: t }))}
+                  className={cn('h-12 flex-1 rounded-xl border text-[14.5px] transition-colors', form.content_type === t ? 'border-[#1E6B47] bg-accent font-semibold text-foreground' : 'border-border bg-muted text-muted-foreground hover:text-foreground')}
+                >
+                  {TYPE_LABELS[t]}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <FieldLabel htmlFor="qr-content">Mensagem</FieldLabel>
+            <textarea
+              id="qr-content"
+              rows={4}
+              className={cn(FIELD, 'h-auto min-h-[120px] resize-none py-3.5 leading-normal')}
+              placeholder={form.content_type === 'text' ? 'Texto da mensagem…' : form.content_type === 'media' ? 'Legenda da mídia…' : 'Nome do template…'}
+              value={form.content}
+              onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
+            />
+          </div>
+          {form.content_type === 'media' && (
+            <div className="flex flex-col gap-2">
+              <FieldLabel htmlFor="qr-media">Endereço da mídia</FieldLabel>
+              <input id="qr-media" className={FIELD} placeholder="https://…" value={form.media_url} onChange={(e) => setForm((f) => ({ ...f, media_url: e.target.value }))} />
+            </div>
+          )}
+          <div className="flex items-center gap-3">
+            <Button type="submit" className="h-[46px] px-7 text-[15px]" disabled={saving || form.shortcut.length < 2 || !form.content.trim()}>
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />} Salvar atalho
+            </Button>
+            <Button type="button" variant="secondary" className="h-[46px] px-6 text-[15px]" onClick={() => setForm(EMPTY_FORM)}>Cancelar</Button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
