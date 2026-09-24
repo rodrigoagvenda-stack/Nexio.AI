@@ -42,6 +42,8 @@ export async function GET(request: Request) {
         .maybeSingle()
 
       if (existing?.company_id) {
+        // último acesso (login com Google e link de e-mail não passam por /api/auth/login)
+        service.from('users').update({ last_login: new Date().toISOString() }).eq('id', existing.id).then(undefined, () => {})
         return NextResponse.redirect(safeRedirect(base, next))
       }
 

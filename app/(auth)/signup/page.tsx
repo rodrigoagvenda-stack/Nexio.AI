@@ -42,16 +42,18 @@ export default function SignupPage() {
     }
     setLoading(true);
     try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { full_name: name },
-          emailRedirectTo: `${window.location.origin}/api/auth/callback`,
-        },
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password }),
       });
-      if (error) throw error;
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 429) {
+        const mins = Math.max(1, Math.ceil((data.retryAfterSec ?? 60) / 60));
+        toast({ title: `Muitas tentativas de cadastro. Tente de novo em ${mins} min.`, variant: 'destructive' });
+        return;
+      }
+      if (!res.ok) throw new Error('signup_failed');
       setDone(true);
     } catch {
       toast({ title: 'Não foi possível criar a conta. Tente novamente.', variant: 'destructive' });

@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { isPrivilegedRole, isValidMemberRole } from '@/lib/auth/member-roles';
 
 export async function GET(request: NextRequest) {
   const { context, error: authError } = await requireAuth(request);
@@ -58,6 +59,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, message: 'Dados obrigatórios faltando' },
         { status: 400 }
+      );
+    }
+
+    if (!isValidMemberRole(role)) {
+      return NextResponse.json({ success: false, message: 'Papel inválido' }, { status: 400 });
+    }
+    // Gerente não pode criar administrador
+    if (isPrivilegedRole(role) && !isPrivilegedRole(context.role)) {
+      return NextResponse.json(
+        { success: false, message: 'Apenas administradores podem convidar outro administrador' },
+        { status: 403 }
       );
     }
 

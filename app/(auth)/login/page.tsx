@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
-import { Loader2, Eye, EyeOff, TrendingUp, Users, MessageCircle } from 'lucide-react';
+import { Loader2, Eye, EyeOff, TrendingUp, Users, MessageCircle, AlertCircle, Clock } from 'lucide-react';
 import { ZaapliLogo } from '@/components/brand/ZaapliLogo';
 
 function GoogleIcon() {
@@ -63,6 +63,9 @@ export default function LoginPage() {
   const [forgotSent, setForgotSent] = useState(false);
 
   const [loading, setLoading] = useState(false);
+  const [loginError, setLoginError] = useState<{ remaining: number | null } | null>(null);
+  const [lockedUntil, setLockedUntil] = useState<number | null>(null);
+  const [lockLeft, setLockLeft] = useState(0);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [slideIdx, setSlideIdx] = useState(0);
 
@@ -76,21 +79,45 @@ export default function LoginPage() {
     return () => clearInterval(timer);
   }, []);
 
+  // Trava de tentativas: contagem regressiva quando o servidor pede para esperar
+  useEffect(() => {
+    if (!lockedUntil) return;
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((lockedUntil - Date.now()) / 1000));
+      setLockLeft(left);
+      if (left === 0) setLockedUntil(null);
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [lockedUntil]);
+
+  const fmtLock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (lockedUntil) return;
     setLoading(true);
+    setLoginError(null);
     try {
-      const supabase = createClient();
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      if (data.user) {
-        const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-        const needsMfa = aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2';
-        window.location.href = needsMfa ? '/mfa' : '/dashboard';
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        window.location.href = data.next || '/dashboard';
+        return;
       }
+      if (res.status === 429 && data.retryAfterSec) {
+        setLockedUntil(Date.now() + data.retryAfterSec * 1000);
+        return;
+      }
+      // Nunca expor o motivo real ao usuário : evita enumeração de email
+      setLoginError({ remaining: typeof data.remaining === 'number' ? data.remaining : null });
     } catch {
-      // Nunca expor error.message ao usuário : evita enumeração de email
-      toast({ title: 'Email ou senha incorretos', variant: 'destructive' });
+      toast({ title: 'Não foi possível entrar. Tente novamente.', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -118,16 +145,18 @@ export default function LoginPage() {
     lastSignupAttempt.current = now;
     setLoading(true);
     try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signUp({
-        email: signupEmail,
-        password: signupPassword,
-        options: {
-          data: { full_name: name },
-          emailRedirectTo: `${window.location.origin}/api/auth/callback`,
-        },
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email: signupEmail, password: signupPassword }),
       });
-      if (error) throw error;
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 429) {
+        const mins = Math.max(1, Math.ceil((data.retryAfterSec ?? 60) / 60));
+        toast({ title: `Muitas tentativas de cadastro. Tente de novo em ${mins} min.`, variant: 'destructive' });
+        return;
+      }
+      if (!res.ok) throw new Error('signup_failed');
       toast({ title: 'Se este email não estiver cadastrado, você receberá um link de confirmação em instantes.' });
       setTab('login');
       setEmail(signupEmail);
@@ -143,10 +172,17 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const supabase = createClient();
-      await supabase.auth.resetPasswordForEmail(forgotEmail, {
-        redirectTo: `${window.location.origin}/api/auth/callback?next=/reset-password`,
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail }),
       });
+      if (res.status === 429) {
+        const data = await res.json().catch(() => ({}));
+        const mins = Math.max(1, Math.ceil((data.retryAfterSec ?? 60) / 60));
+        toast({ title: `Muitos pedidos de link. Tente de novo em ${mins} min.`, variant: 'destructive' });
+        return;
+      }
       // Sempre mostrar sucesso : não revelar se email existe
       setForgotSent(true);
     } catch {
@@ -283,6 +319,31 @@ export default function LoginPage() {
             {/* ── Form login ── */}
             {tab === 'login' && (
               <form onSubmit={handleLogin} className="flex flex-col gap-4">
+                {lockedUntil ? (
+                  <div className="flex gap-3 items-start rounded-xl p-3.5" style={{ backgroundColor: '#2A2410', border: '1px solid #4A3F16' }} role="alert">
+                    <Clock className="h-5 w-5 mt-0.5 shrink-0" style={{ color: '#E9C46A' }} />
+                    <div className="flex flex-col gap-1">
+                      <p className="text-sm font-semibold" style={{ color: '#F3E3B0' }}>Muitas tentativas</p>
+                      <p className="text-sm leading-snug" style={{ color: '#C9B77A' }}>
+                        Por segurança, o acesso ficou pausado. Tente de novo em <b style={{ color: '#F3E3B0' }}>{fmtLock(lockLeft)}</b>.
+                      </p>
+                    </div>
+                  </div>
+                ) : loginError ? (
+                  <div className="flex gap-3 items-start rounded-xl p-3.5" style={{ backgroundColor: '#2B1414', border: '1px solid #5A2323' }} role="alert">
+                    <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" style={{ color: '#F87171' }} />
+                    <div className="flex flex-col gap-1">
+                      <p className="text-sm font-semibold" style={{ color: '#FCA5A5' }}>Email ou senha incorretos</p>
+                      <p className="text-sm leading-snug" style={{ color: '#D99494' }}>
+                        Confira os dados e tente de novo.
+                        {loginError.remaining !== null && loginError.remaining > 0 && loginError.remaining <= 3
+                          ? ` Você tem mais ${loginError.remaining} tentativa${loginError.remaining > 1 ? 's' : ''} antes de esperar alguns minutos.`
+                          : ''}
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="email" className="text-sm font-medium" style={{ color: '#CCC' }}>Email</Label>
                   <Input
@@ -331,11 +392,11 @@ export default function LoginPage() {
 
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || !!lockedUntil}
                   className="flex items-center justify-center gap-2 w-full rounded-full font-bold text-sm mt-1 transition-transform active:translate-y-px disabled:opacity-60"
                   style={{ height: 44, backgroundColor: '#01573C', color: '#D8D8D8', boxShadow: '0 2px 0 0 #07261C' }}
                 >
-                  {loading ? <><Loader2 className="h-4 w-4 animate-spin" />Entrando…</> : 'Entrar'}
+                  {loading ? <><Loader2 className="h-4 w-4 animate-spin" />Entrando…</> : lockedUntil ? `Entrar (volta em ${fmtLock(lockLeft)})` : 'Entrar'}
                 </button>
 
                 <p className="text-center text-xs" style={{ color: '#555' }}>

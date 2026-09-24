@@ -97,6 +97,11 @@ export default function MembrosPage() {
   const itemsPerPage = 10;
 
   const isAdmin = user?.role === 'admin' || user?.role === 'manager';
+  // Só administrador mexe em outro administrador ou dá esse papel (a API também confere)
+  const myRole: string | undefined = user?.role;
+  const isAdminRole = myRole === 'admin' || myRole === 'company_admin';
+  const canManage = (m: Member) =>
+    isAdmin && m.user_id !== user?.user_id && (isAdminRole || (m.role !== 'admin' && m.role !== 'company_admin'));
 
   const [inviteForm, setInviteForm] = useState({ name: '', email: '', role: 'closer', department: '' });
   const [editForm, setEditForm] = useState({ role: '', department: '' });
@@ -365,7 +370,7 @@ export default function MembrosPage() {
 
                     {/* Actions */}
                     <td className="px-4 py-3">
-                      {isAdmin && member.user_id !== user?.user_id && (
+                      {canManage(member) && (
                         <div className="flex items-center gap-1 justify-end">
                           <Button
                             variant="ghost"
@@ -451,7 +456,7 @@ export default function MembrosPage() {
                       <SelectItem value="closer">Closer</SelectItem>
                       <SelectItem value="sdr_closer">SDR+Closer</SelectItem>
                       <SelectItem value="manager">Gerente</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
+                      {isAdminRole && <SelectItem value="admin">Admin</SelectItem>}
                     </SelectContent>
                   </Select>
                 </div>
@@ -498,7 +503,7 @@ export default function MembrosPage() {
                     <SelectItem value="closer">Closer</SelectItem>
                     <SelectItem value="sdr_closer">SDR+Closer</SelectItem>
                     <SelectItem value="manager">Gerente</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
+                    {isAdminRole && <SelectItem value="admin">Admin</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>

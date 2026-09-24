@@ -33,20 +33,28 @@ export default function MFAPage() {
     if (!factorId) return;
     setLoading(true);
     try {
-      const supabase = createClient();
-      const { data: challenge, error: challengeErr } = await supabase.auth.mfa.challenge({ factorId });
-      if (challengeErr) throw challengeErr;
-
-      const { error: verifyErr } = await supabase.auth.mfa.verify({
-        factorId,
-        challengeId: challenge.id,
-        code,
+      const res = await fetch('/api/auth/mfa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
       });
-      if (verifyErr) throw verifyErr;
-
-      window.location.href = '/dashboard';
-    } catch (err: any) {
-      toast({ title: err.message || 'Código inválido', variant: 'destructive' });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        window.location.href = data.next || '/dashboard';
+        return;
+      }
+      if (res.status === 429) {
+        const mins = Math.max(1, Math.ceil((data.retryAfterSec ?? 60) / 60));
+        toast({ title: `Muitas tentativas. Tente de novo em ${mins} min.`, variant: 'destructive' });
+      } else {
+        const rest = typeof data.remaining === 'number' && data.remaining > 0 && data.remaining <= 3
+          ? ` Você tem mais ${data.remaining} tentativa${data.remaining > 1 ? 's' : ''}.`
+          : '';
+        toast({ title: `Código inválido. O código muda a cada 30 segundos.${rest}`, variant: 'destructive' });
+      }
+      setCode('');
+    } catch {
+      toast({ title: 'Não foi possível verificar. Tente novamente.', variant: 'destructive' });
       setCode('');
     } finally {
       setLoading(false);
