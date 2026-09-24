@@ -335,7 +335,7 @@ function ScreenAtendimento({ qrState, onGerarQR, onScanQR }: {
           </div>
         </div>
         <p className="text-center text-xs text-muted-foreground mt-3">
-          🔒 Suas mensagens são protegidas com criptografia de ponta a ponta
+          🔒 Conexão oficial com a API da Meta, com seus dados protegidos
         </p>
       </div>
     </div>

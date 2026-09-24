@@ -14,22 +14,22 @@ const ALL_FEATURES = [
   'CRM Kanban',
   'Atendimento via chat',
   'Google Calendar integrado',
-  'Até 5 membros',
+  '2 números de WhatsApp',
 ];
 
 const PLANS = [
   {
     name: 'Zaapply Start',
     price: '297',
-    members: '1 membro',
+    members: '1 número de WhatsApp',
     included: ['SDR com IA', 'CRM Kanban', 'Atendimento via chat'],
     badge: null as string | null,
   },
   {
     name: 'Zaapply Growth',
-    price: '397',
-    members: 'Até 5 membros',
-    included: ['SDR com IA', 'CRM Kanban', 'Atendimento via chat', 'Google Calendar integrado', 'Até 5 membros'],
+    price: '497',
+    members: '2 números de WhatsApp',
+    included: ['SDR com IA', 'CRM Kanban', 'Atendimento via chat', 'Google Calendar integrado', '2 números de WhatsApp'],
     badge: 'Mais completo',
   },
 ];
@@ -214,7 +214,7 @@ export function LandingPage() {
               </div>
               <div className="flex items-center gap-2.5">
                 <Users2 className="w-4 h-4 text-[#7fae8f]" strokeWidth={1.75} />
-                <p className="text-sm text-[#ccc]">Até 5 membros na equipe</p>
+                <p className="text-sm text-[#ccc]">2 números de WhatsApp</p>
               </div>
             </div>
           </Reveal>

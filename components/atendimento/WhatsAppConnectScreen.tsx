@@ -225,7 +225,7 @@ function QrScreen({ status, qrcode, pairingCode, generating, onGenerate }: Omit<
           )}
         </div>
       </Card>
-      <Footer>Suas mensagens são protegidas com criptografia de ponta a ponta</Footer>
+      <Footer>Conexão oficial com a API da Meta, com seus dados protegidos</Footer>
     </>
   );
 }

@@ -19,7 +19,7 @@ const FAQS = [
   },
   {
     q: 'Qual a diferença entre o plano Start e o Growth?',
-    a: 'O Start tem 1 membro na equipe, SDR com IA, CRM e chat. O Growth libera até 5 membros e adiciona o Google Calendar integrado pra agendamento automático direto na conversa.',
+    a: 'O Start tem SDR com IA, CRM, chat e 1 número de WhatsApp. O Growth inclui 2 números de WhatsApp e adiciona o Google Calendar integrado pra agendamento automático direto na conversa.',
   },
   {
     q: 'O Zaapply responde fora do horário comercial?',
