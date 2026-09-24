@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
   } catch { /* anonymous submission fallback */ }
 
   const service = createServiceClient()
-  await service.from('support_tickets').insert({
+  const { error: insertError } = await service.from('support_tickets').insert({
     company_id: companyId,
     user_id: userId,
     protocolo,
@@ -68,6 +68,10 @@ export async function POST(req: NextRequest) {
     mensagem: mensagem.trim(),
     images: Array.isArray(images) ? images.slice(0, 5) : [],
   })
+  if (insertError) {
+    console.error('[Suporte] Erro ao salvar o chamado:', insertError.message)
+    return NextResponse.json({ success: false, error: 'Não foi possível registrar o chamado agora. Tente de novo em instantes.' }, { status: 500 })
+  }
 
   void Promise.all([
     sendSuporteNotificacaoEmail({ nome: nome.trim(), email: email.trim().toLowerCase(), assunto: assunto.trim(), mensagem: mensagem.trim(), protocolo }),

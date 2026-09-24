@@ -155,8 +155,8 @@ const navSections: NavSection[] = [
         label: 'Ajuda',
         icon: CircleHelpIcon,
         children: [
-          { href: '/ajuda', label: 'Documentação', icon: FileTextIcon },
-          { href: '/suporte', label: 'Tickets', icon: ReceiptTextIcon },
+          { href: '/ajuda?tab=docs', label: 'Documentação', icon: FileTextIcon },
+          { href: '/ajuda?tab=chamados', label: 'Chamados', icon: ReceiptTextIcon },
         ],
       },
       { href: '/configuracoes', label: 'Configuração', icon: CogIcon, exact: true },
@@ -337,9 +337,11 @@ function FlyoutPanel({
           isChildActive = pathname === '/crm' && currentView === childView;
         } else if (child.href.includes('?')) {
           const childTab = new URLSearchParams(child.href.split('?')[1]).get('tab');
+          // /ajuda sem ?tab= é a aba Documentação
+          const currentTab = searchParams.get('tab') ?? (childBase === '/ajuda' ? 'docs' : null);
           isChildActive =
             (pathname === childBase || pathname.startsWith(childBase + '/')) &&
-            searchParams.get('tab') === childTab;
+            currentTab === childTab;
         } else {
           isChildActive = pathname === childBase || pathname.startsWith(childBase + '/');
         }
