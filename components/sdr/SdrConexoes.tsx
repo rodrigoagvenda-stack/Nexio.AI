@@ -27,6 +27,11 @@ const dm = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { day: '2-
 const hm = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 const daysAgo = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
 const fmtN = (n: number) => n.toLocaleString('pt-BR');
+function fmtPhone(raw: string): string {
+  const d = raw.replace(/D/g, '');
+  const m = d.match(/^55(d{2})(d{4,5})(d{4})$/);
+  return m ? `+55 ${m[1]} ${m[2]}-${m[3]}` : `+${d}`;
+}
 const jget = (url: string) => fetch(url).then((r) => (r.ok ? r.json() : null)).catch(() => null);
 
 // ─── Peças ────────────────────────────────────────────────────────────────────
@@ -192,7 +197,7 @@ function WhatsAppPanel({ cfg, agent, resumo, reload, go }: { cfg: SdrCfg; agent:
         sub={connected ? undefined : 'Conecte um número para o agente conversar com os leads.'}
         actions={connected ? (<><button type="button" onClick={() => (meta ? go('metaapi') : setQrOpen(true))} className={PILL3D}>Reconectar</button><DangerLink onClick={disconnect}>Desconectar</DangerLink></>) : <button type="button" onClick={() => setQrOpen(true)} className={PILL_GREEN}>Conectar por QR code</button>}
         rows={connected ? [
-          { k: 'Número', v: cfg.instance_phone ? (cfg.instance_phone.startsWith('+') ? cfg.instance_phone : `+${cfg.instance_phone}`) : 'Não informado' },
+          { k: 'Número', v: cfg.instance_phone ? fmtPhone(cfg.instance_phone) : 'Não informado' },
           { k: 'Forma de conexão', v: meta ? 'API oficial da Meta' : 'QR code (WhatsApp Web)' },
           { k: 'Nome da conexão', v: cfg.persona.empresa || 'Sem nome' },
           { k: 'Última mensagem', v: resumo?.lastMessageAt ? `${dm(resumo.lastMessageAt)} às ${hm(resumo.lastMessageAt)}${daysAgo(resumo.lastMessageAt) > 0 ? `, há ${daysAgo(resumo.lastMessageAt)} ${daysAgo(resumo.lastMessageAt) === 1 ? 'dia' : 'dias'}` : ''}` : 'Nenhuma ainda', warn: stale },

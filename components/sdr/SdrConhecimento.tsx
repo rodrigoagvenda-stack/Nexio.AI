@@ -88,7 +88,8 @@ export function SdrConhecimento({ persona, flowId, agentActive, onReload }: { pe
       const res = await fetch('/api/sdr/knowledge');
       if (!res.ok) throw new Error();
       const j = await res.json();
-      const g = (j.groups ?? []) as Group[];
+      const sentence = (s: string) => (s === s.toUpperCase() && s !== s.toLowerCase() ? s.charAt(0) + s.slice(1).toLowerCase() : s);
+      const g = ((j.groups ?? []) as Group[]).map((x) => ({ ...x, topics: x.topics.map((t) => ({ ...t, title: sentence(t.title) })) }));
       setGroups(g);
       setDraft(clone(g));
     } catch { setFailed(true); }
