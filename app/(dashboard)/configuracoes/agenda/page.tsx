@@ -87,6 +87,15 @@ export default function CalendarioPage() {
   useEffect(() => { setSelected(weekOffset === 0 ? today : monday); setShowAll(false); }, [weekOffset, monday, today]);
   useEffect(() => { setShowAll(false); }, [selected, filter]);
 
+  // Semana atual sem nada hoje: abre no último dia que teve atividade
+  useEffect(() => {
+    if (!data || weekOffset !== 0) return;
+    const has = (d: Date) => data.calls.some((c) => sameDay(new Date(c.at), d)) || data.disparos.some((x) => sameDay(new Date(x.at), d));
+    if (has(today)) return;
+    const last = [...days].reverse().find((d) => d <= today && has(d));
+    if (last) setSelected(last);
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const showCalls = filter === 'all' || filter === 'calls';
   const kindOn = (k: Kind) => filter === 'all' || filter === k;
   const callsOf = (day: Date) => (data?.calls ?? []).filter((c) => sameDay(new Date(c.at), day));
@@ -134,7 +143,6 @@ export default function CalendarioPage() {
     }
   };
 
-  const selIsToday = sameDay(selected, today);
   const selTitle = `${cap(WEEKDAY_LONG[selected.getDay()])}, ${selected.getDate()} de ${MONTHS[selected.getMonth()]}`;
   const summary = [showCalls ? plural(selCalls.length, 'call', 'calls') : null, filter === 'calls' ? null : plural(selDisparos.length, 'disparo', 'disparos')].filter(Boolean).join(' e ');
 
@@ -316,7 +324,6 @@ export default function CalendarioPage() {
                 )}
               </>
             )}
-            {selIsToday && !loading && selCalls.length === 0 && selDisparos.length === 0 && <p className="text-sm text-muted-foreground">Nada aconteceu hoje até agora.</p>}
           </aside>
         </div>
       )}
