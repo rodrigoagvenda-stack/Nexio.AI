@@ -106,7 +106,7 @@ export async function fireMetaCapiEvent(supabase: Supabase, params: FireCapiPara
     responseStatus = res.status
     responseBody = await res.json().catch(() => null)
     success = res.ok
-    if (!res.ok) errorMessage = (responseBody as any)?.error?.message ?? `Meta CAPI error ${res.status}`
+    if (!res.ok) errorMessage = (responseBody as any)?.error?.error_user_msg ?? (responseBody as any)?.error?.message ?? `Meta CAPI error ${res.status}`
   } catch (e: any) {
     errorMessage = e.message
   }
