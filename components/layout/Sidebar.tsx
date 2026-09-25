@@ -301,6 +301,7 @@ function FlyoutPanel({
   currentView,
   isTrial,
   onClose,
+  onNavigate,
   onKeepOpen,
 }: {
   state: FlyoutState;
@@ -309,6 +310,7 @@ function FlyoutPanel({
   currentView: string;
   isTrial: boolean;
   onClose: () => void;
+  onNavigate: () => void;
   onKeepOpen: () => void;
 }) {
   const { link, top, left } = state;
@@ -349,7 +351,7 @@ function FlyoutPanel({
           return (
             <button
               key={child.href}
-              onClick={() => { onClose(); router.push('/configuracoes?tab=plano'); }}
+              onClick={() => { onNavigate(); router.push('/configuracoes?tab=plano'); }}
               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-100 text-muted-foreground/50 hover:text-muted-foreground hover:bg-accent/30"
             >
               <ChildIcon className="h-3.5 w-3.5 flex-shrink-0" />
@@ -365,7 +367,7 @@ function FlyoutPanel({
               key={child.href}
               href={child.href}
               prefetch={true}
-              onClick={onClose}
+              onClick={onNavigate}
               className={cn(
                 'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-100',
                 isChildActive
@@ -383,7 +385,7 @@ function FlyoutPanel({
             key={child.href}
             child={child}
             isActive={isChildActive}
-            onClose={onClose}
+            onClose={onNavigate}
           />
         );
       })}
@@ -522,6 +524,12 @@ export const Sidebar = memo(function Sidebar({
     flyoutTimeoutRef.current = setTimeout(() => setFlyout(null), 200);
   }, []);
 
+  // Ao clicar num item o painel fecha na hora (o atraso é só para o mouse atravessar o vão entre item e painel)
+  const closeFlyoutNow = useCallback(() => {
+    if (flyoutTimeoutRef.current) clearTimeout(flyoutTimeoutRef.current);
+    setFlyout(null);
+  }, []);
+
   const keepFlyout = useCallback(() => {
     if (flyoutTimeoutRef.current) clearTimeout(flyoutTimeoutRef.current);
   }, []);
@@ -529,6 +537,10 @@ export const Sidebar = memo(function Sidebar({
   useEffect(() => () => {
     if (flyoutTimeoutRef.current) clearTimeout(flyoutTimeoutRef.current);
   }, []);
+
+  // Trocou de página (inclusive ?view=): o painel não pode ficar aberto por cima do conteúdo
+  const searchKey = searchParams.toString();
+  useEffect(() => { closeFlyoutNow(); }, [pathname, searchKey, closeFlyoutNow]);
 
   const isCrmRoute = useMemo(() =>
     pathname === '/crm' || pathname.startsWith('/crm/'),
@@ -858,6 +870,7 @@ export const Sidebar = memo(function Sidebar({
           currentView={currentView}
           isTrial={isTrial}
           onClose={closeFlyout}
+          onNavigate={closeFlyoutNow}
           onKeepOpen={keepFlyout}
         />
       )}
