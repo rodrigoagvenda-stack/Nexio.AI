@@ -1,1345 +1,579 @@
 'use client';
 
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Clock, Loader2, Lock, ShieldCheck } from 'lucide-react';
 import { AutomationsNav } from '@/components/automacoes/AutomationsNav';
-
-import { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@/lib/hooks/useUser';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
-import {
-  Megaphone,
-  FileText,
-  Settings,
-  RefreshCw,
-  ChevronDown,
-  ChevronUp,
-  ChevronLeft,
-  ChevronRight,
-  AlertCircle,
-  CheckCircle2,
-  TrendingUp,
-  Send,
-  MessageSquare,
-  Zap,
-  Edit3,
-  Save,
-  X,
-  Bell,
-  Users,
-  Activity,
-  ShieldCheck,
-  BarChart3,
-  Target,
-  Repeat2,
-  Calendar,
-  Video,
-  Copy,
-  Clock,
-  CalendarCheck,
-  Plus,
-  Trash2,
-} from 'lucide-react';
-import { formatDateTime } from '@/lib/utils/format';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Campaign {
   id: number;
-  campaign_id?: number;
   lead_id?: number;
-  company_id: number;
-  nome?: string;
-  name?: string;
-  status?: string;
   created_at: string;
-  template_id?: number;
-  tentativas?: number;
-  total_erros?: number;
+  tentativas?: number | null;
+  total_erros?: number | null;
   respondeu_em?: string | null;
+  resposta_bot?: boolean | null;
   converteu_em?: string | null;
   ultima_abordagem?: string | null;
   proximo_contato_em?: string | null;
-  lead?: {
-    contact_name?: string;
-    company_name?: string;
-    whatsapp?: string;
-  };
-  [key: string]: any;
-}
-
-interface CampaignError {
-  id: number;
-  campaign_id?: number;
-  lead_id?: number;
-  error_message?: string;
-  mensagem?: string;
-  created_at: string;
-  [key: string]: any;
+  numero_bloqueado?: boolean | null;
+  lead?: { contact_name?: string | null; company_name?: string | null; whatsapp?: string | null } | null;
 }
 
 interface Template {
   id: number;
-  company_id?: number;
+  company_id?: number | null;
   categoria: string;
-  prompt_sistema?: string;
-  exemplos?: any;
+  prompt_sistema?: string | null;
   ativo: boolean;
-  usar_ia?: boolean;
-  performance_score?: number;
-  [key: string]: any;
+  usar_ia?: boolean | null;
 }
 
-interface Meeting {
-  id: string;
-  contact_name?: string;
-  company_name?: string;
-  call_status: string;
-  meet_url?: string;
-  call_agendada_para?: string;
-}
+interface OutboundLimit { mensagens_enviadas_hoje?: number; limite_diario?: number | null }
 
-interface OutboundLimit {
-  id?: number;
-  company_id?: number;
-  limite_diario?: number;
-  mensagens_enviadas_hoje?: number;
-  taxa_resposta?: number;
-  mensagens_nao_respondidas_seguidas?: number;
-  [key: string]: any;
-}
+type Sub = 'abordagens' | 'mensagens' | 'limites';
+type Situation = 'pessoa' | 'auto' | 'sem';
+type Filter = 'todos' | Situation;
 
-// ─── Anti Noshow config ───────────────────────────────────────────────────────
+const CARD = 'rounded-[14px] border border-border bg-card';
+const LIME = 'text-[#01573C] dark:text-[#96F63C]';
+const PILL3D = 'flex h-11 items-center justify-center rounded-full bg-[#141414] px-6 text-[15px] font-semibold text-white shadow-[inset_0_1px_0_#FFFFFF14,0_3px_0_#000000] transition-transform active:translate-y-px disabled:opacity-60';
+const PILL_GREEN = 'flex h-11 items-center justify-center rounded-full bg-[#01573C] px-6 text-[15px] font-semibold text-white shadow-[inset_0_1px_0_#FFFFFF26,0_3px_0_#003526] transition-transform active:translate-y-px disabled:opacity-60';
+const PER_PAGE = 7;
 
-const NOSHOW_STAGES = [
-  { label: '24h antes',   keys: ['24h', '24h_antes',  'antecipacao', '24'] },
-  { label: '2h antes',    keys: ['2h',  '2h_antes',   'reforco']          },
-  { label: '15min antes', keys: ['15min','15min_antes','15']               },
-  { label: '5min após',   keys: ['5min','5min_apos',  '5min_após','resgate','5'] },
-];
+const SITUATION_LABEL: Record<Situation, string> = { pessoa: 'Pessoa respondeu', auto: 'Resposta automática', sem: 'Sem resposta' };
+const CATEGORY_LABEL: Record<string, string> = { primeira_abordagem: 'Primeira abordagem', follow_up: 'Segundo toque', aberturas: 'Aberturas' };
 
-const noshowColors = ['#14532d', '#15803d', '#22c55e', '#4ade80'];
+const situationOf = (c: Campaign): Situation => (c.respondeu_em ? (c.resposta_bot ? 'auto' : 'pessoa') : 'sem');
+const dm = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '');
+const dmHm = (iso?: string | null) => (iso ? `${dm(iso)} ${new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : '');
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+const categoryLabel = (c: string) => CATEGORY_LABEL[c] ?? (c.charAt(0).toUpperCase() + c.slice(1).replace(/_/g, ' '));
+const leadName = (c: Campaign) => c.lead?.contact_name || c.lead?.company_name || `Lead ${c.lead_id ?? c.id}`;
 
-function resolveNoshowCount(counts: Record<string, number>, keys: string[]): number {
-  for (const [k, v] of Object.entries(counts)) {
-    if (keys.some((key) => k.toLowerCase().includes(key.toLowerCase()))) return v;
-  }
-  return 0;
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function KpiCard({ icon: Icon, label, value, sub, color, accent }: {
-  icon: React.ElementType; label: string; value: string | number; sub?: string; color?: string;
-  accent?: 'blue' | 'violet' | 'emerald' | 'amber';
-}) {
-  const accents: Record<string, { bar: string; iconBg: string; iconText: string }> = {
-    blue:    { bar: 'bg-blue-500',    iconBg: 'bg-blue-500/10',    iconText: 'text-blue-500' },
-    violet:  { bar: 'bg-violet-500',  iconBg: 'bg-violet-500/10',  iconText: 'text-violet-500' },
-    emerald: { bar: 'bg-emerald-500', iconBg: 'bg-emerald-500/10', iconText: 'text-emerald-500' },
-    amber:   { bar: 'bg-amber-500',   iconBg: 'bg-amber-500/10',   iconText: 'text-amber-500' },
-  };
-  const a = accents[accent ?? 'blue'];
+function Toggle({ on, onChange, label, disabled }: { on: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean }) {
   return (
-    <Card className="relative overflow-hidden">
-      <div className={`absolute inset-y-0 left-0 w-[3px] ${a.bar}`} />
-      <CardContent className="pt-5 pb-4 pl-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">{label}</p>
-            <p className={`text-[26px] leading-none font-bold tabular-nums ${color ?? ''}`}>{value}</p>
-            {sub && <p className="text-xs text-muted-foreground mt-1.5">{sub}</p>}
-          </div>
-          <div className={`p-2 rounded-lg shrink-0 ${a.iconBg}`}>
-            <Icon className={`h-4 w-4 ${a.iconText}`} />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onChange(!on)}
+      className={cn('flex h-[26px] w-[46px] shrink-0 items-center rounded-full px-[3px] transition-colors disabled:opacity-60', on ? 'justify-end bg-[#01573C]' : 'justify-start bg-muted-foreground/30 dark:bg-[#2A2A2A]')}
+    >
+      <span className="h-5 w-5 rounded-full bg-white shadow" />
+    </button>
   );
-}
-
-function CampaignStatusBadge({ status }: { status?: string }) {
-  const s = status?.toLowerCase() || '';
-  if (s === 'ativa' || s === 'active' || s === 'running')
-    return <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 text-xs">Ativa</Badge>;
-  if (s === 'concluída' || s === 'completed' || s === 'done')
-    return <Badge className="bg-blue-500/15 text-blue-600 border-blue-500/30 text-xs">Concluída</Badge>;
-  if (s === 'pausada' || s === 'paused')
-    return <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30 text-xs">Pausada</Badge>;
-  if (s === 'erro' || s === 'error' || s === 'failed')
-    return <Badge className="bg-red-500/15 text-red-600 border-red-500/30 text-xs">Erro</Badge>;
-  return <Badge variant="secondary" className="text-xs">{status || 'Pendente'}</Badge>;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function OutboundPage() {
+  const router = useRouter();
   const { company, loading: loadingCompany } = useUser();
 
+  const [sub, setSub] = useState<Sub>('abordagens');
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [campaignErrors, setCampaignErrors] = useState<Record<number, CampaignError[]>>({});
-  const [expandedCampaign, setExpandedCampaign] = useState<number | null>(null);
-  const [campaignPage, setCampaignPage] = useState(0);
-  const CAMPAIGNS_PER_PAGE = 6;
-
   const [templates, setTemplates] = useState<Template[]>([]);
   const [limits, setLimits] = useState<OutboundLimit>({});
-  const [editingTemplate, setEditingTemplate] = useState<number | null>(null);
-  const [templateDraft, setTemplateDraft] = useState<Partial<Template>>({});
-  const [creatingTemplate, setCreatingTemplate] = useState(false);
-  const [newTemplateDraft, setNewTemplateDraft] = useState({ categoria: '', prompt_sistema: '', exemplos: '', usar_ia: true });
-
-  const [outboundPausado, setOutboundPausado] = useState(false);
-  const [togglingOutbound, setTogglingOutbound] = useState(false);
-  const [totalEnviadas, setTotalEnviadas] = useState(0);
-  const [totalAbordados, setTotalAbordados] = useState(0);
-  const [totalRespondidas, setTotalRespondidas] = useState(0);
-  const [antiNoshowCounts, setAntiNoshowCounts] = useState<Record<string, number>>({});
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [meetingFilter, setMeetingFilter] = useState<'proximas' | 'passadas'>('proximas');
-
+  const [paused, setPaused] = useState(false);
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
-  const [loadingLimits, setLoadingLimits] = useState(true);
-  const [loadingMeetings, setLoadingMeetings] = useState(true);
-  const [savingLimits, setSavingLimits] = useState(false);
-  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [toggling, setToggling] = useState(false);
 
-  // ── Fetch ────────────────────────────────────────────────────────────────────
+  const [filter, setFilter] = useState<Filter>('todos');
+  const [page, setPage] = useState(0);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+
+  const [tplId, setTplId] = useState<number | null>(null);
+  const [draft, setDraft] = useState<{ text: string; ativo: boolean; usar_ia: boolean } | null>(null);
+  const [savingTpl, setSavingTpl] = useState(false);
+  const [newOpen, setNewOpen] = useState(false);
+  const [newDraft, setNewDraft] = useState({ nome: '', texto: '' });
+  const [creating, setCreating] = useState(false);
+
+  const [limitInput, setLimitInput] = useState('');
+  const [savingLimit, setSavingLimit] = useState(false);
 
   const fetchCampaigns = useCallback(async () => {
-    if (!company?.id) return;
     setLoadingCampaigns(true);
     try {
       const res = await fetch('/api/outbound/campaigns');
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.message || 'Erro ao buscar campanhas');
-      setCampaigns(json.campaigns || []);
-      setTotalEnviadas(json.stats?.totalEnviadas ?? 0);
-      setTotalAbordados(json.stats?.totalAbordados ?? 0);
-      setTotalRespondidas(json.stats?.totalRespondidas ?? 0);
-    } catch (err: any) {
-      console.error('fetchCampaigns:', err);
+      if (!res.ok || !json.success) throw new Error(json.message);
+      setCampaigns(json.campaigns ?? []);
+    } catch (e) {
+      console.error('fetchCampaigns', e);
     } finally {
       setLoadingCampaigns(false);
-    }
-  }, [company?.id]);
-
-  const fetchCampaignErrors = useCallback(async (campaignId: number) => {
-    try {
-      const res = await fetch(`/api/outbound/campaigns/${campaignId}/errors`);
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.message || 'Erro ao buscar erros');
-      setCampaignErrors((prev) => ({ ...prev, [campaignId]: json.errors || [] }));
-    } catch (err: any) {
-      console.error('fetchCampaignErrors:', err);
     }
   }, []);
 
   const fetchTemplates = useCallback(async () => {
-    if (!company?.id) return;
     setLoadingTemplates(true);
     try {
       const res = await fetch('/api/outbound/templates');
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.message || 'Erro ao buscar templates');
-      setTemplates(json.templates || []);
-    } catch (err: any) {
-      console.error('fetchTemplates:', err);
+      if (!res.ok || !json.success) throw new Error(json.message);
+      setTemplates(json.templates ?? []);
+    } catch (e) {
+      console.error('fetchTemplates', e);
     } finally {
       setLoadingTemplates(false);
     }
-  }, [company?.id]);
+  }, []);
 
   const fetchLimits = useCallback(async () => {
-    if (!company?.id) return;
-    setLoadingLimits(true);
     try {
       const res = await fetch('/api/outbound/limits');
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.message || 'Erro ao buscar limites');
-      if (json.limits) setLimits(json.limits);
-    } catch (err: any) {
-      console.error('fetchLimits:', err);
-    } finally {
-      setLoadingLimits(false);
+      if (res.ok && json.success && json.limits) {
+        setLimits(json.limits);
+        setLimitInput(json.limits.limite_diario != null ? String(json.limits.limite_diario) : '');
+      }
+    } catch (e) {
+      console.error('fetchLimits', e);
     }
-  }, [company?.id]);
-
-  const fetchAntiNoshow = useCallback(async () => {
-    if (!company?.id) return;
-    try {
-      const res = await fetch('/api/outbound/anti-noshow');
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.message || 'Erro ao buscar anti-noshow');
-      setAntiNoshowCounts(json.counts || {});
-    } catch (err: any) {
-      console.error('fetchAntiNoshow:', err);
-    }
-  }, [company?.id]);
-
-  const fetchMeetings = useCallback(async () => {
-    if (!company?.id) return;
-    setLoadingMeetings(true);
-    try {
-      const res = await fetch('/api/outbound/meetings');
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.message || 'Erro ao buscar reuniões');
-      setMeetings(json.meetings || []);
-    } catch (err: any) {
-      console.error('fetchMeetings:', err);
-    } finally {
-      setLoadingMeetings(false);
-    }
-  }, [company?.id]);
+  }, []);
 
   useEffect(() => {
-    if (company?.id) {
-      fetchCampaigns();
-      fetchTemplates();
-      fetchLimits();
-      fetchAntiNoshow();
-      fetchMeetings();
-      fetch('/api/outbound/pause')
-        .then((r) => r.json())
-        .then((json) => { if (json.success) setOutboundPausado(json.pausado); })
-        .catch(() => {});
-    }
-  }, [company?.id, fetchCampaigns, fetchTemplates, fetchLimits, fetchAntiNoshow, fetchMeetings]);
+    if (!company?.id) return;
+    void fetchCampaigns();
+    void fetchTemplates();
+    void fetchLimits();
+    fetch('/api/outbound/pause').then((r) => r.json()).then((j) => { if (j.success) setPaused(!!j.pausado); }).catch(() => {});
+  }, [company?.id, fetchCampaigns, fetchTemplates, fetchLimits]);
 
-  // ── Actions ──────────────────────────────────────────────────────────────────
+  // Modelo aberto no editor: o primeiro (primeira abordagem, se existir) até a pessoa escolher outro
+  useEffect(() => {
+    if (templates.length === 0) { setTplId(null); return; }
+    setTplId((cur) => (cur && templates.some((t) => t.id === cur) ? cur : (templates.find((t) => t.categoria === 'primeira_abordagem') ?? templates[0]).id));
+  }, [templates]);
+  const tpl = templates.find((t) => t.id === tplId) ?? null;
+  useEffect(() => {
+    setDraft(tpl ? { text: tpl.prompt_sistema ?? '', ativo: tpl.ativo, usar_ia: tpl.usar_ia ?? true } : null);
+  }, [tpl?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function handleToggleOutbound() {
-    const novoPausado = !outboundPausado;
-    setTogglingOutbound(true);
+  const counts = useMemo(() => {
+    const c = { todos: campaigns.length, pessoa: 0, auto: 0, sem: 0 };
+    campaigns.forEach((x) => { c[situationOf(x)]++; });
+    return c;
+  }, [campaigns]);
+  const rows = useMemo(() => campaigns.filter((c) => filter === 'todos' || situationOf(c) === filter), [campaigns, filter]);
+  const pageRows = rows.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
+  const selected = campaigns.find((c) => c.id === selectedId) ?? pageRows[0] ?? null;
+  useEffect(() => { setPage(0); }, [filter]);
+
+  const now = Date.now();
+  const converted = campaigns.filter((c) => c.converteu_em).length;
+  const overdue = campaigns.filter((c) => c.proximo_contato_em && new Date(c.proximo_contato_em).getTime() < now && !c.numero_bloqueado);
+  const overdueDates = overdue.map((c) => new Date(c.proximo_contato_em as string).getTime());
+  const lastSend = campaigns.map((c) => c.ultima_abordagem).filter(Boolean).sort().at(-1) ?? null;
+  const firstApproach = campaigns.map((c) => c.created_at).sort()[0] ?? null;
+  const abordados = new Set(campaigns.filter((c) => (c.tentativas ?? 0) > 0).map((c) => c.lead_id ?? c.id)).size;
+  const blocked = new Set(campaigns.filter((c) => c.numero_bloqueado).map((c) => c.lead?.whatsapp ?? c.lead_id ?? c.id)).size;
+  const sentToday = limits.mensagens_enviadas_hoje ?? 0;
+  const dailyLimit = limits.limite_diario ?? null;
+
+  async function togglePause() {
+    const next = !paused;
+    setToggling(true);
     try {
-      const res = await fetch('/api/outbound/pause', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pausado: novoPausado }),
-      });
+      const res = await fetch('/api/outbound/pause', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pausado: next }) });
       const json = await res.json();
       if (!json.success) throw new Error(json.message);
-      setOutboundPausado(novoPausado);
-      toast({ title: novoPausado ? 'Outbound pausado' : 'Outbound reativado' });
-    } catch (err: any) {
-      toast({ title: err.message || 'Erro ao alterar outbound', variant: 'destructive' });
+      setPaused(next);
+      toast({ title: next ? 'Outbound pausado' : 'Outbound ligado', variant: 'success' });
+    } catch (e) {
+      toast({ title: 'Não foi possível alterar o Outbound', description: e instanceof Error ? e.message : undefined, variant: 'destructive' });
     } finally {
-      setTogglingOutbound(false);
+      setToggling(false);
     }
   }
 
-  const handleExpandCampaign = (id: number) => {
-    if (expandedCampaign === id) {
-      setExpandedCampaign(null);
-    } else {
-      setExpandedCampaign(id);
-      if (!campaignErrors[id]) fetchCampaignErrors(id);
-    }
-  };
-
-  const handleSaveLimits = async () => {
-    if (!company?.id) return;
-    setSavingLimits(true);
+  async function markClient(c: Campaign) {
+    const stamp = new Date().toISOString();
     try {
-      const res = await fetch('/api/outbound/limits', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ company_id: company.id, limite_diario: limits.limite_diario }),
-      });
-      if (!res.ok) {
-        const { message } = await res.json().catch(() => ({}));
-        throw new Error(message || 'Erro ao salvar');
-      }
-      await fetchLimits();
-      toast({ title: 'Configurações salvas!' });
-    } catch (err: any) {
-      toast({ title: 'Erro ao salvar configurações', variant: 'destructive' });
-    } finally {
-      setSavingLimits(false);
-    }
-  };
-
-  const handleToggleTemplate = async (template: Template) => {
-    const newValue = !template.ativo;
-    setTemplates((prev) => prev.map((t) => (t.id === template.id ? { ...t, ativo: newValue } : t)));
-    try {
-      const res = await fetch(`/api/outbound/templates/${template.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ativo: newValue }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.message);
-      toast({ title: newValue ? 'Template ativado' : 'Template desativado' });
+      const res = await fetch(`/api/outbound/campaigns/${c.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ converteu_em: stamp }) });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) throw new Error();
+      setCampaigns((prev) => prev.map((x) => (x.id === c.id ? { ...x, converteu_em: stamp } : x)));
+      toast({ title: 'Lead marcado como cliente', variant: 'success' });
     } catch {
-      setTemplates((prev) => prev.map((t) => (t.id === template.id ? { ...t, ativo: !newValue } : t)));
-      toast({ title: 'Erro ao atualizar template', variant: 'destructive' });
+      toast({ title: 'Não foi possível marcar como cliente', variant: 'destructive' });
     }
-  };
+  }
 
-  const handleStartEdit = (template: Template) => {
-    setEditingTemplate(template.id);
-    setTemplateDraft({
-      categoria: template.categoria,
-      prompt_sistema: template.prompt_sistema || '',
-      exemplos:
-        typeof template.exemplos === 'object'
-          ? JSON.stringify(template.exemplos, null, 2)
-          : template.exemplos || '',
-      usar_ia: template.usar_ia ?? true,
-    });
-  };
-
-  const handleSaveTemplate = async (templateId: number) => {
-    setSavingTemplate(true);
+  async function saveTemplate() {
+    if (!tpl || !draft) return;
+    setSavingTpl(true);
     try {
-      let exemplosValue: any = templateDraft.exemplos;
-      try { exemplosValue = JSON.parse(templateDraft.exemplos as string); } catch {}
-      const res = await fetch(`/api/outbound/templates/${templateId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          categoria: templateDraft.categoria,
-          prompt_sistema: templateDraft.prompt_sistema,
-          exemplos: exemplosValue,
-          usar_ia: templateDraft.usar_ia,
-        }),
-      });
+      const res = await fetch(`/api/outbound/templates/${tpl.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt_sistema: draft.text, ativo: draft.ativo, usar_ia: draft.usar_ia }) });
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.message);
-      setTemplates((prev) =>
-        prev.map((t) => (t.id === templateId ? { ...t, ...templateDraft, exemplos: exemplosValue } : t))
-      );
-      setEditingTemplate(null);
-      toast({ title: 'Template atualizado!' });
+      if (!res.ok || !json.success) throw new Error();
+      setTemplates((prev) => prev.map((t) => (t.id === tpl.id ? { ...t, prompt_sistema: draft.text, ativo: draft.ativo, usar_ia: draft.usar_ia } : t)));
+      toast({ title: 'Mensagem salva', variant: 'success' });
     } catch {
-      toast({ title: 'Erro ao salvar template', variant: 'destructive' });
+      toast({ title: 'Não foi possível salvar a mensagem', variant: 'destructive' });
     } finally {
-      setSavingTemplate(false);
+      setSavingTpl(false);
     }
-  };
+  }
 
-  const handleCreateTemplate = async () => {
-    if (!company?.id || !newTemplateDraft.categoria.trim() || !newTemplateDraft.prompt_sistema.trim()) {
-      toast({ title: 'Preencha categoria e prompt', variant: 'destructive' });
-      return;
-    }
-    setSavingTemplate(true);
+  async function createTemplate() {
+    if (!newDraft.nome.trim() || !newDraft.texto.trim()) return;
+    setCreating(true);
     try {
-      let exemplosValue: any = null;
-      if (newTemplateDraft.exemplos.trim()) {
-        try { exemplosValue = JSON.parse(newTemplateDraft.exemplos); } catch { exemplosValue = newTemplateDraft.exemplos; }
-      }
-      const res = await fetch('/api/outbound/templates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          categoria: newTemplateDraft.categoria,
-          prompt_sistema: newTemplateDraft.prompt_sistema,
-          exemplos: exemplosValue,
-          usar_ia: newTemplateDraft.usar_ia,
-        }),
-      });
+      const res = await fetch('/api/outbound/templates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ categoria: newDraft.nome.trim(), prompt_sistema: newDraft.texto.trim(), usar_ia: false }) });
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.message);
+      if (!res.ok || !json.success) throw new Error();
       setTemplates((prev) => [...prev, json.template]);
-      setCreatingTemplate(false);
-      setNewTemplateDraft({ categoria: '', prompt_sistema: '', exemplos: '', usar_ia: true });
-      toast({ title: 'Template criado!' });
+      setTplId(json.template.id);
+      setNewOpen(false);
+      setNewDraft({ nome: '', texto: '' });
+      toast({ title: 'Modelo criado', variant: 'success' });
     } catch {
-      toast({ title: 'Erro ao criar template', variant: 'destructive' });
+      toast({ title: 'Não foi possível criar o modelo', variant: 'destructive' });
     } finally {
-      setSavingTemplate(false);
+      setCreating(false);
     }
-  };
+  }
 
-  const handleDeleteTemplate = async (templateId: number) => {
-    const res = await fetch(`/api/outbound/templates/${templateId}`, { method: 'DELETE' });
+  async function deleteTemplate() {
+    if (!tpl || !window.confirm('Excluir este modelo? Essa ação não pode ser desfeita.')) return;
+    const res = await fetch(`/api/outbound/templates/${tpl.id}`, { method: 'DELETE' });
     const json = await res.json().catch(() => ({}));
-    if (!res.ok || !json.success) { toast({ title: 'Erro ao excluir template', variant: 'destructive' }); return; }
-    setTemplates((prev) => prev.filter((t) => t.id !== templateId));
-    toast({ title: 'Template excluído' });
-  };
+    if (!res.ok || !json.success) { toast({ title: 'Não foi possível excluir o modelo', variant: 'destructive' }); return; }
+    setTemplates((prev) => prev.filter((t) => t.id !== tpl.id));
+    toast({ title: 'Modelo excluído', variant: 'success' });
+  }
 
-  const handleMarkConverted = async (campaignId: number) => {
-    const now = new Date().toISOString();
-    const res = await fetch(`/api/outbound/campaigns/${campaignId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ converteu_em: now }),
-    });
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok || !json.success) {
-      toast({ title: 'Erro ao marcar conversão', variant: 'destructive' });
-      return;
+  async function saveLimit() {
+    const n = Number(limitInput);
+    if (!Number.isFinite(n) || n < 1 || n > 1000) { toast({ title: 'Informe um limite entre 1 e 1000', variant: 'warning' }); return; }
+    setSavingLimit(true);
+    try {
+      const res = await fetch('/api/outbound/limits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ company_id: company?.id, limite_diario: n }) });
+      if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.message); }
+      await fetchLimits();
+      toast({ title: 'Limite salvo', variant: 'success' });
+    } catch (e) {
+      toast({ title: 'Não foi possível salvar o limite', description: e instanceof Error ? e.message : undefined, variant: 'destructive' });
+    } finally {
+      setSavingLimit(false);
     }
-    setCampaigns((prev) =>
-      prev.map((c) => (c.id === campaignId ? { ...c, converteu_em: now } : c))
-    );
-    toast({ title: 'Lead marcado como convertido!' });
-  };
+  }
 
   if (!loadingCompany && company && !company.features?.outbound) {
     return (
-      <div className="max-w-2xl mx-auto py-16 text-center space-y-3">
-        <ShieldCheck className="h-10 w-10 text-muted-foreground mx-auto" />
-        <h1 className="text-lg font-semibold">Recurso não disponível</h1>
-        <p className="text-sm text-muted-foreground">
-          O outbound (disparo frio) não está ativado pra sua empresa. Fale com o time pra habilitar.
-        </p>
+      <div className="mx-auto max-w-2xl space-y-3 py-16 text-center">
+        <ShieldCheck className="mx-auto h-10 w-10 text-muted-foreground" />
+        <h1 className="text-lg font-semibold text-foreground">Recurso não disponível</h1>
+        <p className="text-sm text-muted-foreground">O Outbound não está ativado na sua empresa. Fale com o time para habilitar.</p>
       </div>
     );
   }
 
-  // ─── Derived data ────────────────────────────────────────────────────────────
-
-  const noshowData = NOSHOW_STAGES.map((s, i) => ({
-    name: s.label,
-    quantidade: resolveNoshowCount(antiNoshowCounts, s.keys),
-    fill: noshowColors[i],
-  }));
-  const noshowTotal = noshowData.reduce((acc, d) => acc + d.quantidade, 0);
-
-  const enviadas_hoje = limits.mensagens_enviadas_hoje ?? 0;
-  // limits.taxa_resposta vem de outbound_limits, tabela por-número (não por
-  // empresa) : nunca foi atualizada desde a criação, sempre "0.00" (achado ao
-  // vivo, 2026-09-03). Calcula direto de totalRespondidas/totalEnviadas, que
-  // já vêm agregados e corretos (e já excluem resposta de bot) da mesma
-  // chamada que preenche esses dois estados acima.
-  const taxa = totalEnviadas > 0 ? `${((totalRespondidas / totalEnviadas) * 100).toFixed(1)}%` : '—';
-
-  // Meeting stats
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const todayEnd   = new Date(todayStart.getTime() + 86400000);
-  const weekEnd    = new Date(todayStart.getTime() + 7 * 86400000);
-
-  const meetingsHoje   = meetings.filter((m) => {
-    if (!m.call_agendada_para) return false;
-    const d = new Date(m.call_agendada_para);
-    return d >= todayStart && d < todayEnd;
-  });
-  const meetingsSemana = meetings.filter((m) => {
-    if (!m.call_agendada_para) return false;
-    const d = new Date(m.call_agendada_para);
-    return d >= todayStart && d < weekEnd;
-  });
-  const noShows = meetings.filter((m) => m.call_status === 'no_show');
-
-  const proximasMeetings = meetings.filter((m) => {
-    if (!m.call_agendada_para) return false;
-    return new Date(m.call_agendada_para) >= todayStart;
-  });
-  const passadasMeetings = meetings.filter((m) => {
-    if (!m.call_agendada_para) return true;
-    return new Date(m.call_agendada_para) < todayStart;
-  });
-  const displayedMeetings = meetingFilter === 'proximas' ? proximasMeetings : passadasMeetings;
-
-  // ─── Render ──────────────────────────────────────────────────────────────────
+  const exampleName = (campaigns.find((c) => c.lead?.contact_name)?.lead?.contact_name ?? 'Maria').trim().split(/\s+/)[0];
+  const preview = (draft?.text ?? '').replace(/\{nome\}/gi, exampleName);
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto flex w-full max-w-[1900px] flex-col gap-6 pb-14 pt-2">
       <AutomationsNav active="outbound" />
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="p-2.5 rounded-xl bg-primary/10 shrink-0">
-          <Zap className="h-5 w-5 text-primary" />
-        </div>
-        <div className="flex-1">
-          <h1 className="text-2xl font-semibold text-foreground leading-tight">Automação</h1>
-          <p className="text-sm text-muted-foreground">
-            Outbound, Reuniões, Anti Noshow e Remarketing via IA
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={togglingOutbound}
-          onClick={handleToggleOutbound}
-          className={outboundPausado ? 'border-amber-500/50 text-amber-500' : ''}
-        >
-          {outboundPausado ? 'Outbound pausado · reativar' : 'Pausar outbound'}
-        </Button>
-      </div>
 
-      {/* Aviso de horário */}
-      <div className="flex gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
-        <Clock className="h-5 w-5 text-amber-500 mt-0.5 shrink-0" />
-        <div className="space-y-0.5 text-sm">
-          <p className="font-semibold text-foreground">Orbit.AI — Horário de operação</p>
-          <p className="text-muted-foreground leading-relaxed">
-            Segunda a sexta, das <strong className="text-foreground">9h às 18h</strong> (Brasília). Fora desse período o sistema entra em repouso automaticamente.
-          </p>
-          <a href="/ajuda?tab=outbound" className="inline-block text-amber-500 hover:text-amber-400 underline underline-offset-2 text-xs font-medium mt-0.5">
-            Saiba mais no FAQ →
-          </a>
-        </div>
-      </div>
+      <nav aria-label="Outbound" className="flex w-fit max-w-full items-center gap-0.5 overflow-x-auto rounded-full border border-border bg-card p-1">
+        {([['abordagens', 'Abordagens'], ['mensagens', 'Mensagens'], ['limites', 'Limites e horário']] as const).map(([id, label]) => (
+          <button key={id} type="button" aria-current={sub === id ? 'page' : undefined} onClick={() => setSub(id)}
+            className={cn('shrink-0 rounded-full px-5 py-2 text-sm transition-colors', sub === id ? 'bg-[#0F3D2B] font-semibold text-white' : 'font-medium text-muted-foreground hover:text-foreground')}>
+            {label}
+          </button>
+        ))}
+      </nav>
 
-      {/* Tabs */}
-      <Tabs defaultValue="campanhas" className="space-y-4">
-        <TabsList className="flex w-full overflow-x-auto h-auto gap-1 flex-nowrap sm:flex-wrap sm:w-auto !justify-start p-1" style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}}>
-          <TabsTrigger value="campanhas" className="group gap-1.5 flex-shrink-0">
-            <Send className="h-3.5 w-3.5 text-muted-foreground group-data-[state=active]:text-primary transition-colors" />
-            Campanhas
-          </TabsTrigger>
-          <TabsTrigger value="reunioes" className="group gap-1.5 flex-shrink-0">
-            <Calendar className="h-3.5 w-3.5 text-muted-foreground group-data-[state=active]:text-primary transition-colors" />
-            Reuniões
-            {meetingsHoje.length > 0 && (
-              <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-semibold">
-                {meetingsHoje.length}
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="noshow" className="group gap-1.5 flex-shrink-0">
-            <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground group-data-[state=active]:text-primary transition-colors" />
-            Anti Noshow
-          </TabsTrigger>
-          <TabsTrigger value="remarketing" className="group gap-1.5 flex-shrink-0">
-            <Bell className="h-3.5 w-3.5 text-muted-foreground group-data-[state=active]:text-primary transition-colors" />
-            Remarketing
-          </TabsTrigger>
-          <TabsTrigger value="templates" className="group gap-1.5 flex-shrink-0">
-            <FileText className="h-3.5 w-3.5 text-muted-foreground group-data-[state=active]:text-primary transition-colors" />
-            Templates
-          </TabsTrigger>
-          <TabsTrigger value="configuracoes" className="group gap-1.5 flex-shrink-0">
-            <Settings className="h-3.5 w-3.5 text-muted-foreground group-data-[state=active]:text-primary transition-colors" />
-            Configurações
-          </TabsTrigger>
-        </TabsList>
-
-        {/* ── Campanhas ─────────────────────────────────────────────────────── */}
-        <TabsContent value="campanhas" className="space-y-4">
-          {/* KPIs */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <KpiCard icon={Send} label="Total enviadas" value={totalEnviadas} accent="blue" />
-            <KpiCard icon={Users} label="Leads abordados" value={totalAbordados} accent="violet" />
-            <KpiCard icon={MessageSquare} label="Responderam" value={totalRespondidas} color="text-emerald-600" accent="emerald" />
-            <KpiCard
-              icon={Activity}
-              label="Enviadas hoje"
-              value={enviadas_hoje}
-              sub={limits.limite_diario ? `Limite: ${limits.limite_diario}` : undefined}
-              color={(limits.mensagens_nao_respondidas_seguidas ?? 0) >= 5 ? 'text-red-500' : ''}
-              accent={(limits.mensagens_nao_respondidas_seguidas ?? 0) >= 5 ? 'amber' : 'blue'}
-            />
-            <KpiCard icon={TrendingUp} label="Taxa de resposta" value={taxa} color="text-emerald-600" accent="emerald" />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">Criadas automaticamente pela IA</p>
-            <Button variant="outline" size="sm" onClick={() => { fetchCampaigns(); }} className="gap-1.5">
-              <RefreshCw className="h-3.5 w-3.5" />
-              Atualizar
-            </Button>
-          </div>
-
-          {loadingCampaigns ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-16 rounded-lg bg-accent/30 animate-pulse" />
-              ))}
+      {/* ─── Abordagens ─── */}
+      {sub === 'abordagens' && (
+        <>
+          <div className={cn(CARD, 'flex flex-wrap items-center justify-between gap-4 px-7 py-6')}>
+            <div className="flex items-start gap-4">
+              <span className={cn('mt-2.5 h-3 w-3 shrink-0 rounded-full', paused ? 'bg-amber-500' : 'bg-[#01573C] dark:bg-[#96F63C]')} />
+              <div className="flex flex-col gap-1">
+                <h2 className="text-[22px] font-semibold leading-7 text-foreground">{paused ? 'Outbound pausado' : 'Outbound ligado'}</h2>
+                <p className="text-[15px] text-muted-foreground">{paused ? 'Não envia mensagens até você ligar de novo.' : 'Envia a primeira mensagem para leads novos, de segunda a sexta, das 9h às 18h.'}</p>
+              </div>
             </div>
-          ) : campaigns.length === 0 ? (
-            <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center justify-center py-14 gap-3 text-center">
-                <Megaphone className="h-10 w-10 text-muted-foreground/30" />
-                <p className="text-sm font-medium text-muted-foreground">Nenhuma campanha ainda</p>
-                <p className="text-xs text-muted-foreground/60 max-w-xs">
-                  A IA cria campanhas automaticamente conforme os leads são qualificados
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              <div className="space-y-2">
-                {campaigns.slice(campaignPage * CAMPAIGNS_PER_PAGE, (campaignPage + 1) * CAMPAIGNS_PER_PAGE).map((campaign) => {
-                  const isExpanded = expandedCampaign === campaign.id;
-                  const errors = campaignErrors[campaign.id] || [];
-                  const leadId = campaign.campaign_id || campaign.lead_id || campaign.id;
-                  const leadName = campaign.lead?.contact_name || campaign.lead?.company_name;
-                  const leadPhone = campaign.lead?.whatsapp;
-                  const name = campaign.nome || campaign.name || leadName || `Lead #${leadId}`;
-                  const enviadas = campaign.tentativas ?? 0;
-                  const respondeu = !!campaign.respondeu_em;
-                  const converteu = !!campaign.converteu_em;
-                  const erros = campaign.total_erros ?? campaign.erros ?? 0;
+            <button type="button" onClick={togglePause} disabled={toggling} className={PILL3D}>{paused ? 'Ligar outbound' : 'Pausar outbound'}</button>
+          </div>
 
-                  const isOverdue = !!(campaign.proximo_contato_em && new Date(campaign.proximo_contato_em) < new Date());
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className={cn(CARD, 'flex flex-col gap-2 px-6 py-5')}>
+              <p className="text-[15px] text-foreground/85">Leads abordados</p>
+              <p className="text-[40px] font-semibold leading-[46px] tracking-tight text-foreground">{abordados}</p>
+              <p className="text-sm text-muted-foreground">{firstApproach ? `desde ${dm(firstApproach)}` : 'nenhum ainda'}</p>
+            </div>
+            <div className={cn(CARD, 'flex flex-col gap-2 px-6 py-5')}>
+              <p className="text-[15px] text-foreground/85">Responderam</p>
+              <p className={cn('text-[40px] font-semibold leading-[46px] tracking-tight', LIME)}>{counts.pessoa + counts.auto}</p>
+              <p className="text-sm text-muted-foreground">{plural(counts.pessoa, 'pessoa', 'pessoas')} e {plural(counts.auto, 'resposta automática', 'respostas automáticas')}</p>
+            </div>
+            <div className={cn(CARD, 'flex flex-col gap-2 px-6 py-5')}>
+              <p className="text-[15px] text-foreground/85">Viraram cliente</p>
+              <p className="text-[40px] font-semibold leading-[46px] tracking-tight text-foreground">{converted}</p>
+              <p className="text-sm text-muted-foreground">marcados como convertidos</p>
+            </div>
+            <div className={cn(CARD, 'flex flex-col gap-2 px-6 py-5')}>
+              <p className="text-[15px] text-foreground/85">Enviadas hoje</p>
+              <p className="text-[40px] font-semibold leading-[46px] tracking-tight text-muted-foreground"><span className="text-foreground">{sentToday}</span> {dailyLimit != null ? `de ${dailyLimit}` : ''}</p>
+              <p className="text-sm text-muted-foreground">{lastSend ? `Último envio em ${dm(lastSend)}` : 'Nenhum envio ainda'}</p>
+            </div>
+          </div>
 
-                  return (
-                    <div key={campaign.id} className={`rounded-xl border bg-card transition-all ${isExpanded ? 'shadow-sm' : 'hover:border-border/80'}`}>
-                      {/* Row */}
-                      <div
-                        className="px-4 py-3.5 cursor-pointer"
-                        onClick={() => handleExpandCampaign(campaign.id)}
-                      >
-                        <div className="flex items-center gap-3">
-                          {/* Status dot */}
-                          <div className={`w-2 h-2 rounded-full shrink-0 ${
-                            converteu ? 'bg-green-500' :
-                            respondeu ? 'bg-emerald-500' :
-                            erros > 0 ? 'bg-red-500' : 'bg-muted-foreground/30'
-                          }`} />
+          {overdue.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-[14px] border border-[#F5B544]/35 bg-[#F5B544]/[0.08] px-6 py-4">
+              <div className="flex items-center gap-4">
+                <Clock className="h-[22px] w-[22px] shrink-0 text-[#F5B544]" />
+                <div className="flex flex-col gap-1">
+                  <p className="text-base font-semibold leading-5 text-foreground">{plural(overdue.length, 'lead está', 'leads estão')} com o próximo contato vencido</p>
+                  <p className="text-sm text-[#8A6A1F] dark:text-[#C9B27A]">
+                    {overdue.length === 1 ? `O prazo era ${dm(new Date(overdueDates[0]).toISOString())}.` : `Os prazos eram de ${dm(new Date(Math.min(...overdueDates)).toISOString())} a ${dm(new Date(Math.max(...overdueDates)).toISOString())}.`} O Outbound envia só a primeira mensagem, o segundo toque vem de uma sequência.
+                  </p>
+                </div>
+              </div>
+              <Link href="/configuracoes/follow" className={PILL_GREEN}>Ver sequência do segundo toque</Link>
+            </div>
+          )}
 
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium text-sm">{name}</span>
-                              <CampaignStatusBadge status={campaign.status} />
-                              {erros > 0 && (
-                                <Badge className="bg-red-500/10 text-red-500 border-red-500/20 text-xs gap-1">
-                                  <AlertCircle className="h-2.5 w-2.5" />{erros} erro{erros > 1 ? 's' : ''}
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {leadPhone && <span className="mr-2">{leadPhone}</span>}
-                              Criada em {campaign.created_at ? formatDateTime(campaign.created_at) : '—'}
-                              {enviadas > 0 && <span className="ml-2 text-muted-foreground/60">· {enviadas} tentativa{enviadas > 1 ? 's' : ''}</span>}
-                            </p>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            {respondeu ? (
-                              <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-xs gap-1">
-                                <CheckCircle2 className="h-2.5 w-2.5" />Respondeu
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-xs text-muted-foreground/60 border-dashed">Sem resposta</Badge>
-                            )}
-                            {converteu && (
-                              <Badge className="bg-green-500/10 text-green-600 border-green-500/20 text-xs gap-1">
-                                <TrendingUp className="h-2.5 w-2.5" />Convertido
-                              </Badge>
-                            )}
-                          </div>
-
-                          {isExpanded ? (
-                            <ChevronUp className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
-                          )}
-                        </div>
-                      </div>
-
-                      {isExpanded && (
-                        <div className="border-t border-border/40 px-4 py-4 space-y-4">
-                          {/* Timeline grid */}
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                            {[
-                              {
-                                icon: Clock,
-                                label: 'Última abordagem',
-                                value: campaign.ultima_abordagem ? formatDateTime(campaign.ultima_abordagem) : null,
-                                color: '',
-                              },
-                              {
-                                icon: CalendarCheck,
-                                label: 'Próximo contato',
-                                value: campaign.proximo_contato_em ? formatDateTime(campaign.proximo_contato_em) : null,
-                                color: isOverdue ? 'text-red-500' : '',
-                                extra: isOverdue ? <span className="text-[10px] text-red-500 font-medium">Atrasado</span> : null,
-                              },
-                              {
-                                icon: MessageSquare,
-                                label: 'Respondeu em',
-                                value: campaign.respondeu_em ? formatDateTime(campaign.respondeu_em) : null,
-                                color: 'text-emerald-600',
-                              },
-                              {
-                                icon: TrendingUp,
-                                label: 'Converteu em',
-                                value: campaign.converteu_em ? formatDateTime(campaign.converteu_em) : null,
-                                color: 'text-green-600',
-                              },
-                            ].map(({ icon: Icon, label, value, color, extra }) => (
-                              <div key={label} className="flex items-start gap-2.5">
-                                <div className="p-1.5 rounded-md bg-muted/60 mt-0.5">
-                                  <Icon className="h-3 w-3 text-muted-foreground" />
-                                </div>
-                                <div>
-                                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">{label}</p>
-                                  <p className={`text-xs font-medium ${value ? color : 'text-muted-foreground/40'}`}>
-                                    {value ?? '—'}
-                                  </p>
-                                  {extra}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-
-                          {/* Ação de conversão */}
-                          {!converteu && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-xs h-7 gap-1.5 border-green-500/30 text-green-600 hover:bg-green-500/5"
-                              onClick={(e) => { e.stopPropagation(); handleMarkConverted(campaign.id); }}
-                            >
-                              <TrendingUp className="h-3 w-3" />
-                              Marcar como convertido
-                            </Button>
-                          )}
-
-                          {/* Erros */}
-                          {errors.length > 0 ? (
-                            <div>
-                              <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
-                                <AlertCircle className="h-3.5 w-3.5 text-red-500" />
-                                Erros ({errors.length})
-                              </p>
-                              <div className="space-y-1 max-h-40 overflow-y-auto">
-                                {errors.map((err) => (
-                                  <div
-                                    key={err.id}
-                                    className="text-xs bg-red-500/5 border border-red-500/10 rounded px-3 py-2 flex items-start gap-2"
-                                  >
-                                    <span className="text-red-600 flex-1">
-                                      {err.error_message || err.mensagem || JSON.stringify(err)}
-                                    </span>
-                                    {err.created_at && (
-                                      <span className="text-muted-foreground shrink-0">
-                                        {formatDateTime(err.created_at)}
-                                      </span>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ) : (
-                            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                              Nenhum erro registrado nesta campanha
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-stretch">
+            <section className={cn(CARD, 'flex min-w-0 flex-1 flex-col gap-4 px-7 py-6')}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3 className="text-[22px] font-semibold text-foreground">Leads abordados</h3>
+                <div className="flex flex-wrap items-center gap-2">
+                  {([['todos', 'Todos'], ['pessoa', 'Pessoa respondeu'], ['auto', 'Resposta automática'], ['sem', 'Sem resposta']] as const).map(([id, label]) => (
+                    <button key={id} type="button" aria-pressed={filter === id} onClick={() => setFilter(id)}
+                      className={cn('rounded-full px-4 py-2 text-sm transition-colors', filter === id ? 'bg-[#0F3D2B] font-semibold text-white' : 'bg-muted text-muted-foreground hover:text-foreground')}>
+                      {label} {counts[id]}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {campaigns.length > CAMPAIGNS_PER_PAGE && (
-                <div className="flex items-center justify-between pt-1">
-                  <p className="text-xs text-muted-foreground">
-                    {campaignPage * CAMPAIGNS_PER_PAGE + 1}–
-                    {Math.min((campaignPage + 1) * CAMPAIGNS_PER_PAGE, campaigns.length)} de{' '}
-                    {campaigns.length} campanhas
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="outline" size="icon" className="h-8 w-8"
-                      disabled={campaignPage === 0}
-                      onClick={() => { setCampaignPage((p) => p - 1); setExpandedCampaign(null); }}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <span className="text-xs text-muted-foreground px-2">
-                      {campaignPage + 1} / {Math.ceil(campaigns.length / CAMPAIGNS_PER_PAGE)}
+              {loadingCampaigns ? (
+                <div className="flex h-56 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+              ) : rows.length === 0 ? (
+                <p className="py-16 text-center text-[15px] text-muted-foreground">{campaigns.length === 0 ? 'O Outbound ainda não abordou nenhum lead.' : 'Nenhum lead nesta situação.'}</p>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[640px] border-collapse">
+                      <thead>
+                        <tr className="text-left text-[13px] tracking-[0.06em] text-muted-foreground">
+                          <th className="px-4 py-3 font-medium">LEAD</th><th className="py-3 font-medium">SITUAÇÃO</th><th className="py-3 font-medium">ABORDADO EM</th><th className="px-4 py-3 font-medium">PRÓXIMO TOQUE</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pageRows.map((c) => {
+                          const sit = situationOf(c);
+                          const late = !!c.proximo_contato_em && new Date(c.proximo_contato_em).getTime() < now;
+                          const isSel = selected?.id === c.id;
+                          return (
+                            <tr key={c.id} onClick={() => setSelectedId(c.id)} className={cn('cursor-pointer border-t border-border transition-colors', isSel ? 'bg-[#E4F1E9] dark:bg-[#12301F]' : 'hover:bg-muted')}>
+                              <td className="max-w-[360px] truncate px-4 py-4 text-[15px] font-semibold text-foreground">{leadName(c)}</td>
+                              <td className={cn('py-4 text-sm', c.converteu_em ? cn('font-semibold', LIME) : sit === 'pessoa' ? LIME : 'text-muted-foreground')}>{c.converteu_em ? 'Virou cliente' : SITUATION_LABEL[sit]}</td>
+                              <td className="whitespace-nowrap py-4 text-sm tabular-nums text-foreground/85">{dmHm(c.ultima_abordagem ?? c.created_at)}</td>
+                              <td className={cn('whitespace-nowrap px-4 py-4 text-sm tabular-nums', late ? 'font-medium text-amber-600 dark:text-[#F5B544]' : 'text-foreground/85')}>{c.proximo_contato_em ? `${dm(c.proximo_contato_em)}${late ? ' atrasado' : ''}` : '—'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 pt-1">
+                    <span className="text-sm text-muted-foreground">{page * PER_PAGE + 1} a {Math.min((page + 1) * PER_PAGE, rows.length)} de {plural(rows.length, 'lead', 'leads')}</span>
+                    <div className="flex items-center gap-2">
+                      <button type="button" disabled={page === 0} onClick={() => setPage((p) => p - 1)} className="rounded-full bg-muted px-4 py-2 text-sm text-muted-foreground transition-colors enabled:hover:text-foreground disabled:opacity-50">Anterior</button>
+                      <button type="button" disabled={(page + 1) * PER_PAGE >= rows.length} onClick={() => setPage((p) => p + 1)} className="rounded-full bg-muted px-4 py-2 text-sm font-semibold text-foreground transition-colors enabled:hover:bg-accent disabled:opacity-50">Próxima</button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </section>
+
+            <aside className={cn(CARD, 'flex w-full shrink-0 flex-col gap-5 px-7 py-6 xl:w-[430px]')}>
+              {selected ? (
+                <>
+                  <div className="flex flex-col gap-3">
+                    <h3 className="text-[22px] font-semibold leading-7 text-foreground">{leadName(selected)}</h3>
+                    <span className={cn('w-fit rounded-full px-3 py-1 text-[13px] font-semibold', selected.converteu_em || situationOf(selected) === 'pessoa' ? 'bg-[#01573C]/10 text-[#01573C] dark:bg-[#96F63C]/[0.14] dark:text-[#96F63C]' : 'bg-muted text-muted-foreground')}>
+                      {selected.converteu_em ? 'Virou cliente' : SITUATION_LABEL[situationOf(selected)]}
                     </span>
-                    <Button
-                      variant="outline" size="icon" className="h-8 w-8"
-                      disabled={(campaignPage + 1) * CAMPAIGNS_PER_PAGE >= campaigns.length}
-                      onClick={() => { setCampaignPage((p) => p + 1); setExpandedCampaign(null); }}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
-        </TabsContent>
-
-        {/* ── Reuniões ──────────────────────────────────────────────────────── */}
-        <TabsContent value="reunioes" className="space-y-4">
-          {/* KPI cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <KpiCard icon={Calendar}     label="Hoje"         value={meetingsHoje.length}   sub="reuniões agendadas" accent="blue" />
-            <KpiCard icon={CalendarCheck} label="Esta semana" value={meetingsSemana.length}  sub="próximos 7 dias" accent="violet" />
-            <KpiCard icon={Video}        label="Total"        value={meetings.length}        sub="todas as reuniões" accent="emerald" />
-            <KpiCard icon={AlertCircle}  label="No-shows"     value={noShows.length}         color={noShows.length > 0 ? 'text-red-500' : ''} accent={noShows.length > 0 ? 'amber' : 'emerald'} />
-          </div>
-
-          {/* Filtro */}
-          <div className="flex items-center justify-between">
-            <div className="flex rounded-lg border border-border overflow-hidden">
-              <button
-                onClick={() => setMeetingFilter('proximas')}
-                className={`px-4 py-1.5 text-sm transition-colors ${
-                  meetingFilter === 'proximas'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent/50'
-                }`}
-              >
-                Próximas ({proximasMeetings.length})
-              </button>
-              <button
-                onClick={() => setMeetingFilter('passadas')}
-                className={`px-4 py-1.5 text-sm transition-colors border-l border-border ${
-                  meetingFilter === 'passadas'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent/50'
-                }`}
-              >
-                Passadas ({passadasMeetings.length})
-              </button>
-            </div>
-            <Button variant="outline" size="sm" onClick={fetchMeetings} className="gap-1.5">
-              <RefreshCw className="h-3.5 w-3.5" />
-              Atualizar
-            </Button>
-          </div>
-
-          {/* Lista */}
-          {loadingMeetings ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map((i) => <div key={i} className="h-16 rounded-lg bg-accent/30 animate-pulse" />)}
-            </div>
-          ) : displayedMeetings.length === 0 ? (
-            <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center justify-center py-12 gap-3 text-center">
-                <Calendar className="h-10 w-10 text-muted-foreground/30" />
-                <p className="text-sm font-medium text-muted-foreground">
-                  {meetingFilter === 'proximas' ? 'Nenhuma reunião próxima' : 'Nenhuma reunião passada'}
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-2">
-              {displayedMeetings.map((m) => {
-                const statusAccent: Record<string, string> = {
-                  agendada: 'border-l-blue-500', confirmada: 'border-l-emerald-500',
-                  realizada: 'border-l-green-500', no_show: 'border-l-red-500', cancelada: 'border-l-zinc-400',
-                };
-                return (
-                <Card key={m.id} className={`overflow-hidden border-l-[3px] ${statusAccent[m.call_status] ?? 'border-l-border'}`}>
-                  <div className="px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-sm truncate">{m.company_name || m.contact_name || 'Lead sem nome'}</span>
-                        {m.contact_name && m.company_name && (
-                          <span className="text-xs text-muted-foreground truncate">· {m.contact_name}</span>
-                        )}
+                  <dl className="flex flex-col rounded-xl border border-border bg-muted/60 dark:bg-[#181818]">
+                    {[
+                      ['Primeira mensagem enviada', dmHm(selected.ultima_abordagem ?? selected.created_at).replace(' ', ' às '), false],
+                      ['Tentativas', String(selected.tentativas ?? 0), false],
+                      ['Próximo contato', selected.proximo_contato_em ? `${dm(selected.proximo_contato_em)}${new Date(selected.proximo_contato_em).getTime() < now ? ', atrasado' : ''}` : '—', !!selected.proximo_contato_em && new Date(selected.proximo_contato_em).getTime() < now],
+                      ['Erros de envio', (selected.total_erros ?? 0) > 0 ? String(selected.total_erros) : 'Nenhum', false],
+                    ].map(([k, v, warn], i) => (
+                      <div key={k as string} className={cn('flex items-center justify-between gap-3 px-5 py-4 text-[15px]', i > 0 && 'border-t border-border')}>
+                        <dt className="text-foreground/80">{k}</dt>
+                        <dd className={cn('font-semibold', warn ? 'text-amber-600 dark:text-[#F5B544]' : 'text-foreground')}>{v}</dd>
                       </div>
-                      {m.call_agendada_para && (
-                        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {new Date(m.call_agendada_para).toLocaleString('pt-BR', {
-                            day: '2-digit', month: '2-digit', year: 'numeric',
-                            hour: '2-digit', minute: '2-digit',
-                          })}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Status */}
-                    <Select
-                      value={m.call_status}
-                      onValueChange={async (novoStatus) => {
-                        const anterior = m.call_status;
-                        setMeetings((prev) => prev.map((x) => x.id === m.id ? { ...x, call_status: novoStatus } : x));
-                        try {
-                          const res = await fetch('/api/outbound/meetings', {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ leadId: m.id, call_status: novoStatus }),
-                          });
-                          if (!res.ok) throw new Error();
-                        } catch {
-                          setMeetings((prev) => prev.map((x) => x.id === m.id ? { ...x, call_status: anterior } : x));
-                          toast({ title: 'Erro ao atualizar status', variant: 'destructive' });
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="shrink-0 w-[190px] h-8 text-xs font-medium">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="agendada">Agendada</SelectItem>
-                        <SelectItem value="confirmada">Confirmada</SelectItem>
-                        <SelectItem value="realizada">Realizada (ligou/atendeu)</SelectItem>
-                        <SelectItem value="no_show">No-show</SelectItem>
-                        <SelectItem value="cancelada">Cancelada</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    {/* Meet link */}
-                    {m.meet_url ? (
-                      <div className="flex items-center gap-2 shrink-0">
-                        <a
-                          href={m.meet_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 text-xs text-primary hover:underline font-medium"
-                        >
-                          <Video className="h-3.5 w-3.5" />
-                          Entrar
-                        </a>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => {
-                            navigator.clipboard.writeText(m.meet_url!);
-                            toast({ title: 'Link copiado!' });
-                          }}
-                          title="Copiar link"
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground/50 shrink-0">Sem link</span>
-                    )}
+                    ))}
+                  </dl>
+                  <div className="flex flex-col gap-3">
+                    <button type="button" disabled={!selected.lead?.whatsapp} onClick={() => router.push(`/atendimento?phone=${encodeURIComponent(selected.lead?.whatsapp ?? '')}`)} className={cn(PILL_GREEN, 'w-full')}>Abrir conversa</button>
+                    <button type="button" disabled={!!selected.converteu_em} onClick={() => void markClient(selected)} className={cn(PILL3D, 'w-full')}>{selected.converteu_em ? 'Já é cliente' : 'Marcar como cliente'}</button>
                   </div>
-                </Card>
-                );
-              })}
-            </div>
-          )}
-        </TabsContent>
-
-        {/* ── Anti Noshow ───────────────────────────────────────────────────── */}
-        <TabsContent value="noshow" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">Mensagens de confirmação enviadas por etapa</p>
-            <div className="flex items-center gap-3">
-              {noshowTotal > 0 && (
-                <span className="text-sm font-semibold">{noshowTotal} disparos</span>
+                </>
+              ) : (
+                <p className="py-10 text-center text-[15px] text-muted-foreground">Escolha um lead na lista para ver os detalhes.</p>
               )}
-              <Button variant="outline" size="sm" onClick={fetchAntiNoshow} className="gap-1.5">
-                <RefreshCw className="h-3.5 w-3.5" />
-                Atualizar
-              </Button>
-            </div>
+            </aside>
           </div>
+        </>
+      )}
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {noshowData.map((d) => (
-              <Card key={d.name}>
-                <CardContent className="pt-5 pb-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: d.fill }} />
-                    <span className="text-xs text-muted-foreground">{d.name}</span>
-                  </div>
-                  <p className="text-2xl font-bold">{d.quantidade}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">disparos</p>
-                </CardContent>
-              </Card>
+      {/* ─── Mensagens ─── */}
+      {sub === 'mensagens' && (
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-stretch">
+          <aside className={cn(CARD, 'flex w-full shrink-0 flex-col gap-4 p-6 xl:w-[380px]')}>
+            <div className="flex flex-col gap-2">
+              <h3 className="text-[22px] font-semibold text-foreground">Mensagens</h3>
+              <p className="text-sm leading-[150%] text-muted-foreground">O texto que o Outbound envia para leads novos. Só a primeira mensagem sai daqui.</p>
+            </div>
+            {loadingTemplates ? (
+              <div className="flex h-24 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+            ) : templates.map((t) => (
+              <button key={t.id} type="button" onClick={() => setTplId(t.id)}
+                className={cn('flex items-center justify-between gap-3 rounded-xl border px-4 py-3.5 text-left transition-colors', t.id === tplId ? 'border-[#01573C]/30 bg-[#E4F1E9] dark:border-transparent dark:bg-[#12301F]' : 'border-border hover:bg-muted')}>
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-[15px] font-semibold text-foreground">{categoryLabel(t.categoria)}</span>
+                  <span className="text-[13px] text-muted-foreground">{t.usar_ia === false ? 'Texto fixo' : 'Escrita pela IA'}</span>
+                </span>
+                <span className="flex items-center gap-2 text-[13px] text-foreground/85"><span className={cn('h-2 w-2 rounded-full', t.ativo ? 'bg-[#01573C] dark:bg-[#96F63C]' : 'bg-muted-foreground/40')} />{t.ativo ? 'Ativa' : 'Desligada'}</span>
+              </button>
             ))}
-          </div>
+            <button type="button" onClick={() => setNewOpen(true)} className={cn(PILL3D, 'w-full')}>Novo modelo</button>
+            <p className="text-[13px] leading-[150%] text-muted-foreground">Os toques seguintes, como lembrete e reengajamento, ficam em <Link href="/configuracoes/follow" className="underline underline-offset-2 hover:text-foreground">Sequências</Link>.</p>
+          </aside>
 
-          {noshowTotal === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-6">
-              Os disparos aparecem aqui conforme a IA envia mensagens de confirmação de reunião
-            </p>
-          )}
-        </TabsContent>
-
-        {/* ── Remarketing ───────────────────────────────────────────────────── */}
-        <TabsContent value="remarketing" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">Reengajamento de leads que não fecharam</p>
-            <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30 text-xs">Em breve</Badge>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[
-              { icon: Repeat2,   label: 'Reengajados',      value: '—', color: '#22c55e' },
-              { icon: Send,      label: 'Mensagens enviadas', value: '—', color: '#15803d' },
-              { icon: Target,    label: 'Taxa de resposta',  value: '—', color: '#4ade80' },
-              { icon: BarChart3, label: 'Convertidos',       value: '—', color: '#14532d' },
-            ].map((item) => {
-              const Icon = item.icon;
-              return (
-                <Card key={item.label} className="opacity-60">
-                  <CardContent className="pt-5 pb-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                      <span className="text-xs text-muted-foreground">{item.label}</span>
-                    </div>
-                    <p className="text-2xl font-bold text-muted-foreground">{item.value}</p>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </TabsContent>
-
-        {/* ── Templates ─────────────────────────────────────────────────────── */}
-        <TabsContent value="templates" className="space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              Prompts que a IA usa para gerar mensagens de abordagem
-            </p>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={fetchTemplates} className="gap-1.5">
-                <RefreshCw className="h-3.5 w-3.5" />
-                Atualizar
-              </Button>
-              <Button size="sm" onClick={() => setCreatingTemplate(true)} className="gap-1.5">
-                <Plus className="h-3.5 w-3.5" />
-                Novo template
-              </Button>
-            </div>
-          </div>
-
-          {creatingTemplate && (
-            <Card>
-              <CardContent className="pt-4 space-y-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Categoria / Nome</Label>
-                  <Input
-                    value={newTemplateDraft.categoria}
-                    onChange={(e) => setNewTemplateDraft((d) => ({ ...d, categoria: e.target.value }))}
-                    className="h-9 text-sm"
-                    placeholder="ex: primeira_abordagem"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Prompt do Sistema</Label>
-                  <Textarea
-                    value={newTemplateDraft.prompt_sistema}
-                    onChange={(e) => setNewTemplateDraft((d) => ({ ...d, prompt_sistema: e.target.value }))}
-                    className="min-h-[100px] text-sm resize-y"
-                    placeholder="Instruções para a IA gerar a mensagem de abordagem..."
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Exemplos (JSON — opcional)</Label>
-                  <Textarea
-                    value={newTemplateDraft.exemplos}
-                    onChange={(e) => setNewTemplateDraft((d) => ({ ...d, exemplos: e.target.value }))}
-                    className="min-h-[60px] text-xs font-mono resize-y"
-                    placeholder='[{"entrada": "...", "saida": "..."}]'
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={newTemplateDraft.usar_ia}
-                    onCheckedChange={(checked) => setNewTemplateDraft((d) => ({ ...d, usar_ia: checked }))}
-                  />
-                  <div>
-                    <Label className="text-xs">Usar IA pra reescrever</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Desligado : envia o prompt acima palavra por palavra (use {'{nome}'} pro nome do lead, linha em branco separa mensagens). Ligado : IA usa o prompt só como inspiração e reescreve.
-                    </p>
+          <section className={cn(CARD, 'flex min-w-0 flex-1 flex-col gap-5 px-8 py-7')}>
+            {tpl && draft ? (
+              <>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex flex-col gap-2">
+                    <h3 className="text-[28px] font-semibold leading-8 tracking-tight text-foreground">{categoryLabel(tpl.categoria)}</h3>
+                    <p className="text-[15px] text-muted-foreground">{tpl.categoria === 'primeira_abordagem' ? 'É a mensagem que o lead recebe quando o Outbound faz o primeiro contato.' : 'Mensagem enviada pelo Outbound neste modelo.'}</p>
                   </div>
+                  <div className="flex shrink-0 items-center gap-3"><span className="text-[15px] text-foreground">{draft.ativo ? 'Ativa' : 'Desligada'}</span><Toggle on={draft.ativo} onChange={(v) => setDraft({ ...draft, ativo: v })} label="Ligar ou desligar este modelo" /></div>
                 </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setCreatingTemplate(false)}>Cancelar</Button>
-                  <Button size="sm" onClick={handleCreateTemplate} disabled={savingTemplate} className="gap-1.5">
-                    <Save className="h-3.5 w-3.5" />
-                    {savingTemplate ? 'Criando...' : 'Criar'}
-                  </Button>
+                <div className="flex flex-col gap-2.5">
+                  <label htmlFor="ob-texto" className="text-sm font-semibold text-foreground">Texto da mensagem</label>
+                  <textarea id="ob-texto" value={draft.text} onChange={(e) => setDraft({ ...draft, text: e.target.value })} rows={8}
+                    className="w-full resize-y rounded-xl border border-border bg-muted px-5 py-4 text-base leading-[160%] text-foreground outline-none focus:border-[#01573C]/50 dark:border-[#2A2A2A] dark:bg-[#181818] dark:focus:border-[#96F63C]/40" />
+                  <p className="text-[13px] text-muted-foreground">{draft.usar_ia ? 'A IA usa este texto como base e adapta para cada lead.' : '{nome} é trocado pelo nome do lead na hora do envio.'}</p>
                 </div>
-              </CardContent>
-            </Card>
-          )}
+                <div className="flex items-center justify-between gap-6 rounded-xl border border-border bg-muted/60 px-6 py-5 dark:border-[#2A2A2A] dark:bg-[#181818]">
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-base font-semibold text-foreground">Deixar a IA reescrever para cada lead</p>
+                    <p className="text-sm leading-[150%] text-muted-foreground">Desligado, todo lead recebe o texto acima. Ligado, a IA adapta a mensagem ao perfil do lead no Google.</p>
+                  </div>
+                  <Toggle on={draft.usar_ia} onChange={(v) => setDraft({ ...draft, usar_ia: v })} label="Deixar a IA reescrever para cada lead" />
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button type="button" onClick={saveTemplate} disabled={savingTpl || !draft.text.trim()} className={PILL_GREEN}>{savingTpl ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar mensagem'}</button>
+                  <button type="button" onClick={() => setDraft({ text: tpl.prompt_sistema ?? '', ativo: tpl.ativo, usar_ia: tpl.usar_ia ?? true })} className={PILL3D}>Descartar</button>
+                  {tpl.company_id != null && <button type="button" onClick={deleteTemplate} className="ml-auto text-sm font-medium text-destructive hover:underline">Excluir modelo</button>}
+                </div>
+              </>
+            ) : (
+              <p className="py-16 text-center text-[15px] text-muted-foreground">{loadingTemplates ? 'Carregando…' : 'Você ainda não tem nenhum modelo. Crie o primeiro em Novo modelo.'}</p>
+            )}
+          </section>
 
-          {loadingTemplates ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-20 rounded-lg bg-accent/30 animate-pulse" />
-              ))}
+          <aside className={cn(CARD, 'flex w-full shrink-0 flex-col gap-4 p-6 xl:w-[400px]')}>
+            <div className="flex flex-col gap-1.5">
+              <h3 className="text-xl font-semibold text-foreground">Como o lead vê</h3>
+              <p className="text-sm text-muted-foreground">Exemplo com o nome {exampleName}.</p>
             </div>
-          ) : templates.length === 0 ? (
-            <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center justify-center py-14 gap-3 text-center">
-                <FileText className="h-10 w-10 text-muted-foreground/30" />
-                <p className="text-sm font-medium text-muted-foreground">Nenhum template encontrado</p>
-                <p className="text-xs text-muted-foreground/60 max-w-xs">
-                  Crie templates para a IA usar ao abordar leads automaticamente
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-2">
-              {templates.map((template) => {
-                const isEditing = editingTemplate === template.id;
-                const score = template.performance_score;
-
-                return (
-                  <Card key={template.id} className="overflow-hidden">
-                    <div className="px-4 py-3">
-                      <div className="flex items-start gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-medium text-sm">{template.categoria}</span>
-                            {template.usar_ia === false && (
-                              <Badge className="bg-blue-500/15 text-blue-600 border-blue-500/30 text-xs">
-                                Script fixo (sem IA)
-                              </Badge>
-                            )}
-                            {score !== undefined && score !== null && (
-                              <Badge
-                                className={
-                                  score >= 70
-                                    ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30 text-xs'
-                                    : score >= 40
-                                    ? 'bg-amber-500/15 text-amber-600 border-amber-500/30 text-xs'
-                                    : 'bg-red-500/15 text-red-600 border-red-500/30 text-xs'
-                                }
-                              >
-                                <TrendingUp className="h-3 w-3 mr-1" />
-                                {score}% performance
-                              </Badge>
-                            )}
-                          </div>
-                          {!isEditing && template.prompt_sistema && (
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                              {template.prompt_sistema}
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          <div className="flex items-center gap-1.5">
-                            <Switch
-                              checked={template.ativo}
-                              onCheckedChange={() => handleToggleTemplate(template)}
-                              className="data-[state=checked]:bg-emerald-500"
-                            />
-                            <span className="text-xs text-muted-foreground hidden sm:inline">
-                              {template.ativo ? 'Ativo' : 'Inativo'}
-                            </span>
-                          </div>
-                          {!isEditing ? (
-                            <>
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleStartEdit(template)}>
-                                <Edit3 className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteTemplate(template.id)}>
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </>
-                          ) : (
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingTemplate(null)}>
-                              <X className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-
-                      {isEditing && (
-                        <div className="mt-3 space-y-3 border-t border-border/50 pt-3">
-                          <div className="space-y-1.5">
-                            <Label className="text-xs">Categoria / Nome</Label>
-                            <Input
-                              value={templateDraft.categoria || ''}
-                              onChange={(e) => setTemplateDraft((d) => ({ ...d, categoria: e.target.value }))}
-                              className="h-9 text-sm"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs">Prompt do Sistema</Label>
-                            <Textarea
-                              value={templateDraft.prompt_sistema || ''}
-                              onChange={(e) => setTemplateDraft((d) => ({ ...d, prompt_sistema: e.target.value }))}
-                              className="min-h-[100px] text-sm resize-y"
-                              placeholder="Instruções para a IA gerar a mensagem de abordagem..."
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs">Exemplos (JSON)</Label>
-                            <Textarea
-                              value={
-                                typeof templateDraft.exemplos === 'string'
-                                  ? templateDraft.exemplos
-                                  : JSON.stringify(templateDraft.exemplos, null, 2)
-                              }
-                              onChange={(e) => setTemplateDraft((d) => ({ ...d, exemplos: e.target.value }))}
-                              className="min-h-[80px] text-xs font-mono resize-y"
-                              placeholder='[{"entrada": "...", "saida": "..."}]'
-                            />
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Switch
-                              checked={templateDraft.usar_ia ?? true}
-                              onCheckedChange={(checked) => setTemplateDraft((d) => ({ ...d, usar_ia: checked }))}
-                            />
-                            <div>
-                              <Label className="text-xs">Usar IA pra reescrever</Label>
-                              <p className="text-xs text-muted-foreground">
-                                Desligado : envia o prompt acima palavra por palavra (use {'{nome}'} pro nome do lead, linha em branco separa mensagens). Ligado : IA usa o prompt só como inspiração e reescreve.
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex justify-end gap-2">
-                            <Button variant="outline" size="sm" onClick={() => setEditingTemplate(null)}>
-                              Cancelar
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => handleSaveTemplate(template.id)}
-                              disabled={savingTemplate}
-                              className="gap-1.5"
-                            >
-                              <Save className="h-3.5 w-3.5" />
-                              {savingTemplate ? 'Salvando...' : 'Salvar'}
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </Card>
-                );
-              })}
+            <div className="rounded-xl border border-border bg-muted/40 p-5 dark:border-[#1F1F1F] dark:bg-[#0F0F0F]">
+              <div className="whitespace-pre-wrap rounded-xl rounded-tr-sm bg-[#DCF8C6] px-4 py-3.5 text-[15px] leading-[150%] text-[#0B2A1A] dark:bg-[#12301F] dark:text-[#F0F5F1]">{preview || 'Escreva o texto para ver a prévia.'}</div>
             </div>
-          )}
-        </TabsContent>
+            <p className="text-[13px] text-muted-foreground">Quem responde depois é o agente da aba SDR.</p>
+          </aside>
+        </div>
+      )}
 
-        {/* ── Configurações ─────────────────────────────────────────────────── */}
-        <TabsContent value="configuracoes" className="space-y-4">
-          {loadingLimits ? (
-            <div className="h-48 rounded-lg bg-accent/30 animate-pulse" />
-          ) : (
-            <Card className="max-w-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-primary" />
-                  Limite de Disparos
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label className="text-sm">Limite diário de mensagens</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={500}
-                    value={limits.limite_diario ?? ''}
-                    onChange={(e) => setLimits((prev) => ({ ...prev, limite_diario: Number(e.target.value) }))}
-                    className="h-10"
-                    placeholder="Ex: 50"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Máximo de mensagens enviadas por dia pela IA
-                  </p>
-                </div>
-                <Button onClick={handleSaveLimits} disabled={savingLimits} className="w-full gap-1.5">
-                  <Save className="h-4 w-4" />
-                  {savingLimits ? 'Salvando...' : 'Salvar configurações'}
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
+      {/* ─── Limites e horário ─── */}
+      {sub === 'limites' && (
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
+          <div className="flex min-w-0 flex-1 flex-col gap-6">
+            <section className={cn(CARD, 'flex flex-col gap-5 px-8 py-7')}>
+              <div className="flex flex-col gap-2">
+                <h3 className="text-[22px] font-semibold text-foreground">Quantas mensagens por dia</h3>
+                <p className="text-[15px] text-muted-foreground">Quando chega no limite, o Outbound para e volta no dia seguinte.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-4">
+                <input aria-label="Mensagens por dia" inputMode="numeric" value={limitInput} onChange={(e) => setLimitInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  className="h-14 w-40 rounded-xl border border-border bg-muted px-5 text-[22px] font-semibold text-foreground outline-none focus:border-[#01573C]/50 dark:border-[#2A2A2A] dark:bg-[#181818] dark:focus:border-[#96F63C]/40" />
+                <p className="text-[15px] text-muted-foreground">mensagens por dia. Hoje foram enviadas {sentToday}.</p>
+              </div>
+              <button type="button" onClick={saveLimit} disabled={savingLimit} className={cn(PILL_GREEN, 'w-fit')}>{savingLimit ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar limite'}</button>
+            </section>
+            <section className={cn(CARD, 'flex flex-col gap-5 px-8 py-7')}>
+              <div className="flex flex-col gap-2">
+                <h3 className="text-[22px] font-semibold text-foreground">Quando o Outbound envia</h3>
+                <p className="text-[15px] text-muted-foreground">De segunda a sexta, das 9h às 18h, no horário de Brasília. Fora disso ele fica em repouso.</p>
+              </div>
+              <p className="flex items-center gap-3 rounded-xl border border-border bg-muted/60 px-5 py-4 text-[15px] text-foreground/85 dark:border-[#2A2A2A] dark:bg-[#181818]"><Lock className="h-4 w-4 shrink-0 text-muted-foreground" />Esse horário é fixo e ainda não dá para mudar por aqui.</p>
+            </section>
+          </div>
+          <div className="flex w-full shrink-0 flex-col gap-6 xl:w-[620px]">
+            <section className={cn(CARD, 'flex flex-col gap-5 px-8 py-7')}>
+              <div className="flex flex-col gap-2">
+                <h3 className="text-[22px] font-semibold text-foreground">Ritmo automático</h3>
+                <p className="text-[15px] leading-[150%] text-muted-foreground">O Zaapply envia devagar, como uma pessoa faria, para o número não ser bloqueado.</p>
+              </div>
+              <dl className="flex flex-col rounded-xl border border-border bg-muted/60 dark:border-[#2A2A2A] dark:bg-[#181818]">
+                {[['Intervalo entre mensagens', '45 a 135 segundos'], ['Pausa maior a cada 10 a 15 envios', '5 a 10 minutos'], ['Máximo por hora', '30 mensagens']].map(([k, v], i) => (
+                  <div key={k} className={cn('flex items-center justify-between gap-3 px-5 py-4 text-[15px]', i > 0 && 'border-t border-border dark:border-[#262626]')}><dt className="text-foreground/80">{k}</dt><dd className="font-semibold text-foreground">{v}</dd></div>
+                ))}
+              </dl>
+            </section>
+            <section className={cn(CARD, 'flex flex-col gap-4 px-8 py-7')}>
+              <h3 className="text-[22px] font-semibold text-foreground">Pediram para parar</h3>
+              <p className="flex items-baseline gap-3"><span className="text-[40px] font-semibold leading-[46px] text-foreground">{blocked}</span><span className="text-[15px] text-foreground/85">{blocked === 1 ? 'número não recebe mais mensagens' : 'números não recebem mais mensagens'}</span></p>
+              <p className="text-sm leading-[150%] text-muted-foreground">Quando um lead pede para não receber mais, o Zaapply bloqueia o número sozinho.</p>
+            </section>
+          </div>
+        </div>
+      )}
+
+      <Dialog open={newOpen} onOpenChange={setNewOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Novo modelo</DialogTitle>
+            <DialogDescription>Um texto fixo que o Outbound envia. Use {'{nome}'} para colocar o nome do lead.</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2"><label htmlFor="nm-nome" className="text-sm font-semibold text-foreground">Nome do modelo</label>
+              <input id="nm-nome" value={newDraft.nome} onChange={(e) => setNewDraft({ ...newDraft, nome: e.target.value })} placeholder="Ex: Oferta de diagnóstico" className="h-11 rounded-xl border border-border bg-muted px-4 text-sm text-foreground outline-none dark:border-[#2A2A2A] dark:bg-[#181818]" /></div>
+            <div className="flex flex-col gap-2"><label htmlFor="nm-texto" className="text-sm font-semibold text-foreground">Texto da mensagem</label>
+              <textarea id="nm-texto" rows={5} value={newDraft.texto} onChange={(e) => setNewDraft({ ...newDraft, texto: e.target.value })} className="rounded-xl border border-border bg-muted px-4 py-3 text-sm leading-[150%] text-foreground outline-none dark:border-[#2A2A2A] dark:bg-[#181818]" /></div>
+          </div>
+          <DialogFooter>
+            <button type="button" onClick={() => setNewOpen(false)} className={PILL3D}>Cancelar</button>
+            <button type="button" onClick={createTemplate} disabled={creating || !newDraft.nome.trim() || !newDraft.texto.trim()} className={PILL_GREEN}>{creating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Criar modelo'}</button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
