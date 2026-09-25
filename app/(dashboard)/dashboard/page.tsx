@@ -15,7 +15,8 @@ import { PerformanceChart } from '@/components/dashboard/PerformanceChart';
 import { ConversionDonut } from '@/components/dashboard/ConversionDonut';
 import { SalesFunnelTabs } from '@/components/dashboard/SalesFunnelTabs';
 import { RecentSales } from '@/components/dashboard/RecentSales';
-import { MessageFunnelCard } from '@/components/dashboard/MessageFunnelCard';
+import { AdConversations } from '@/components/dashboard/AdConversations';
+import { AdRanking } from '@/components/dashboard/AdRanking';
 import { useFeatures } from '@/components/layout/FeaturesProvider';
 import { FirstStepsCard } from '@/components/onboarding/FirstStepsCard';
 import { FunilTab } from '@/components/dashboard/FunilTab';
@@ -169,6 +170,8 @@ export default function DashboardPage() {
   const previousRange = useMemo(() => getPreviousPeriodRange(selectedPeriod, dateRange), [selectedPeriod, dateRange]);
 
 
+  const adDays = currentRange ? Math.max(1, Math.ceil((currentRange.to.getTime() - currentRange.from.getTime()) / 86_400_000)) : 30;
+
   // ── Derived lead sets ─────────────────────────────────────────────────────
   const filteredLeads = useMemo(() => {
     if (!currentRange) return leads;
@@ -224,21 +227,12 @@ export default function DashboardPage() {
     : '0.0';
 
   // ── Previous period metrics ───────────────────────────────────────────────
-  const prevNovosLeads = prevFilteredLeads.length;
   const prevFechados = prevLeadsClosedInPeriod.length;
-  const prevFaturamento = prevLeadsClosedInPeriod.reduce((s, l) => s + (l.project_value || 0), 0);
   const prevTaxaConversao = prevFilteredLeads.length > 0
     ? (prevFechados / prevFilteredLeads.length) * 100 : 0;
 
   // ── Deltas ────────────────────────────────────────────────────────────────
-  const deltaNovosLeads = calcDelta(novosLeads, prevNovosLeads);
-  const deltaFechados = calcDelta(fechados, prevFechados);
-  const deltaFaturamento = calcDelta(faturamento, prevFaturamento);
   const deltaTaxaConversao = calcDelta(parseFloat(taxaConversao), prevTaxaConversao);
-  const deltaEmAtendimento = calcDelta(
-    filteredLeads.filter(l => l.status === 'Em contato').length,
-    prevFilteredLeads.filter(l => l.status === 'Em contato').length
-  );
 
   // ── Performance chart data ────────────────────────────────────────────────
   const performanceData = useMemo(() => {
@@ -445,7 +439,6 @@ export default function DashboardPage() {
           subtitle={`${novosLeads === 1 ? '1 lead' : `${novosLeads} leads`} no período`}
           icon={UserRoundPlus}
           format="number"
-          delta={deltaNovosLeads}
         />
         <MetricCard
           title="Em atendimento"
@@ -453,7 +446,6 @@ export default function DashboardPage() {
           subtitle="Pipeline ativo agora"
           icon={MessageCircleMore}
           format="number"
-          delta={deltaEmAtendimento}
         />
         <MetricCard
           title="Taxa de conversão"
@@ -461,7 +453,6 @@ export default function DashboardPage() {
           subtitle="Fechados / entrados"
           icon={TrendingUp}
           format="percentage"
-          delta={deltaTaxaConversao}
           tooltip="Fechados dividido pelo total de leads que entraram no período, incluindo os marcados como Perdido. Difere do gráfico 'Taxa de conversão' ao lado, que não conta os Perdidos na conta."
         />
         <MetricCard
@@ -477,7 +468,6 @@ export default function DashboardPage() {
           subtitle="Fechados no período"
           icon={CircleDollarSign}
           format="currency"
-          delta={deltaFaturamento}
         />
       </div>
 
@@ -505,6 +495,8 @@ export default function DashboardPage() {
             remarketingCount={remarketingCount}
             showAntiNoshow={!!features.anti_noshow}
             showRemarketing={!!features.remarketing}
+            since={currentRange?.from}
+            until={currentRange?.to}
           />
         </div>
         {/* Vendas Recentes acompanha a altura do Funil (a lista rola por dentro) em vez de esticar a linha:
@@ -516,10 +508,15 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Message Funnel */}
-      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
+      {/* Anúncios: conversas que vieram do anúncio e quais anúncios trazem mais */}
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 items-stretch">
         <div className="lg:col-span-2">
-          <MessageFunnelCard since={currentRange?.from} until={currentRange?.to} />
+          <AdConversations since={currentRange?.from} until={currentRange?.to} />
+        </div>
+        <div className="relative h-[420px] lg:h-auto">
+          <div className="h-full lg:absolute lg:inset-0">
+            <AdRanking days={adDays} />
+          </div>
         </div>
       </div>
       </>

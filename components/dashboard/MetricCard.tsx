@@ -1,9 +1,6 @@
 'use client';
 
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { LucideIcon, ArrowUpRight, ArrowDownRight, Info } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { cn } from '@/lib/utils';
+import { LucideIcon, Info } from 'lucide-react';
 
 interface MetricCardProps {
   title: string;
@@ -11,78 +8,28 @@ interface MetricCardProps {
   subtitle: string;
   icon: LucideIcon;
   format?: 'number' | 'currency' | 'percentage';
-  highlight?: { bg: string; text?: string };
-  delta?: number | null;
   tooltip?: string;
 }
 
-export function MetricCard({ title, value, subtitle, icon: Icon, format = 'number', highlight, delta, tooltip }: MetricCardProps) {
-  const [displayValue, setDisplayValue] = useState(0);
-
-  useEffect(() => {
-    if (format === 'number' && typeof value === 'number') {
-      const duration = 1000;
-      const steps = 60;
-      const increment = value / steps;
-      let current = 0;
-      const timer = setInterval(() => {
-        current += increment;
-        if (current >= value) { setDisplayValue(value); clearInterval(timer); }
-        else { setDisplayValue(Math.floor(current)); }
-      }, duration / steps);
-      return () => clearInterval(timer);
-    } else {
-      setDisplayValue(typeof value === 'number' ? value : 0);
-    }
-  }, [value, format]);
-
-  const formattedValue = () => {
-    if (format === 'currency') {
-      return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-        typeof value === 'number' ? value : 0
-      );
-    }
-    if (format === 'percentage') return `${value}%`;
-    return displayValue;
-  };
-
-  const hasDelta = delta !== undefined && delta !== null;
-  const isPositive = hasDelta && delta! > 0;
-  const isNegative = hasDelta && delta! < 0;
+export function MetricCard({ title, value, subtitle, icon: Icon, format = 'number', tooltip }: MetricCardProps) {
+  const shown =
+    format === 'currency'
+      ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(typeof value === 'number' ? value : 0)
+      : format === 'percentage'
+        ? `${value}%`
+        : typeof value === 'number' ? value.toLocaleString('pt-BR') : value;
 
   return (
-    <Card className="border-border hover:shadow-md transition-all" style={highlight ? { background: highlight.bg, borderColor: 'transparent' } : undefined}>
-      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2 px-4 pt-4">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="p-1.5 rounded-lg flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
-            <Icon className="h-4 w-4" style={{ color: '#96F63C' }} />
-          </div>
-          <p className="text-xs text-muted-foreground truncate">{title}</p>
-          {tooltip && (
-            <span title={tooltip} className="flex-shrink-0 cursor-help">
-              <Info className="h-3 w-3 text-muted-foreground/60" />
-            </span>
-          )}
-        </div>
-
-        {hasDelta && (
-          <div className={cn(
-            'flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0',
-            isPositive ? 'text-emerald-400' : isNegative ? 'text-red-400' : 'text-muted-foreground',
-            isPositive ? 'bg-emerald-500/10' : isNegative ? 'bg-red-500/10' : 'bg-muted',
-          )}>
-            {isPositive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-            {Math.abs(delta!)}%
-          </div>
-        )}
-      </CardHeader>
-
-      <CardContent className="pt-0 px-4 pb-4">
-        <div className="text-xl md:text-2xl font-bold text-foreground truncate">
-          {formattedValue()}
-        </div>
-        <p className="text-[10px] md:text-xs text-muted-foreground mt-1">{subtitle}</p>
-      </CardContent>
-    </Card>
+    <div className="flex flex-col gap-3 rounded-[14px] border border-border bg-card px-6 py-5">
+      <div className="flex items-center gap-3">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#01573C]/10 dark:bg-[#96F63C]/[0.12]">
+          <Icon className="h-4 w-4 text-[#01573C] dark:text-[#96F63C]" />
+        </span>
+        <p className="truncate text-sm text-muted-foreground">{title}</p>
+        {tooltip && <span title={tooltip} className="shrink-0 cursor-help"><Info className="h-3.5 w-3.5 text-muted-foreground/60" /></span>}
+      </div>
+      <p className="truncate text-[32px] font-semibold leading-10 tracking-tight text-foreground">{shown}</p>
+      <p className="text-[13px] text-muted-foreground">{subtitle}</p>
+    </div>
   );
 }

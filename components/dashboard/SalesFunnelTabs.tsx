@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { motion } from 'framer-motion';
-import { Bell, ArrowRight } from 'lucide-react';
+import { Bell, ArrowRight, ChevronDown, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { Bar, BarChart, XAxis, YAxis } from 'recharts';
@@ -25,6 +25,8 @@ interface SalesFunnelTabsProps {
   remarketingCount?: number;
   showAntiNoshow?: boolean;
   showRemarketing?: boolean;
+  since?: Date;
+  until?: Date;
 }
 
 const NOSHOW_STAGES = [
@@ -126,16 +128,33 @@ function HorizontalBars({ data }: { data: { name: string; quantidade: number }[]
   );
 }
 
-type TabValue = 'vendas' | 'noshow' | 'remarketing';
+type TabValue = 'vendas' | 'noshow' | 'remarketing' | 'promocoes';
 
 const TAB_LABELS: Record<TabValue, string> = {
   vendas: 'Funil de vendas',
   noshow: 'Anti noshow',
   remarketing: 'Remarketing',
+  promocoes: 'Promoções',
 };
 
-export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0, showAntiNoshow = true, showRemarketing = true }: SalesFunnelTabsProps) {
+interface PromoData {
+  sequences: { id: string; nome: string }[];
+  selected: { id: string; nome: string; dispatched: number; messages: number; responded: number; bought: number; value: number } | null;
+}
+
+export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0, showAntiNoshow = true, showRemarketing = true, since, until }: SalesFunnelTabsProps) {
   const [activeTab, setActiveTab] = useState<TabValue>('vendas');
+  const [promo, setPromo] = useState<PromoData | null>(null);
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoId, setPromoId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeTab !== 'promocoes' || !since || !until) return;
+    setPromoLoading(true);
+    const q = new URLSearchParams({ since: since.toISOString().slice(0, 10), until: until.toISOString().slice(0, 10) });
+    if (promoId) q.set('sequence_id', promoId);
+    fetch(`/api/reports/promocoes?${q}`).then((r) => (r.ok ? r.json() : null)).then(setPromo).catch(() => setPromo(null)).finally(() => setPromoLoading(false));
+  }, [activeTab, since, until, promoId]);
 
   const salesData = stages.map(s => ({ name: s.label, quantidade: s.count }));
   const noshowData = NOSHOW_STAGES.map(s => ({
@@ -162,7 +181,7 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0
       <Card className="h-full flex flex-col overflow-hidden">
         <CardContent className="flex-1 pt-4 md:pt-6 px-4 md:px-6 flex flex-col">
           {/* Tabs */}
-          <div className="mb-5 flex-shrink-0">
+          <div className="mb-5 flex flex-shrink-0 flex-wrap items-center justify-between gap-3">
             <div className="flex items-center rounded-full p-1 w-fit bg-muted">
               {visibleTabs.map(t => (
                 <button
@@ -178,6 +197,15 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0
                 </button>
               ))}
             </div>
+            {activeTab === 'promocoes' && promo && promo.sequences.length > 0 && (
+              <label className="relative flex items-center">
+                <span className="sr-only">Escolher a promoção</span>
+                <select value={promo.selected?.id ?? ''} onChange={(e) => setPromoId(e.target.value)} className="h-9 max-w-[260px] appearance-none truncate rounded-full border border-border bg-card py-0 pl-4 pr-9 text-[13px] font-semibold text-foreground outline-none">
+                  {promo.sequences.map((q) => <option key={q.id} value={q.id}>{q.nome}</option>)}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 h-3.5 w-3.5 text-muted-foreground" />
+              </label>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto">
@@ -219,10 +247,67 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0
                 <HorizontalBars data={[{ name: 'Remarketing', quantidade: remarketingCount }]} />
               )
             )}
+            {activeTab === 'promocoes' && (
+              promoLoading && !promo ? (
+                <div className="h-[240px] animate-pulse rounded-xl bg-muted" />
+              ) : !promo || promo.sequences.length === 0 || !promo.selected ? (
+                <EmptyState
+                  message="Nenhuma promoção criada ainda"
+                  detail="Crie uma sequência que começa pela etiqueta Promoção para ver aqui quem respondeu e quem comprou."
+                  href="/configuracoes/follow"
+                  cta="Abrir sequências"
+                />
+              ) : (
+                <PromoPanel data={promo.selected} since={since} until={until} />
+              )
+            )}
           </div>
         </CardContent>
       </Card>
     </motion.div>
+  );
+}
+
+const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) : 0);
+const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const dmy = (d?: Date) => (d ? d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '') : '');
+
+function DropChip({ children }: { children: React.ReactNode }) {
+  return <span className="ml-[92px] flex w-fit items-center gap-1.5 rounded-full bg-[#F5B544]/[0.16] px-3 py-1 text-xs font-semibold text-[#8A5A00] dark:text-[#F5B544]"><ArrowDown className="h-3 w-3" />{children}</span>;
+}
+
+function PromoPanel({ data, since, until }: { data: NonNullable<PromoData['selected']>; since?: Date; until?: Date }) {
+  const width = (n: number) => (data.dispatched > 0 ? Math.max(n > 0 ? 6 : 0.6, Math.round((n / data.dispatched) * 100)) : 0.6);
+  const rows: [string, number][] = [['Disparei para', data.dispatched], ['Responderam', data.responded], ['Compraram', data.bought]];
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-sm text-muted-foreground">Disparos da sequência de Promoção do canvas, de {dmy(since)} a {dmy(until)}. Escolha a promoção no seletor.</p>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <div className="flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-6 dark:bg-[#141414]">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-1"><span className="text-xs font-semibold tracking-[0.1em] text-muted-foreground">RESULTADO DA PROMOÇÃO</span><span className="text-sm text-foreground/85">Para quantos foi, quem respondeu e quem comprou</span></div>
+            <div className="flex flex-col items-end"><span className="text-[40px] font-semibold leading-[44px] tracking-tight text-foreground">{pct(data.bought, data.dispatched)}%</span><span className="text-[13px] text-muted-foreground">compraram</span></div>
+          </div>
+          {rows.map(([label, n], i) => (
+            <div key={label} className="flex flex-col gap-3">
+              {i === 1 && <DropChip>{pct(data.responded, data.dispatched)}% responderam</DropChip>}
+              {i === 2 && <DropChip>{pct(data.bought, data.dispatched)}% compraram</DropChip>}
+              <div className="flex items-center gap-4">
+                <span className="w-[76px] shrink-0 text-right text-sm font-semibold text-foreground">{label}</span>
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <div className="h-11 rounded-md bg-[#01573C]/70 dark:bg-[#1F5A3D]" style={{ width: `${i === 0 ? (data.dispatched > 0 ? 100 : 0.6) : width(n)}%`, minWidth: 3 }} />
+                  <span className="text-2xl font-semibold text-foreground">{n}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-1 flex-col gap-2 rounded-xl border border-border bg-muted/40 p-6 dark:bg-[#141414]"><span className="text-xs font-semibold tracking-[0.1em] text-muted-foreground">MENSAGENS ENVIADAS</span><span className="text-[40px] font-semibold leading-[44px] tracking-tight text-foreground">{data.messages}</span><span className="text-[13px] text-muted-foreground">Passos da sequência enviados aos {data.dispatched} leads</span></div>
+          <div className="flex flex-1 flex-col gap-2 rounded-xl border border-border bg-muted/40 p-6 dark:bg-[#141414]"><span className="text-xs font-semibold tracking-[0.1em] text-muted-foreground">VALOR VENDIDO</span><span className="text-[40px] font-semibold leading-[44px] tracking-tight text-foreground">{brl(data.value)}</span><span className="text-[13px] text-muted-foreground">Soma dos fechamentos depois do primeiro disparo</span></div>
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -1,130 +1,87 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useRouter } from 'next/navigation';
+import { ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/utils/format';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNowStrict } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { AnimatedList } from '@/components/ui/animated-list';
-import { cn } from '@/lib/utils';
 
 interface ClosedLead {
   id: string;
   company_name: string;
   contact_name: string | null;
   project_value: number;
+  closed_at: string | null;
   updated_at: string;
 }
 
+const shortDate = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '');
+
 export function RecentSales() {
-  const [closedLeads, setClosedLeads] = useState<ClosedLead[]>([]);
+  const router = useRouter();
+  const [leads, setLeads] = useState<ClosedLead[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchClosedLeads();
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data: userData } = await supabase.from('users').select('company_id').eq('auth_user_id', user.id).single();
+        if (!userData?.company_id) return;
+        const { data } = await supabase
+          .from('leads')
+          .select('id, company_name, contact_name, project_value, closed_at, updated_at')
+          .eq('company_id', userData.company_id)
+          .eq('status', 'Fechado')
+          .order('closed_at', { ascending: false, nullsFirst: false })
+          .limit(30);
+        setLeads((data as ClosedLead[]) || []);
+      } catch (e) {
+        console.error('Error fetching closed leads:', e);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
-  const fetchClosedLeads = async () => {
-    try {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) return;
-
-      const { data: userData } = await supabase
-        .from('users')
-        .select('company_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData?.company_id) return;
-
-      const { data: leadsData } = await supabase
-        .from('leads')
-        .select('id, company_name, contact_name, project_value, updated_at')
-        .eq('company_id', userData.company_id)
-        .eq('status', 'Fechado')
-        .order('updated_at', { ascending: false })
-        .limit(10);
-
-      setClosedLeads(leadsData || []);
-    } catch (error) {
-      console.error('Error fetching closed leads:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <Card className="h-full">
-        <CardHeader>
-          <CardTitle className="text-base font-semibold">Vendas recentes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="animate-pulse">
-                <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
-                <div className="h-3 bg-muted rounded w-1/2"></div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const total = leads.reduce((s, l) => s + (l.project_value || 0), 0);
 
   return (
-    <Card className="flex flex-col overflow-hidden h-full">
-      <CardHeader className="flex-shrink-0">
-        <CardTitle className="text-lg font-semibold">Vendas Recentes</CardTitle>
-      </CardHeader>
-      <CardContent className="flex-1 overflow-y-auto scrollbar-minimal">
-        {closedLeads.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-sm text-muted-foreground">Nenhuma venda fechada ainda</p>
+    <section className="flex h-full min-h-0 flex-col gap-4 rounded-[14px] border border-border bg-card px-6 py-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h3 className="text-xl font-semibold text-foreground">Vendas recentes</h3>
+          <p className="text-[13px] text-muted-foreground">Últimas vendas fechadas, da mais nova para a mais antiga</p>
+        </div>
+        {!loading && leads.length > 0 && (
+          <div className="flex shrink-0 flex-col items-end gap-0.5">
+            <span className="text-xl font-semibold text-[#01573C] dark:text-[#96F63C]">{formatCurrency(total)}</span>
+            <span className="text-[13px] text-muted-foreground">{leads.length} {leads.length === 1 ? 'venda' : 'vendas'}</span>
           </div>
-        ) : (
-          <AnimatedList delay={150}>
-            {closedLeads.map((lead) => (
-              <div
-                key={lead.id}
-                className={cn(
-                  "flex items-start justify-between gap-3 p-4 rounded-lg",
-                  "bg-card border border-border/50 shadow-sm",
-                  "hover:bg-accent/5 transition-colors"
-                )}
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm text-foreground truncate">
-                    {lead.company_name}
-                  </p>
-                  {lead.contact_name && (
-                    <p className="text-xs text-muted-foreground truncate">
-                      {lead.contact_name}
-                    </p>
-                  )}
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {formatDistanceToNow(new Date(lead.updated_at), {
-                      addSuffix: true,
-                      locale: ptBR,
-                    })}
-                  </p>
-                </div>
-                <div className="flex-shrink-0 text-right">
-                  <p className="text-sm font-semibold text-primary">
-                    {formatCurrency(lead.project_value)}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </AnimatedList>
         )}
-      </CardContent>
-    </Card>
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-0.5">
+        {loading ? (
+          [...Array(4)].map((_, i) => <div key={i} className="h-[68px] animate-pulse rounded-xl bg-muted" />)
+        ) : leads.length === 0 ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">Nenhuma venda fechada ainda.</p>
+        ) : leads.map((l) => {
+          const when = l.closed_at ?? l.updated_at;
+          return (
+            <button key={l.id} type="button" onClick={() => router.push('/crm')} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3 text-left transition-colors hover:bg-muted dark:bg-[#181818] dark:hover:bg-[#1E1E1E]">
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="truncate text-[15px] font-semibold text-foreground">{l.contact_name || l.company_name}</span>
+                <span className="truncate text-[13px] text-muted-foreground">Fechou em {shortDate(when)} · {formatDistanceToNowStrict(new Date(when), { addSuffix: true, locale: ptBR })}</span>
+              </span>
+              <span className="flex shrink-0 items-center gap-2 text-[15px] font-semibold text-[#01573C] dark:text-[#96F63C]">{formatCurrency(l.project_value)}<ChevronRight className="h-4 w-4 text-muted-foreground" /></span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }

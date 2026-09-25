@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
   const { data: insights } = await supabase
     .from('meta_ad_insights')
-    .select('raw, spend_cents')
+    .select('raw, spend_cents, clicks')
     .eq('company_id', context.companyId)
     .gte('date', since)
     .lte('date', until)
@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
   const rawRows = insights.map(r => r.raw)
   const stages = aggregateMessageFunnel(rawRows)
   const totalSpendCents = insights.reduce((sum, r) => sum + (r.spend_cents ?? 0), 0)
+  const totalClicks = insights.reduce((sum, r) => sum + (Number((r as { clicks?: number | null }).clicks) || 0), 0)
   const unmatched = getUnmatchedActionTypes(rawRows)
 
   const stagesWithCost = stages.map(s => ({
@@ -50,6 +51,7 @@ export async function GET(req: NextRequest) {
     until,
     stages: stagesWithCost,
     total_spend_cents: totalSpendCents,
+    total_clicks: totalClicks,
     // Ajuda a conferir se os nomes de campo em lib/meta/message-funnel.ts
     // realmente batem com o que a Meta devolve pra essa conta -- se aparecer
     // algo aqui parecido com profundidade/mensagem que devia ter sido
