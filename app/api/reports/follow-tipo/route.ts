@@ -63,6 +63,7 @@ export async function GET(req: NextRequest) {
 
   const leadIds = Array.from(firstByLead.keys())
   let responded = 0
+  let returned = 0
   if (leadIds.length > 0) {
     const { data: inbound } = await supabase.from('mensagens_do_whatsapp').select('id_do_lead, carimbo_de_data_e_hora').eq('company_id', context.companyId).eq('direcao', 'inbound').in('id_do_lead', leadIds).gte('carimbo_de_data_e_hora', from.toISOString()).limit(50000)
     const replied = new Set<number>()
@@ -71,6 +72,17 @@ export async function GET(req: NextRequest) {
       if (first !== undefined && new Date(m.carimbo_de_data_e_hora as string).getTime() > first) replied.add(m.id_do_lead as number)
     }
     responded = replied.size
+    // Voltaram ao funil: respondeu e hoje está numa etapa ativa do CRM
+    if (tipo === 'remarketing' && replied.size > 0) {
+      const { data: st } = await supabase.from('leads').select('id, status').eq('company_id', context.companyId).in('id', Array.from(replied))
+      returned = (st ?? []).filter((l) => ['Em contato', 'Interessado', 'Proposta enviada', 'Fechado'].includes(l.status as string)).length
+    }
+  }
+
+  let queue = 0
+  if (tipo === 'remarketing') {
+    const { count } = await supabase.from('leads').select('id', { count: 'exact', head: true }).eq('company_id', context.companyId).eq('status', 'Remarketing')
+    queue = count ?? 0
   }
 
   return NextResponse.json({
@@ -79,5 +91,7 @@ export async function GET(req: NextRequest) {
     leads: leadIds.length,
     messages: rows.length,
     responded,
+    returned,
+    queue,
   })
 }
