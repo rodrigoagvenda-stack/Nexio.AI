@@ -28,7 +28,7 @@ const hm = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2
 const daysAgo = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
 const fmtN = (n: number) => n.toLocaleString('pt-BR');
 function fmtPhone(raw: string): string {
-  const d = raw.replace(/D/g, '');
+  const d = raw.replace(/[^0-9]/g, '');
   const m = d.match(/^55(d{2})(d{4,5})(d{4})$/);
   return m ? `+55 ${m[1]} ${m[2]}-${m[3]}` : `+${d}`;
 }
@@ -402,6 +402,8 @@ function PixelPanel({ cfg, resumo, save }: { cfg: SdrCfg; resumo: Resumo | null;
   const [edit, setEdit] = useState(false);
   const [draft, setDraft] = useState({ id: '', token: '', waba: '' });
   const [saving, setSaving] = useState(false);
+  const [quickWaba, setQuickWaba] = useState('');
+  const [quickSaving, setQuickSaving] = useState(false);
   const [capi, setCapi] = useState<{ sent: number; failed: number; last: { success: boolean; at: string; message: string | null } | null } | null>(null);
   useEffect(() => { if (on) void jget('/api/meta/capi/status').then(setCapi); }, [on, cfg.meta_capi_waba_id]);
   const total = resumo?.conversationsAll ?? 0;
@@ -413,6 +415,12 @@ function PixelPanel({ cfg, resumo, save }: { cfg: SdrCfg; resumo: Resumo | null;
     const ok = await save({ meta_pixel_id: draft.id.trim(), meta_pixel_token: draft.token.trim(), meta_capi_waba_id: draft.waba.trim() });
     setSaving(false);
     if (ok) { setEdit(false); setDraft({ id: '', token: '', waba: '' }); toast({ title: 'Pixel configurado', variant: 'success' }); }
+  }
+  async function saveQuickWaba() {
+    setQuickSaving(true);
+    const ok = await save({ meta_capi_waba_id: quickWaba.trim() });
+    setQuickSaving(false);
+    if (ok) { setQuickWaba(''); toast({ title: 'ID da conta salvo', variant: 'success' }); }
   }
   async function remove() {
     if (!window.confirm('Remover o pixel? As vendas deixam de ser avisadas à Meta.')) return;
@@ -437,7 +445,13 @@ function PixelPanel({ cfg, resumo, save }: { cfg: SdrCfg; resumo: Resumo | null;
         )}
       </StatusCard>
       {on && !cfg.meta_capi_waba_id && !cfg.meta_wa_waba_id && (
-        <p className="rounded-xl border border-[#F5B544]/40 bg-[#F5B544]/[0.12] px-5 py-4 text-sm text-[#8A5A00] dark:text-[#F5B544]">Falta o ID da conta do WhatsApp Business. Sem ele a Meta recusa as vendas e nenhuma chega ao anúncio. Clique em Editar e preencha.</p>
+        <div className="flex flex-col gap-3 rounded-xl border border-[#F5B544]/40 bg-[#F5B544]/[0.12] px-5 py-4">
+          <p className="text-sm text-[#8A5A00] dark:text-[#F5B544]">Falta o ID da conta do WhatsApp Business. Sem ele a Meta recusa as vendas e nenhuma chega ao anúncio. Cole o ID abaixo. Ele está no Gerenciador de Eventos, em Configurações do conjunto de dados, ou em Configurações do negócio, Contas do WhatsApp.</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <input aria-label="ID da conta do WhatsApp Business" inputMode="numeric" className={cn(INPUT, 'max-w-[320px]')} value={quickWaba} onChange={(e) => setQuickWaba(e.target.value.replace(/[^0-9]/g, ''))} placeholder="ID da conta (só números)" />
+            <button type="button" disabled={quickSaving || quickWaba.trim().length < 8} onClick={saveQuickWaba} className={PILL_GREEN}>{quickSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar ID'}</button>
+          </div>
+        </div>
       )}
       {on && capi?.last && (
         <div className={cn(CARD, 'flex flex-col gap-1.5 px-7 py-5')}>
