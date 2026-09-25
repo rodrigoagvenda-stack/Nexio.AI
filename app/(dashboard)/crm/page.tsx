@@ -403,7 +403,7 @@ const DroppableColumn = memo(function DroppableColumn({ id, title, count, totalV
   return (
     <div
       ref={setNodeRef}
-      className={cn('flex min-w-0 flex-col rounded-2xl border bg-muted/40 p-3 transition-colors', isOver ? 'border-[#1E6B47] bg-accent/60' : 'border-border')}
+      className={cn('flex h-full min-h-0 min-w-0 flex-col rounded-2xl border bg-muted/40 p-3 transition-colors', isOver ? 'border-[#1E6B47] bg-accent/60' : 'border-border')}
     >
       <div className="mb-3 flex flex-col gap-0.5 px-1.5">
         <div className="flex items-center gap-2">
@@ -416,7 +416,7 @@ const DroppableColumn = memo(function DroppableColumn({ id, title, count, totalV
           {extra}
         </div>
       </div>
-      {children}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pr-0.5">{children}</div>
     </div>
   )
 })
@@ -457,6 +457,21 @@ export default function CRMPage() {
     return view === 'kanban' ? 'kanban' : 'table';
   }, [searchParams]);
   const [hasFetched, setHasFetched] = useState(false);
+
+  // O funil ocupa a altura que sobra na tela: colunas com a mesma altura, cartões rolam por dentro e a rolagem lateral fica sempre visível
+  const boardRef = useRef<HTMLDivElement>(null);
+  const [boardH, setBoardH] = useState<number>(560);
+  useEffect(() => {
+    if (viewMode !== 'kanban') return;
+    const fit = () => {
+      const el = boardRef.current;
+      if (el) setBoardH(Math.max(420, Math.floor(window.innerHeight - el.getBoundingClientRect().top - 24)));
+    };
+    fit();
+    const t = setTimeout(fit, 300);
+    window.addEventListener('resize', fit);
+    return () => { window.removeEventListener('resize', fit); clearTimeout(t); };
+  }, [viewMode, loading, leads.length]);
   const [showModal, setShowModal] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [deletingLead, setDeletingLead] = useState<Lead | null>(null);
@@ -1272,7 +1287,7 @@ export default function CRMPage() {
   }
 
   const activeLead = activeDragId ? leads.find(l => l.id === activeDragId) : null;
-  const VISIBLE_PER_COLUMN = 4;
+  const VISIBLE_PER_COLUMN = 40;
   const pillTrigger = 'h-11 w-auto gap-2 rounded-full border-border bg-card px-4 text-sm shadow-none';
   const openConversa = (lead: LeadWithConversa) => router.push(`/atendimento?phone=${encodeURIComponent(lead.whatsapp || '')}`);
   const fmtPhone = (p?: string | null) => {
@@ -1379,8 +1394,8 @@ export default function CRMPage() {
                 <h2 className="text-[13px] font-semibold tracking-[0.12em] text-muted-foreground">FUNIL DE VENDA</h2>
                 <p className="text-[13px] text-muted-foreground">{stageLeadCount} leads nas 7 etapas. Etiquetas aparecem no card, o lead não sai da etapa.</p>
               </div>
-              <div className="overflow-x-auto pb-2">
-                <div className="grid items-start gap-4" style={{ gridAutoFlow: 'column', gridAutoColumns: 'minmax(230px, 1fr)' }}>
+              <div ref={boardRef} className="overflow-x-auto overflow-y-hidden pb-2" style={{ height: boardH }}>
+                <div className="grid h-full items-stretch gap-4" style={{ gridAutoFlow: 'column', gridAutoColumns: '300px' }}>
                   {boardStages.map((stage) => {
                     const stageLeads = leadsByStage.map.get(stage) ?? [];
                     const isOpen = expanded.has(stage);

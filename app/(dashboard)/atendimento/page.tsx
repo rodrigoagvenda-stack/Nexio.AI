@@ -1838,9 +1838,8 @@ export default function AtendimentoPage() {
                     <div
                       key={conv.id}
                       className={cn(
-                        'group relative rounded-[10px] border-l-[3px] transition-colors',
-                        selectedConversation?.id === conv.id ? 'bg-accent' : 'hover:bg-muted',
-                        suaVez ? 'border-l-red-500' : 'border-l-transparent'
+                        'group relative rounded-[10px] transition-colors',
+                        selectedConversation?.id === conv.id ? 'bg-accent' : 'hover:bg-muted'
                       )}
                     >
                       <button className="w-full px-3.5 py-3 text-left" onClick={() => setSelectedConversation(conv)}>
@@ -1860,7 +1859,7 @@ export default function AtendimentoPage() {
                             <div className="flex items-center justify-between gap-2">
                               <p className="truncate text-base font-semibold leading-5 text-foreground">{conv.nome_do_contato || conv.numero_de_telefone}</p>
                               {conv.hora_da_ultima_mensagem && (
-                                <span className="shrink-0 text-xs text-muted-foreground">{fmtConvTime(conv.hora_da_ultima_mensagem)}</span>
+                                <span className="shrink-0 text-xs text-muted-foreground transition-opacity group-hover:opacity-0 group-focus-within:opacity-0">{fmtConvTime(conv.hora_da_ultima_mensagem)}</span>
                               )}
                             </div>
                             <p className="mt-0.5 truncate text-sm text-muted-foreground">{renderConvPreview(conv.ultima_mensagem)}</p>
@@ -1896,7 +1895,7 @@ export default function AtendimentoPage() {
                           </div>
                         </div>
                       </button>
-                      <div className="absolute right-2 top-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                      <div className="absolute right-3.5 top-3 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                         {(conv.current_status === 'livre' || (!conv.current_status && conv.assigned_to == null)) && (
                           <button
                             className="rounded-md bg-[#01573C] px-2 py-0.5 text-[11px] font-semibold text-white hover:opacity-90"
