@@ -14,7 +14,7 @@ declare global {
 
 interface Props {
   /** 'pill' = botão verde grande da tela de Atendimento; padrão = botão azul pequeno das Configurações */
-  appearance?: 'default' | 'pill'
+  appearance?: 'default' | 'pill' | 'paper'
   connected: boolean
   phoneNumber?: string | null
   onConnected: (phoneNumberId: string, wabaId: string, token: string, phone: string) => void
@@ -183,7 +183,7 @@ export function MetaWhatsAppConnect({ appearance = 'default', connected, phoneNu
     )
   }
 
-  if (connected) {
+  if (connected && appearance !== 'paper') {
     return (
       <div className="flex items-center justify-between p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5">
         <div className="flex items-center gap-2">
@@ -197,6 +197,16 @@ export function MetaWhatsAppConnect({ appearance = 'default', connected, phoneNu
           <X className="h-3.5 w-3.5 mr-1" />Desconectar
         </Button>
       </div>
+    )
+  }
+
+  if (appearance === 'paper') {
+    const busy = loading || !sdkReady
+    return (
+      <button type="button" onClick={launch} disabled={busy} className="flex h-[46px] items-center justify-center gap-2 rounded-full bg-[#01573C] px-6 text-[15px] font-semibold text-white shadow-[inset_0_1px_0_#FFFFFF26,0_3px_0_#003526] transition-transform active:translate-y-px disabled:opacity-60">
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+        {loading ? 'Conectando…' : !sdkReady ? 'Carregando…' : connected ? 'Reconectar via CoEx' : 'Conectar via CoEx'}
+      </button>
     )
   }
 

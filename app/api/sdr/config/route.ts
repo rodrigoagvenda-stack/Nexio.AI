@@ -62,6 +62,7 @@ export async function GET() {
         meta_pixel_id: config.meta_pixel_id ?? null,
         meta_pixel_token: config.meta_pixel_token ? '••••••••' : null,
         billing_recurring: config.billing_recurring ?? false,
+        meeting_duration_min: config.meeting_duration_min ?? null,
         created_at: config.created_at,
         updated_at: config.updated_at,
       },
@@ -106,6 +107,7 @@ export async function PUT(request: NextRequest) {
       meta_pixel_id,
       meta_pixel_token,
       billing_recurring,
+      meeting_duration_min,
     } = body
 
     const service = createServiceClient()
@@ -132,6 +134,11 @@ export async function PUT(request: NextRequest) {
     if (google_calendar_id !== undefined) configUpdates.google_calendar_id = google_calendar_id
     if (meta_pixel_id !== undefined) configUpdates.meta_pixel_id = meta_pixel_id || null
     if (billing_recurring !== undefined) configUpdates.billing_recurring = billing_recurring
+    if (meeting_duration_min !== undefined) {
+      const n = Number(meeting_duration_min)
+      if (!Number.isInteger(n) || n < 10 || n > 240) return NextResponse.json({ error: 'A duração da reunião deve ficar entre 10 e 240 minutos' }, { status: 400 })
+      configUpdates.meeting_duration_min = n
+    }
     if (meta_pixel_token && !meta_pixel_token.startsWith('••')) {
       configUpdates.meta_pixel_token = encrypt(meta_pixel_token)
     }

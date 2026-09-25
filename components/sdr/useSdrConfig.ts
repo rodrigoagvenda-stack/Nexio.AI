@@ -33,6 +33,7 @@ export interface SdrCfg {
   conhecimento_ativo: boolean
   objecoes_ativo: boolean
   billing_recurring: boolean
+  meeting_duration_min: number | null
 }
 
 export const EMPTY_PERSONA: AgentPersona = {
@@ -55,7 +56,7 @@ const DEFAULT_CFG: SdrCfg = {
   instance_status: 'disconnected', instance_phone: null, whatsapp_provider: 'uazapi',
   meta_wa_phone_number_id: null, meta_wa_waba_id: null, meta_ad_account_id: null, meta_ad_account_name: null,
   meta_pixel_id: null, google_calendar_id: '', flow_id: null, inbox_mode: 'suporte', event_title_template: '',
-  conhecimento_ativo: true, objecoes_ativo: false, billing_recurring: false,
+  conhecimento_ativo: true, objecoes_ativo: false, billing_recurring: false, meeting_duration_min: null,
 }
 
 /** Configuração do SDR da empresa: uma leitura só, e o salvar manda apenas o que mudou. */
@@ -91,6 +92,7 @@ export function useSdrConfig() {
           conhecimento_ativo: c.conhecimento_ativo ?? true,
           objecoes_ativo: c.objecoes_ativo ?? false,
           billing_recurring: c.billing_recurring ?? false,
+          meeting_duration_min: c.meeting_duration_min ?? null,
         })
       }
     } catch {

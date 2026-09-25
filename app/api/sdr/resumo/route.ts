@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   const msgs = () => supabase.from('mensagens_do_whatsapp').select('id', count).eq('company_id', companyId).gte('carimbo_de_data_e_hora', since30)
   const REVIEW_EVENTS = ['funnel_humanizado', 'funnel_conversa', 'funnel_reaction']
 
-  const [cfgRes, fnRes, lastMsgRes, agentRes, inboundRes, teamRes, convTotalRes, convActiveRes, handoffRes, blockedRes, blockedLastRes] = await Promise.all([
+  const [cfgRes, fnRes, lastMsgRes, agentRes, inboundRes, teamRes, convTotalRes, convActiveRes, handoffRes, blockedRes, blockedLastRes, convAllRes, convCtwaRes, convGclidRes] = await Promise.all([
     supabase.from('sdr_configs').select('flow_id').eq('company_id', companyId).limit(1).maybeSingle(),
     supabase.from('sdr_funnel_configs').select('config').eq('company_id', companyId).maybeSingle(),
     supabase.from('mensagens_do_whatsapp').select('carimbo_de_data_e_hora').eq('company_id', companyId).order('carimbo_de_data_e_hora', { ascending: false }).limit(1).maybeSingle(),
@@ -31,6 +31,9 @@ export async function GET(request: NextRequest) {
     supabase.from('sdr_logs').select('id', count).eq('company_id', companyId).eq('event_type', 'funnel_handoff').gte('created_at', since7),
     supabase.from('sdr_logs').select('id', count).eq('company_id', companyId).in('event_type', REVIEW_EVENTS).eq('payload->>aprovada', 'false').gte('created_at', since7),
     supabase.from('sdr_logs').select('created_at').eq('company_id', companyId).in('event_type', REVIEW_EVENTS).eq('payload->>aprovada', 'false').gte('created_at', since7).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    supabase.from('conversas_do_whatsapp').select('id', count).eq('company_id', companyId),
+    supabase.from('conversas_do_whatsapp').select('id', count).eq('company_id', companyId).not('ctwa_clid', 'is', null),
+    supabase.from('conversas_do_whatsapp').select('id', count).eq('company_id', companyId).not('gclid', 'is', null),
   ])
 
   const flowId = cfgRes.data?.flow_id as string | null | undefined
@@ -53,6 +56,9 @@ export async function GET(request: NextRequest) {
     blocked7: blockedRes.count ?? 0,
     blockedLastAt: blockedLastRes.data?.created_at ?? null,
     knowledgeChunks: docs,
+    conversationsAll: convAllRes.count ?? 0,
+    conversationsCtwa: convCtwaRes.count ?? 0,
+    conversationsGclid: convGclidRes.count ?? 0,
     funnel: fn ? { steps: fn.steps?.length ?? 0, objections: fn.objections ? Object.keys(fn.objections).length : 0 } : null,
   })
 }

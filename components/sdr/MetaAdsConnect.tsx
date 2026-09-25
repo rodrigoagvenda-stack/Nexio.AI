@@ -24,6 +24,9 @@ interface Props {
   accountName?: string | null
   onConnected: (adAccountId: string, name: string | null) => void
   onDisconnect: () => void
+  appearance?: 'default' | 'paper'
+  /** 'dark' = pílula neutra (reconectar); 'green' = ação principal */
+  tone?: 'green' | 'dark'
 }
 
 const FB_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID!
@@ -35,7 +38,7 @@ const CONFIG_ID = process.env.NEXT_PUBLIC_META_ADS_CONFIG_ID!
 // exatamente o que o CoEx já faz, só que com uma Configuração de Login
 // separada (NEXT_PUBLIC_META_ADS_CONFIG_ID) pedindo ads_management em vez
 // de whatsapp_business_app_onboarding.
-export function MetaAdsConnect({ connected, accountName, onConnected, onDisconnect }: Props) {
+export function MetaAdsConnect({ connected, accountName, onConnected, onDisconnect, appearance = 'default', tone = 'green' }: Props) {
   const [loading, setLoading] = useState(false)
   const [sdkReady, setSdkReady] = useState(false)
   const [accounts, setAccounts] = useState<AdAccount[] | null>(null)
@@ -141,7 +144,7 @@ export function MetaAdsConnect({ connected, accountName, onConnected, onDisconne
     }
   }
 
-  if (connected) {
+  if (connected && appearance !== 'paper') {
     return (
       <div className="flex items-center justify-between p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5">
         <div className="flex items-center gap-2">
@@ -180,6 +183,16 @@ export function MetaAdsConnect({ connected, accountName, onConnected, onDisconne
           Cancelar
         </Button>
       </div>
+    )
+  }
+
+  if (appearance === 'paper') {
+    const busy = loading || !sdkReady
+    return (
+      <button type="button" onClick={launch} disabled={busy} className={tone === 'dark' ? 'flex h-[46px] items-center justify-center gap-2 rounded-full bg-[#141414] px-6 text-[15px] font-semibold text-white shadow-[inset_0_1px_0_#FFFFFF14,0_3px_0_#000000] transition-transform active:translate-y-px disabled:opacity-60' : 'flex h-[46px] items-center justify-center gap-2 rounded-full bg-[#01573C] px-6 text-[15px] font-semibold text-white shadow-[inset_0_1px_0_#FFFFFF26,0_3px_0_#003526] transition-transform active:translate-y-px disabled:opacity-60'}>
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+        {loading ? 'Buscando contas…' : !sdkReady ? 'Carregando…' : connected ? 'Reconectar' : 'Conectar o Meta Ads'}
+      </button>
     )
   }
 

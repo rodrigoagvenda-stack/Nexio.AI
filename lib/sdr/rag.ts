@@ -231,10 +231,9 @@ export async function processKnowledgePdf(params: {
   if (!rawText.trim()) throw new Error('PDF sem texto extraível')
 
   const chunks = chunkText(rawText)
-  await deleteOldChunks(supabase, companyId, flowId, tableType)
-
   const tagged = chunks.map((c) => tagChunk(c, tableType, companyName))
   const embeddings = await embedAll(tagged.map((t) => t.embedText), openai)
+  await deleteOldChunks(supabase, companyId, flowId, tableType)
 
   const rows = tagged.map((t, i) => ({
     company_id: companyId,
@@ -266,10 +265,9 @@ export async function processKnowledgeText(params: {
   const openai = await getOpenAIClient(openaiKey)
 
   const chunks = chunkText(text)
-  await deleteOldChunks(supabase, companyId, flowId, tableType)
-
   const tagged = chunks.map((c) => tagChunk(c, tableType, companyName))
   const embeddings = await embedAll(tagged.map((t) => t.embedText), openai)
+  await deleteOldChunks(supabase, companyId, flowId, tableType)
 
   const rows = tagged.map((t, i) => ({
     company_id: companyId,

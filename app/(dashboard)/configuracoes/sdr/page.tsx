@@ -1,12 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import { AutomationsNav } from '@/components/automacoes/AutomationsNav';
-import { SubNav, CARD, PILL3D } from '@/components/sdr/ui';
+import { SubNav } from '@/components/sdr/ui';
 import { SdrResumo, type SdrGo } from '@/components/sdr/SdrResumo';
 import { SdrConversa } from '@/components/sdr/SdrConversa';
+import { SdrConhecimento } from '@/components/sdr/SdrConhecimento';
+import { SdrConexoes, normalizeSub, type ConSub } from '@/components/sdr/SdrConexoes';
+import { useUser } from '@/lib/hooks/useUser';
 import { useSdrConfig } from '@/components/sdr/useSdrConfig';
 
 type Tab = 'resumo' | 'conversa' | 'conhecimento' | 'conexoes';
@@ -26,11 +28,13 @@ function readUrl(): { tab: Tab; sub: string | null } {
   const raw = q.get('tab') ?? 'resumo';
   const alias = ALIAS[raw];
   const tab = (alias?.tab ?? raw) as Tab;
-  return { tab: TABS.some(([id]) => id === tab) ? tab : 'resumo', sub: q.get('sub') ?? alias?.sub ?? null };
+  const sub = q.get('sub') ?? (q.get('google_ads') ? 'googleads' : null) ?? alias?.sub ?? null;
+  return { tab: TABS.some(([id]) => id === tab) ? tab : 'resumo', sub };
 }
 
 export default function SdrPage() {
-  const { cfg, loading, save } = useSdrConfig();
+  const { cfg, loading, save, reload } = useSdrConfig();
+  const { company } = useUser();
   const [tab, setTab] = useState<Tab>('resumo');
   const [sub, setSub] = useState<string | null>(null);
   const [funnelOn, setFunnelOn] = useState(false);
@@ -68,11 +72,12 @@ export default function SdrPage() {
         <SdrConversa persona={cfg.persona} funnelActive={funnelOn} onFunnelActive={setFunnelOn} onSavePersona={(p) => save({ prompt: JSON.stringify(p) })} />
       )}
 
-      {tab !== 'resumo' && tab !== 'conversa' && (
-        <div className={`${CARD} flex flex-col items-start gap-4 px-8 py-8`}>
-          <p className="text-[15px] text-muted-foreground">Esta parte ainda está no painel anterior do SDR{sub ? ` (${sub})` : ''}.</p>
-          <Link href={`/configuracoes/sdr/legacy?tab=${tab === 'conexoes' ? 'integracoes' : tab}`} className={PILL3D}>Abrir painel anterior</Link>
-        </div>
+      {tab === 'conexoes' && (
+        <SdrConexoes cfg={cfg} sub={normalizeSub(sub)} onSub={(s: ConSub) => go('conexoes', s)} save={save} reload={reload} companyId={company?.id ?? null} />
+      )}
+
+      {tab === 'conhecimento' && (
+        <SdrConhecimento persona={cfg.persona} flowId={cfg.flow_id} agentActive={cfg.agente_ativo} onReload={reload} />
       )}
     </div>
   );

@@ -512,7 +512,7 @@ function keywordOverlapScore(query: string, content: string): number {
   return hits / queryWords.size
 }
 
-async function searchDocuments(
+export async function searchDocuments(
   query: string,
   companyId: number,
   openai: OpenAI,

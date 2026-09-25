@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
 
   const { data } = await service
     .from('google_integrations')
-    .select('email, expires_at, updated_at')
+    .select('email, expires_at, updated_at, created_at')
     .eq('company_id', context.companyId)
     .single();
 
@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     connected: !!data,
     email: data?.email || null,
     expires_at: data?.expires_at || null,
+    connected_at: data?.created_at || data?.updated_at || null,
   });
 }
 
