@@ -58,23 +58,25 @@ MEMÓRIA COMPLETA: a "Conversa completa" abaixo vai desde o começo (inclui dias
 
 Categorias (escolha UMA, a intenção principal que exige resposta especial):
 - ok: confirmação curta SEM conteúdo (ok, certo, beleza, blz, entendi, tá, combinado) que não responde a pergunta pendente e não traz dado nenhum. Se a mensagem traz qualquer dado ou resposta, NÃO é ok.
-- adiar: a pessoa avisa que está ocupada AGORA (curso, reunião, trabalhando, dirigindo) e que vai responder depois ou demorar. Vale só quando ela quer pausar a conversa, sem dizer que não quer avançar. Tem prioridade sobre qualquer objeção da lista quando a mensagem é só "estou ocupado agora". Exemplo: "tenho um curso agora, não consigo responder rápido".
+- adiar: a pessoa avisa que está ocupada AGORA (curso, reunião, trabalhando, dirigindo) e que vai responder depois ou demorar. Vale só quando ela quer pausar a conversa, sem dizer que não quer avançar. Tem prioridade sobre qualquer objeção da lista quando a mensagem é só "estou ocupado agora". Exemplo: "tenho um curso agora, não consigo responder rápido". NÃO é adiar quando a pessoa cita um dia ou horário ("quarta é melhor pra mim", "só à tarde", "semana que vem", "dia 30"): isso é sugerir data, ou seja, agendar. Se ela diz que vai ficar mais tranquila em certo dia, ela está propondo aquele dia.
 - preco: pergunta valor, preço, quanto custa, planos ou orçamento. Texto pré-preenchido de anúncio NÃO conta como pergunta de preço.
 - objecao: reclama, hesita ou levanta dúvida que combina com um item da lista de objeções abaixo (preencha objecao_tipo com a chave).
 - pergunta_fora: faz uma pergunta sobre a empresa, o serviço ou o processo que não é preço e não está na lista de objeções.
 - bot_automatico: mensagem automática de outra empresa (assistente virtual, menu numerado, aviso de horário de atendimento, ausência, protocolo, saudação padrão de bot).
-- recusa: diz claramente que não quer, não tem interesse ou pede para parar de receber mensagens.
+- recusa: diz claramente que não quer, não tem interesse ou pede para parar de receber mensagens. Dizer que um dia ou horário não dá NÃO é recusa (é agendar). Hesitar ou pedir tempo também não é recusa.
 - pede_humano: quer falar com uma pessoa, atendente humano ou com o dono.
 - pede_ligacao: pede que liguem para ele ou quer conversar por telefone/voz.
 - aceita_ligacao: (só se "ligação já oferecida" = sim) escolhe que a pessoa/o especialista retorne ou ligue.
 - despedida: encerra a conversa (obrigado, valeu, até mais, "ok" final) SEM responder uma pergunta pendente e sem pedir nada. "ok" ou "sim" respondendo a uma pergunta que fizemos NÃO é despedida.
-- agendar: pede ou aceita marcar reunião, call ou horário.
+- agendar: pede ou aceita marcar reunião, call ou horário. Também é agendar: escolher uma das opções oferecidas, dizer que um horário não serve, sugerir OUTRO dia ou horário (mesmo com frases como "vou estar mais tranquila na quarta") e perguntar sobre os horários.
 - resposta_passo: responde, mesmo em parte, o que perguntamos, ou informa dados sobre o negócio dele.
 - duvida_contexto: a pessoa não entendeu do que se trata, quem somos ou por que estamos falando com ela ("o que seria?", "uque seria", "como assim?", "quem é?", "do que se trata?", "que áudio é esse?", "de onde vocês são?", "o que vocês querem comigo?"), mesmo junto de um cumprimento ("bom dia, o que seria?"). É sobre o PRÓPRIO contato ou assunto da conversa, não sobre o serviço ou a empresa em geral (isso é pergunta_fora). Tem prioridade sobre outro.
 - conversa: a pessoa está CONVERSANDO com a gente e não responde ao roteiro: contesta ou discorda ("isso é estranho", "eu pesquiso e aparece, você pesquisa e não?"), se confunde ou desconfia, pede algo que não é preço nem pergunta sobre a empresa (um vídeo, uma prova, explicar de outro jeito, falar com o dono) ou comenta algo que pede uma resposta de pessoa. Use só quando a mensagem pede uma resposta própria e não se encaixa em resposta_passo, preco, objecao da lista, pergunta_fora, duvida_contexto nem ok.
 - outro: qualquer outra coisa (cumprimento, "ok" sem contexto, mensagem ininteligível).
 
 Se a mensagem traz dados E uma pergunta/objeção/preço, extraia os dados e escolha a categoria da pergunta/objeção/preço.
+
+Em dúvida entre agendar, adiar e recusa, escolha "outro": quem responde a seguir é o atendente, que pergunta e esclarece. Nunca escolha recusa ou adiar quando a mensagem traz um dia ou horário.
 
 Objeções e dúvidas conhecidas:
 ${objLines.length ? objLines.join('\n') : '(nenhuma configurada)'}

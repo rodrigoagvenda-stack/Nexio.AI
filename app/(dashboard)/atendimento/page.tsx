@@ -1373,9 +1373,9 @@ export default function AtendimentoPage() {
     conv.numero_de_telefone.includes(searchQuery) ||
     conv.lead?.company_name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
-  // Em "Sua vez" os mais antigos primeiro: é quem espera há mais tempo
+  // Em "Sua vez" os mais recentes primeiro, como nas outras abas: a conversa de hoje fica no topo
   const filteredConversations = convTab === 'sua_vez'
-    ? [...searchedConversations].sort((a, b) => new Date(a.hora_da_ultima_mensagem ?? 0).getTime() - new Date(b.hora_da_ultima_mensagem ?? 0).getTime())
+    ? [...searchedConversations].sort((a, b) => new Date(b.hora_da_ultima_mensagem ?? 0).getTime() - new Date(a.hora_da_ultima_mensagem ?? 0).getTime())
     : searchedConversations;
 
   type ConvItem = { type: 'conv'; conv: Conversation } | { type: 'separator'; label: string };
@@ -1809,7 +1809,7 @@ export default function AtendimentoPage() {
               })}
             </div>
             <p className="text-[13px] text-muted-foreground">
-              {convTab === 'sua_vez' ? 'Leads ativos esperando por você, os mais antigos primeiro.'
+              {convTab === 'sua_vez' ? 'Leads ativos esperando por você, os mais recentes primeiro.'
                 : convTab === 'aguardando' ? 'Você ou o SDR falou por último. Agora é a vez do lead.'
                 : convTab === 'sem_dono' ? 'Conversas que ninguém assumiu ainda.'
                 : 'Todas as conversas que você pode ver.'}

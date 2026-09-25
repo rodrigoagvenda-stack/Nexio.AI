@@ -29,6 +29,8 @@ const MAX_CONVERSE_STREAK = 4
 const POS_ROTEIRO = new Set<string>([
   'recusa', 'preco', 'objecao', 'pergunta_fora', 'pede_humano', 'pede_ligacao', 'aceita_ligacao', 'bot_automatico', 'adiar', 'despedida',
 ])
+/** Dia ou horário na fala do lead (texto já normalizado): quem propõe data está agendando, não adiando nem recusando. */
+const DIA_HORA_RE = /\b(segunda|terca|quarta|quinta|sexta|sabado|domingo|amanha|hoje|depois de amanha|semana que vem|proxima semana|mes que vem|de manha|de tarde|a tarde|de noite|a noite|dia \d{1,2}|\d{1,2}\s?(h|hs|horas)|\d{1,2}:\d{2}|\d{1,2}\/\d{1,2})\b/
 const DEFAULT_DEFER_REPLY = 'Sem problema, responde com calma. Quando puder, me chama aqui.'
 
 function clone<T>(v: T): T {
@@ -326,7 +328,10 @@ function stepFunnelCore(
   if (state.stage === 'scheduling') {
     const c0 = reading.falhou ? 'outro' : reading.categoria
     const c = reading.confianca >= MIN_CONFIDENCE ? c0 : 'outro'
-    if (!POS_ROTEIRO.has(c)) return { state, actions: [{ type: 'delegate_scheduling' }] }
+    // Lead que cita dia ou horário não cai em adiar/recusa (o funil respondia "responde com calma" a quem propunha data):
+    // vai pro agendamento, que entende e esclarece.
+    const propoeData = (c === 'adiar' || c === 'recusa') && DIA_HORA_RE.test(norm(input.leadText))
+    if (!POS_ROTEIRO.has(c) || propoeData) return { state, actions: [{ type: 'delegate_scheduling' }] }
   }
 
   mergeData(config, state, reading, input.leadText)

@@ -1636,7 +1636,14 @@ REGRAS:
           calendar_event_id: event.eventId,
         }).eq('id', ctx.leadId)
         agendamentoRealNesteTurno = { eventId: event.eventId, meetUrl: event.meetUrl, startIso: event.start.toISOString() }
-        return JSON.stringify({ event_id: event.eventId, meet_url: event.meetUrl, start: event.start.toISOString(), data_formatada: formatDateTimeBR(event.start) })
+        return JSON.stringify({
+          event_id: event.eventId,
+          meet_url: event.meetUrl,
+          start: event.start.toISOString(),
+          data_formatada: formatDateTimeBR(event.start),
+          convite_enviado_por_email: !!args.email,
+          instrucao_resposta: 'Confirme o dia da semana, a data e o horário em UMA mensagem curta e diga que o convite foi enviado por e-mail, perguntando se chegou (ex.: "Agendado para quarta-feira, dia 30, às 14h. Te enviei o convite por e-mail. Conseguiu receber?"). Não repita o link nem explique o que é o Meet.',
+        })
       } catch (err: any) {
         console.error(`[SDR:${ctx.companyId}] Agendar_gcal erro (calendarId=${ctx.calendarId}):`, err.message, err.stack?.slice(0, 500))
         return `Erro ao criar evento: ${err.message}`
