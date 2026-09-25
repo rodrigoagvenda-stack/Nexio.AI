@@ -400,17 +400,19 @@ function MetaAdsPanel({ cfg, reload }: { cfg: SdrCfg; reload: () => Promise<void
 function PixelPanel({ cfg, resumo, save }: { cfg: SdrCfg; resumo: Resumo | null; save: (p: Record<string, unknown>) => Promise<boolean> }) {
   const on = !!cfg.meta_pixel_id;
   const [edit, setEdit] = useState(false);
-  const [draft, setDraft] = useState({ id: '', token: '' });
+  const [draft, setDraft] = useState({ id: '', token: '', waba: '' });
   const [saving, setSaving] = useState(false);
+  const [capi, setCapi] = useState<{ sent: number; failed: number; last: { success: boolean; at: string; message: string | null } | null } | null>(null);
+  useEffect(() => { if (on) void jget('/api/meta/capi/status').then(setCapi); }, [on, cfg.meta_capi_waba_id]);
   const total = resumo?.conversationsAll ?? 0;
   const ctwa = resumo?.conversationsCtwa ?? 0;
   const pct = total > 0 ? Math.round((ctwa / total) * 100) : 0;
 
   async function submit() {
     setSaving(true);
-    const ok = await save({ meta_pixel_id: draft.id.trim(), meta_pixel_token: draft.token.trim() });
+    const ok = await save({ meta_pixel_id: draft.id.trim(), meta_pixel_token: draft.token.trim(), meta_capi_waba_id: draft.waba.trim() });
     setSaving(false);
-    if (ok) { setEdit(false); setDraft({ id: '', token: '' }); toast({ title: 'Pixel configurado', variant: 'success' }); }
+    if (ok) { setEdit(false); setDraft({ id: '', token: '', waba: '' }); toast({ title: 'Pixel configurado', variant: 'success' }); }
   }
   async function remove() {
     if (!window.confirm('Remover o pixel? As vendas deixam de ser avisadas à Meta.')) return;
@@ -421,18 +423,29 @@ function PixelPanel({ cfg, resumo, save }: { cfg: SdrCfg; resumo: Resumo | null;
     <div className="flex flex-col gap-8">
       <Head title="Pixel da Meta" desc="Avisa a Meta quando um lead vira cliente, para ela ligar a venda ao anúncio certo." />
       <StatusCard tone={on ? 'ok' : 'off'} title={on ? 'Configurado' : 'Não configurado'} sub={on ? undefined : 'Opcional. Serve para quem anuncia no Meta.'}
-        actions={on ? (<><button type="button" onClick={() => { setDraft({ id: cfg.meta_pixel_id ?? '', token: '' }); setEdit(true); }} className={PILL3D}>Editar</button><DangerLink onClick={remove}>Remover</DangerLink></>) : <button type="button" onClick={() => setEdit(true)} className={PILL_GREEN}>Configurar o pixel</button>}
-        rows={on ? [{ k: 'Pixel', v: 'ID salvo e token oculto' }] : undefined}>
+        actions={on ? (<><button type="button" onClick={() => { setDraft({ id: cfg.meta_pixel_id ?? '', token: '', waba: cfg.meta_capi_waba_id ?? '' }); setEdit(true); }} className={PILL3D}>Editar</button><DangerLink onClick={remove}>Remover</DangerLink></>) : <button type="button" onClick={() => setEdit(true)} className={PILL_GREEN}>Configurar o pixel</button>}
+        rows={on ? [{ k: 'Pixel', v: 'ID salvo e token oculto' }, { k: 'Conta do WhatsApp Business', v: cfg.meta_capi_waba_id || cfg.meta_wa_waba_id || 'Não informada' }] : undefined}>
         {edit && (
           <div className="mx-7 mb-6 flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-5 dark:bg-[#141414]">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="flex flex-col gap-2"><label htmlFor="px-id" className="text-[15px] font-semibold text-foreground">ID do pixel</label><input id="px-id" className={INPUT} value={draft.id} onChange={(e) => setDraft({ ...draft, id: e.target.value })} placeholder="1234567890123456" /></div>
-              <div className="flex flex-col gap-2"><label htmlFor="px-tk" className="text-[15px] font-semibold text-foreground">Token de acesso</label><input id="px-tk" type="password" className={INPUT} value={draft.token} onChange={(e) => setDraft({ ...draft, token: e.target.value })} placeholder="EAAxxxxx..." /></div>
+              <div className="flex flex-col gap-2 md:col-span-2"><label htmlFor="px-waba" className="text-[15px] font-semibold text-foreground">ID da conta do WhatsApp Business</label><input id="px-waba" inputMode="numeric" className={INPUT} value={draft.waba} onChange={(e) => setDraft({ ...draft, waba: e.target.value.replace(/D/g, '') })} placeholder="Só números" /><p className="text-[13px] text-muted-foreground">A Meta exige esse ID para aceitar a venda. Está no Gerenciador de Eventos, em Configurações do conjunto de dados, ou em Configurações do negócio, Contas do WhatsApp. Se você usa a API oficial, deixe em branco.</p></div>
+              <div className="flex flex-col gap-2"><label htmlFor="px-tk" className="text-[15px] font-semibold text-foreground">Token de acesso</label><input id="px-tk" type="password" className={INPUT} value={draft.token} onChange={(e) => setDraft({ ...draft, token: e.target.value })} placeholder={on ? "Deixe em branco para manter o atual" : "EAAxxxxx..."} /></div>
             </div>
-            <div className="flex items-center gap-3"><button type="button" disabled={saving || !draft.id.trim() || !draft.token.trim()} onClick={submit} className={PILL_GREEN}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar pixel'}</button><button type="button" onClick={() => setEdit(false)} className={PILL3D}>Cancelar</button></div>
+            <div className="flex items-center gap-3"><button type="button" disabled={saving || !draft.id.trim() || (!on && !draft.token.trim())} onClick={submit} className={PILL_GREEN}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar pixel'}</button><button type="button" onClick={() => setEdit(false)} className={PILL3D}>Cancelar</button></div>
           </div>
         )}
       </StatusCard>
+      {on && !cfg.meta_capi_waba_id && !cfg.meta_wa_waba_id && (
+        <p className="rounded-xl border border-[#F5B544]/40 bg-[#F5B544]/[0.12] px-5 py-4 text-sm text-[#8A5A00] dark:text-[#F5B544]">Falta o ID da conta do WhatsApp Business. Sem ele a Meta recusa as vendas e nenhuma chega ao anúncio. Clique em Editar e preencha.</p>
+      )}
+      {on && capi?.last && (
+        <div className={cn(CARD, 'flex flex-col gap-1.5 px-7 py-5')}>
+          <p className="text-[15px] font-semibold text-foreground">{capi.last.success ? 'A Meta aceitou o último envio' : 'A Meta recusou o último envio'}</p>
+          <p className="text-sm text-muted-foreground">{capi.last.success ? 'A venda foi avisada e a Meta liga ela ao anúncio.' : capi.last.message}</p>
+          <p className="text-[13px] text-muted-foreground">Nos últimos envios: {capi.sent} aceitos, {capi.failed} recusados.</p>
+        </div>
+      )}
       <Section title="Quantas conversas vieram de anúncio" sub="O pixel só consegue ligar a venda ao anúncio quando o clique foi identificado.">
         <div className={cn(CARD, 'flex flex-col gap-4 px-7 py-6')}>
           <p className="flex flex-wrap items-baseline gap-3"><span className="text-[40px] font-semibold leading-[46px] tracking-tight text-foreground">{fmtN(ctwa)}</span><span className="text-lg text-foreground/85">de {fmtN(total)} conversas têm o clique do anúncio identificado</span></p>

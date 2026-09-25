@@ -30,7 +30,7 @@ export async function fireMetaCapiEvent(supabase: Supabase, params: FireCapiPara
 
   const { data: config } = await supabase
     .from('sdr_configs')
-    .select('meta_pixel_id, meta_pixel_token')
+    .select('meta_pixel_id, meta_pixel_token, meta_capi_waba_id, meta_wa_waba_id')
     .eq('company_id', companyId)
     .maybeSingle()
 
@@ -39,6 +39,9 @@ export async function fireMetaCapiEvent(supabase: Supabase, params: FireCapiPara
   }
 
   const pixelToken = safeDecrypt(config.meta_pixel_token)
+  // Eventos business_messaging exigem a conta do WhatsApp Business no user_data. Número da API oficial usa
+  // meta_wa_waba_id; número fora dela (uazapi) usa o ID informado em Conexões > Pixel.
+  const wabaId = (config.meta_capi_waba_id || config.meta_wa_waba_id || '').toString().trim()
   const normalizedPhone = phone.replace(/\D/g, '')
 
   // Busca a conversa vinculada (mesmo join usado na fusão do Kanban) : é
@@ -61,6 +64,7 @@ export async function fireMetaCapiEvent(supabase: Supabase, params: FireCapiPara
       action_source: 'business_messaging',
       messaging_channel: 'whatsapp',
       user_data: {
+        ...(wabaId ? { whatsapp_business_account_id: wabaId } : {}),
         ...(phoneHash ? { ph: [phoneHash] } : {}),
         ...(conversa?.ctwa_clid ? { ctwa_clid: conversa.ctwa_clid } : {}),
       },
@@ -72,6 +76,22 @@ export async function fireMetaCapiEvent(supabase: Supabase, params: FireCapiPara
   let responseBody: unknown
   let success = false
   let errorMessage: string | undefined
+
+  if (!wabaId) {
+    // Sem o ID a Meta recusa o evento (erro 2804116). Não envia, mas registra o motivo para aparecer na tela.
+    errorMessage = 'Falta o ID da conta do WhatsApp Business. Informe em Conexões > Pixel da Meta.'
+    if (conversa?.id) {
+      await supabase.from('conversions_api_log').insert({
+        conversation_id: conversa.id,
+        payload_sent: payload,
+        response_status: null,
+        response_body: { error: { error_user_msg: errorMessage } },
+        success: false,
+      })
+    }
+    console.error(`[CAPI] não enviado : companyId=${companyId} eventName=${eventName} error=${errorMessage}`)
+    return { ok: false, skipped: errorMessage }
+  }
 
   try {
     const res = await fetch(`https://graph.facebook.com/v21.0/${config.meta_pixel_id}/events?access_token=${pixelToken}`, {

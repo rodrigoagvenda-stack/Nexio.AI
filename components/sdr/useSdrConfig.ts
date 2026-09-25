@@ -26,6 +26,7 @@ export interface SdrCfg {
   meta_ad_account_id: string | null
   meta_ad_account_name: string | null
   meta_pixel_id: string | null
+  meta_capi_waba_id: string | null
   google_calendar_id: string
   flow_id: string | null
   inbox_mode: 'suporte' | 'vendas'
@@ -55,7 +56,7 @@ const DEFAULT_CFG: SdrCfg = {
   agent_type: 'atendimento_venda', persona: { ...EMPTY_PERSONA }, agente_ativo: false,
   instance_status: 'disconnected', instance_phone: null, whatsapp_provider: 'uazapi',
   meta_wa_phone_number_id: null, meta_wa_waba_id: null, meta_ad_account_id: null, meta_ad_account_name: null,
-  meta_pixel_id: null, google_calendar_id: '', flow_id: null, inbox_mode: 'suporte', event_title_template: '',
+  meta_pixel_id: null, meta_capi_waba_id: null, google_calendar_id: '', flow_id: null, inbox_mode: 'suporte', event_title_template: '',
   conhecimento_ativo: true, objecoes_ativo: false, billing_recurring: false, meeting_duration_min: null,
 }
 
@@ -85,6 +86,7 @@ export function useSdrConfig() {
           meta_ad_account_id: c.meta_ad_account_id ?? null,
           meta_ad_account_name: c.meta_ad_account_name ?? null,
           meta_pixel_id: c.meta_pixel_id ?? null,
+          meta_capi_waba_id: c.meta_capi_waba_id ?? null,
           google_calendar_id: c.google_calendar_id ?? '',
           flow_id: c.flow_id ?? null,
           inbox_mode: c.inbox_mode ?? 'suporte',
