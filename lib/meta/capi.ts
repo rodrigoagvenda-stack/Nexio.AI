@@ -30,7 +30,7 @@ export async function fireMetaCapiEvent(supabase: Supabase, params: FireCapiPara
 
   const { data: config } = await supabase
     .from('sdr_configs')
-    .select('meta_pixel_id, meta_pixel_token, meta_capi_waba_id, meta_wa_waba_id')
+    .select('meta_pixel_id, meta_pixel_token, meta_capi_waba_id, meta_wa_waba_id, meta_capi_page_id')
     .eq('company_id', companyId)
     .maybeSingle()
 
@@ -42,6 +42,8 @@ export async function fireMetaCapiEvent(supabase: Supabase, params: FireCapiPara
   // Eventos business_messaging exigem a conta do WhatsApp Business no user_data. Número da API oficial usa
   // meta_wa_waba_id; número fora dela (uazapi) usa o ID informado em Conexões > Pixel.
   const wabaId = (config.meta_capi_waba_id || config.meta_wa_waba_id || '').toString().trim()
+  // Alternativa aceita pela Meta: a Página do Facebook ligada ao conjunto de dados (número por QR code).
+  const pageId = (config.meta_capi_page_id || '').toString().trim()
   const normalizedPhone = phone.replace(/\D/g, '')
 
   // Busca a conversa vinculada (mesmo join usado na fusão do Kanban) : é
@@ -64,7 +66,7 @@ export async function fireMetaCapiEvent(supabase: Supabase, params: FireCapiPara
       action_source: 'business_messaging',
       messaging_channel: 'whatsapp',
       user_data: {
-        ...(wabaId ? { whatsapp_business_account_id: wabaId } : {}),
+        ...(wabaId ? { whatsapp_business_account_id: wabaId } : pageId ? { page_id: pageId } : {}),
         ...(phoneHash ? { ph: [phoneHash] } : {}),
         ...(conversa?.ctwa_clid ? { ctwa_clid: conversa.ctwa_clid } : {}),
       },
@@ -77,9 +79,9 @@ export async function fireMetaCapiEvent(supabase: Supabase, params: FireCapiPara
   let success = false
   let errorMessage: string | undefined
 
-  if (!wabaId) {
+  if (!wabaId && !pageId) {
     // Sem o ID a Meta recusa o evento (erro 2804116). Não envia, mas registra o motivo para aparecer na tela.
-    errorMessage = 'Falta o ID da conta do WhatsApp Business. Informe em Conexões > Pixel da Meta.'
+    errorMessage = 'Falta o ID da Página do Facebook ou da conta do WhatsApp Business. Informe em Conexões > Pixel da Meta.'
     if (conversa?.id) {
       await supabase.from('conversions_api_log').insert({
         conversation_id: conversa.id,
