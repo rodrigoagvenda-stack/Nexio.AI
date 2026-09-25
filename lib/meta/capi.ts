@@ -11,6 +11,8 @@ export interface FireCapiParams {
   valueCents?: number | null
   currency?: string
   eventIdSeed: string
+  /** Momento real da conversão em segundos (reenvio de venda antiga). Sem ele, usa agora. */
+  eventTime?: number
 }
 
 export interface FireCapiResult {
@@ -27,6 +29,7 @@ export interface FireCapiResult {
  */
 export async function fireMetaCapiEvent(supabase: Supabase, params: FireCapiParams): Promise<FireCapiResult> {
   const { companyId, phone, eventName = 'Purchase', valueCents, currency = 'BRL', eventIdSeed } = params
+  const eventTime = params.eventTime ?? Math.floor(Date.now() / 1000)
 
   const { data: config } = await supabase
     .from('sdr_configs')
@@ -56,7 +59,6 @@ export async function fireMetaCapiEvent(supabase: Supabase, params: FireCapiPara
     .maybeSingle()
 
   const phoneHash = normalizedPhone ? crypto.createHash('sha256').update(normalizedPhone).digest('hex') : undefined
-  const eventTime = Math.floor(Date.now() / 1000)
 
   const payload = {
     data: [{

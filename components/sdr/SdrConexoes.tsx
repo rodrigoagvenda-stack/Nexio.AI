@@ -404,6 +404,8 @@ function PixelPanel({ cfg, resumo, save }: { cfg: SdrCfg; resumo: Resumo | null;
   const [saving, setSaving] = useState(false);
   const [quickWaba, setQuickWaba] = useState('');
   const [quickPage, setQuickPage] = useState('');
+  const [resending, setResending] = useState(false);
+  const [resendRes, setResendRes] = useState<{ sent: number; failed: number; results: { lead: string; closed_at: string; ok: boolean; message: string | null }[] } | null>(null);
   const [quickSaving, setQuickSaving] = useState(false);
   const [capi, setCapi] = useState<{ sent: number; failed: number; last: { success: boolean; at: string; message: string | null } | null } | null>(null);
   useEffect(() => { if (on) void jget('/api/meta/capi/status').then(setCapi); }, [on, cfg.meta_capi_waba_id]);
@@ -422,6 +424,21 @@ function PixelPanel({ cfg, resumo, save }: { cfg: SdrCfg; resumo: Resumo | null;
     const ok = await save({ ...(quickPage.trim() ? { meta_capi_page_id: quickPage.trim() } : {}), ...(quickWaba.trim() ? { meta_capi_waba_id: quickWaba.trim() } : {}) });
     setQuickSaving(false);
     if (ok) { setQuickWaba(''); setQuickPage(''); toast({ title: 'ID salvo', variant: 'success' }); }
+  }
+  async function resend() {
+    if (!window.confirm('Reenviar para a Meta as vendas fechadas nos últimos 60 dias que ela ainda não aceitou? Cada envio usa a data real do fechamento.')) return;
+    setResending(true);
+    try {
+      const res = await fetch('/api/meta/capi/resend', { method: 'POST' });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json) throw new Error(json?.message || json?.error || 'Não foi possível reenviar');
+      setResendRes(json);
+      void jget('/api/meta/capi/status').then(setCapi);
+    } catch (e) {
+      toast({ title: e instanceof Error ? e.message : 'Não foi possível reenviar', variant: 'destructive' });
+    } finally {
+      setResending(false);
+    }
   }
   async function remove() {
     if (!window.confirm('Remover o pixel? As vendas deixam de ser avisadas à Meta.')) return;
@@ -461,6 +478,22 @@ function PixelPanel({ cfg, resumo, save }: { cfg: SdrCfg; resumo: Resumo | null;
           <p className="text-[15px] font-semibold text-foreground">{capi.last.success ? 'A Meta aceitou o último envio' : 'A Meta recusou o último envio'}</p>
           <p className="text-sm text-muted-foreground">{capi.last.success ? 'A venda foi avisada e a Meta liga ela ao anúncio.' : capi.last.message}</p>
           <p className="text-[13px] text-muted-foreground">Nos últimos envios: {capi.sent} aceitos, {capi.failed} recusados.</p>
+        </div>
+      )}
+      {on && (cfg.meta_capi_waba_id || cfg.meta_capi_page_id || cfg.meta_wa_waba_id) && (
+        <div className={cn(CARD, 'flex flex-col gap-4 px-7 py-5')}>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-col gap-1"><p className="text-[15px] font-semibold text-foreground">Reenviar vendas para a Meta</p><p className="text-sm text-muted-foreground">Manda de novo as vendas fechadas nos últimos 60 dias que a Meta ainda não aceitou. A Meta costuma recusar vendas com mais de 7 dias.</p></div>
+            <button type="button" disabled={resending} onClick={resend} className={PILL_GREEN}>{resending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Reenviar vendas'}</button>
+          </div>
+          {resendRes && (
+            <div className="flex flex-col gap-2 border-t border-border pt-4">
+              <p className="text-sm font-semibold text-foreground">{resendRes.results.length === 0 ? 'Nenhuma venda pendente: a Meta já aceitou todas.' : `${resendRes.sent} aceitas, ${resendRes.failed} recusadas`}</p>
+              {resendRes.results.map((r) => (
+                <p key={r.lead + r.closed_at} className="text-[13px] text-muted-foreground"><span className={r.ok ? 'font-semibold text-[#01573C] dark:text-[#96F63C]' : 'font-semibold text-red-600 dark:text-red-400'}>{r.ok ? 'Aceita' : 'Recusada'}</span> · {r.lead} · fechou em {new Date(r.closed_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}{r.message ? ` · ${r.message}` : ''}</p>
+              ))}
+            </div>
+          )}
         </div>
       )}
       <Section title="Quantas conversas vieram de anúncio" sub="O pixel só consegue ligar a venda ao anúncio quando o clique foi identificado.">
