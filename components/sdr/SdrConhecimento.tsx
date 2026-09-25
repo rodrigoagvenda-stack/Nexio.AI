@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Plus, RotateCcw, Send, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { askConfirm } from './ConfirmHost';
 import { toast } from '@/components/ui/use-toast';
 import { AgentAssistant } from './AgentAssistant';
 import { CARD, INPUT, LIME, PILL3D, PILL_GREEN } from './ui';
@@ -201,7 +202,7 @@ export function SdrConhecimento({ persona, flowId, agentActive, onReload }: { pe
             <div className="mt-auto flex flex-wrap items-center gap-3">
               <button type="button" disabled={saving || !dirtyGroup || topics.some((t) => !t.title.trim())} onClick={() => void persist(topics)} className={PILL_GREEN}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar alterações'}</button>
               <button type="button" disabled={!dirtyGroup || saving} onClick={() => { setDraft(clone(groups)); }} className={PILL3D}>Descartar</button>
-              <button type="button" disabled={saving || topics.length <= 1} onClick={() => { if (!window.confirm(`Remover o assunto "${topic.title}"? A ${agent} deixa de saber isso.`)) return; const next = topics.filter((_, i) => i !== idx); setSel(0); void persist(next); }} className="ml-auto text-sm font-semibold text-red-600 hover:underline disabled:opacity-50 dark:text-[#F0736D]">Remover assunto</button>
+              <button type="button" disabled={saving || topics.length <= 1} onClick={async () => { if (!(await askConfirm(`Remover o assunto "${topic.title}"? A ${agent} deixa de saber isso.`))) return; const next = topics.filter((_, i) => i !== idx); setSel(0); void persist(next); }} className="ml-auto text-sm font-semibold text-red-600 hover:underline disabled:opacity-50 dark:text-[#F0736D]">Remover assunto</button>
             </div>
           </>
         ) : <p className="py-16 text-center text-muted-foreground">Escolha um assunto na lista.</p>}

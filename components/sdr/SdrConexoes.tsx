@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, Copy, Info, Loader2, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { askConfirm } from './ConfirmHost';
 import { toast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { MetaWhatsAppConnect } from './MetaWhatsAppConnect';
@@ -181,7 +182,7 @@ function WhatsAppPanel({ cfg, agent, resumo, reload, go }: { cfg: SdrCfg; agent:
   const stale = !!resumo?.lastMessageAt && daysAgo(resumo.lastMessageAt) >= 2;
 
   async function disconnect() {
-    if (!window.confirm(`Desconectar o WhatsApp? A ${agent} para de responder até você conectar de novo.`)) return;
+    if (!(await askConfirm(`Desconectar o WhatsApp? A ${agent} para de responder até você conectar de novo.`))) return;
     const res = await fetch(meta ? '/api/meta/whatsapp/connect' : '/api/sdr/connect', { method: 'DELETE' });
     if (!res.ok) { const j = await res.json().catch(() => ({})); toast({ title: j?.error ?? 'Não foi possível desconectar', variant: 'destructive' }); return; }
     toast({ title: 'WhatsApp desconectado', variant: 'success' });
@@ -233,7 +234,7 @@ function WhatsAppPanel({ cfg, agent, resumo, reload, go }: { cfg: SdrCfg; agent:
 function MetaApiPanel({ cfg, agent, reload }: { cfg: SdrCfg; agent: string; reload: () => Promise<void> }) {
   const on = cfg.whatsapp_provider === 'meta' && !!cfg.meta_wa_phone_number_id;
   async function disconnect() {
-    if (!window.confirm('Desconectar a API oficial? O WhatsApp volta a usar o QR code, se estiver conectado.')) return;
+    if (!(await askConfirm('Desconectar a API oficial? O WhatsApp volta a usar o QR code, se estiver conectado.'))) return;
     const res = await fetch('/api/meta/whatsapp/connect', { method: 'DELETE' });
     if (!res.ok) { const j = await res.json().catch(() => ({})); toast({ title: j?.error ?? 'Não foi possível desconectar', variant: 'destructive' }); return; }
     toast({ title: 'API oficial desconectada', variant: 'success' });
@@ -268,7 +269,7 @@ function CalendarPanel({ cfg, agent, save }: { cfg: SdrCfg; agent: string; save:
   useEffect(() => { setTitle(cfg.event_title_template); }, [cfg.event_title_template]);
 
   async function disconnect() {
-    if (!window.confirm('Desconectar o Google Calendar? A agenda deixa de ser usada para marcar reuniões.')) return;
+    if (!(await askConfirm('Desconectar o Google Calendar? A agenda deixa de ser usada para marcar reuniões.'))) return;
     await fetch('/api/google/status', { method: 'DELETE' });
     await save({ google_calendar_id: '' });
     toast({ title: 'Google Calendar desconectado', variant: 'success' });
@@ -380,7 +381,7 @@ function HorarioPanel({ agent }: { agent: string }) {
 function MetaAdsPanel({ cfg, reload }: { cfg: SdrCfg; reload: () => Promise<void> }) {
   const on = !!cfg.meta_ad_account_id;
   async function disconnect() {
-    if (!window.confirm('Desconectar a conta de anúncios? O Dashboard deixa de mostrar custo por conversa.')) return;
+    if (!(await askConfirm('Desconectar a conta de anúncios? O Dashboard deixa de mostrar custo por conversa.'))) return;
     const res = await fetch('/api/meta/ads/connect', { method: 'DELETE' });
     if (!res.ok) { const j = await res.json().catch(() => ({})); toast({ title: j?.error ?? 'Não foi possível desconectar', variant: 'destructive' }); return; }
     toast({ title: 'Conta de anúncios desconectada', variant: 'success' });
@@ -426,7 +427,7 @@ function PixelPanel({ cfg, resumo, save }: { cfg: SdrCfg; resumo: Resumo | null;
     if (ok) { setQuickWaba(''); setQuickPage(''); toast({ title: 'ID salvo', variant: 'success' }); }
   }
   async function resend() {
-    if (!window.confirm('Reenviar para a Meta as vendas fechadas nos últimos 60 dias que ela ainda não aceitou? Cada envio usa a data real do fechamento.')) return;
+    if (!(await askConfirm('Reenviar para a Meta as vendas fechadas nos últimos 60 dias que ela ainda não aceitou? Cada envio usa a data real do fechamento.'))) return;
     setResending(true);
     try {
       const res = await fetch('/api/meta/capi/resend', { method: 'POST' });
@@ -441,7 +442,7 @@ function PixelPanel({ cfg, resumo, save }: { cfg: SdrCfg; resumo: Resumo | null;
     }
   }
   async function remove() {
-    if (!window.confirm('Remover o pixel? As vendas deixam de ser avisadas à Meta.')) return;
+    if (!(await askConfirm('Remover o pixel? As vendas deixam de ser avisadas à Meta.'))) return;
     if (await save({ meta_pixel_id: '' })) toast({ title: 'Pixel removido', variant: 'success' });
   }
 
@@ -511,7 +512,7 @@ function GoogleAdsPanel({ resumo }: { resumo: Resumo | null }) {
   const [s, setS] = useState<{ connected: boolean; email: string | null; customer_id: string | null } | null>(null);
   useEffect(() => { void jget('/api/google-ads/status').then((d) => setS(d ?? { connected: false, email: null, customer_id: null })); }, []);
   async function disconnect() {
-    if (!window.confirm('Desconectar o Google Ads?')) return;
+    if (!(await askConfirm('Desconectar o Google Ads?'))) return;
     await fetch('/api/google-ads/status', { method: 'DELETE' });
     setS({ connected: false, email: null, customer_id: null });
     toast({ title: 'Google Ads desconectado', variant: 'success' });
@@ -554,7 +555,7 @@ function LinksPanel({ resumo }: { resumo: Resumo | null }) {
     finally { setSaving(false); }
   }
   async function remove(id: number) {
-    if (!window.confirm('Apagar este link? Quem clicar nele depois não chega mais ao WhatsApp.')) return;
+    if (!(await askConfirm('Apagar este link? Quem clicar nele depois não chega mais ao WhatsApp.'))) return;
     setLinks((p) => (p ?? []).filter((l) => l.id !== id));
     await fetch(`/api/sdr/tracking-links?id=${id}`, { method: 'DELETE' }).catch(() => undefined);
   }
@@ -616,7 +617,7 @@ function AsaasPanel({ cfg, agent, companyId, save }: { cfg: SdrCfg; agent: strin
     finally { setBusy(false); }
   }
   async function disconnect() {
-    if (!window.confirm(`Desconectar o Asaas? A ${agent} deixa de gerar cobranças.`)) return;
+    if (!(await askConfirm(`Desconectar o Asaas? A ${agent} deixa de gerar cobranças.`))) return;
     await fetch('/api/payment-integrations', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform: 'asaas' }) });
     setOn(false); setHook(null);
     toast({ title: 'Asaas desconectado', variant: 'success' });

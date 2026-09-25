@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, Flag, Loader2, Plus, Search, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { askConfirm } from './ConfirmHost';
 import { toast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { NICHES } from '@/lib/sdr/templates';
@@ -164,8 +165,8 @@ export function SdrConversa({ persona, onSavePersona, funnelActive, onFunnelActi
     }
   }
 
-  function discard() {
-    if (!window.confirm('Descartar todas as alterações não publicadas?')) return;
+  async function discard() {
+    if (!(await askConfirm('Descartar todas as alterações não publicadas?'))) return;
     setDraft(saved ? clone(saved) : null);
     setPDraft(persona);
     retest();
@@ -322,7 +323,7 @@ export function SdrConversa({ persona, onSavePersona, funnelActive, onFunnelActi
                     actions={<>
                       <button type="button" aria-label="Subir pergunta" disabled={selStepIdx === 0} onClick={() => mutate((c) => { const i = selStepIdx; [c.steps[i - 1], c.steps[i]] = [c.steps[i], c.steps[i - 1]]; })} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted disabled:opacity-40"><ArrowUp className="h-4 w-4" /></button>
                       <button type="button" aria-label="Descer pergunta" disabled={selStepIdx === draft.steps.length - 1} onClick={() => mutate((c) => { const i = selStepIdx; [c.steps[i + 1], c.steps[i]] = [c.steps[i], c.steps[i + 1]]; })} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted disabled:opacity-40"><ArrowDown className="h-4 w-4" /></button>
-                      <RemoveButton label="Remover pergunta" onClick={() => { if (draft.steps.length <= 1) { toast({ title: 'O roteiro precisa de pelo menos uma pergunta', variant: 'warning' }); return; } if (!window.confirm('Remover esta pergunta do roteiro?')) return; const next = draft.steps.filter((s) => s.id !== selStep.id); mutate((c) => { c.steps = c.steps.filter((s) => s.id !== selStep.id); }); setStepSel(next[Math.max(0, selStepIdx - 1)]?.id ?? ''); }} />
+                      <RemoveButton label="Remover pergunta" onClick={async () => { if (draft.steps.length <= 1) { toast({ title: 'O roteiro precisa de pelo menos uma pergunta', variant: 'warning' }); return; } if (!(await askConfirm('Remover esta pergunta do roteiro?'))) return; const next = draft.steps.filter((s) => s.id !== selStep.id); mutate((c) => { c.steps = c.steps.filter((s) => s.id !== selStep.id); }); setStepSel(next[Math.max(0, selStepIdx - 1)]?.id ?? ''); }} />
                     </>}
                   />
                   <Labeled label="O que o agente pergunta" htmlFor="s-q" help="Use {nome} para o nome do lead."><Area id="s-q" rows={3} value={selStep.question} edited={stepEdited(selStep) && saved.steps.find((x) => x.id === selStep.id)?.question !== selStep.question} onChange={(v) => mutate((c) => { c.steps[selStepIdx].question = v; })} /></Labeled>
@@ -460,7 +461,7 @@ export function SdrConversa({ persona, onSavePersona, funnelActive, onFunnelActi
               {obj ? (
                 <>
                   <EditorHead eyebrow={`${obj.kind === 'objecao' ? 'Objeção' : 'Dúvida'} ${objectionKeys.indexOf(objSel) + 1} de ${objectionKeys.length}`} title={objectionTitle(objSel)} edited={!saved.objections[objSel] || !same(saved.objections[objSel], obj)}
-                    actions={<RemoveButton label="Remover" onClick={() => { if (!window.confirm('Remover esta objeção ou dúvida?')) return; const rest = objectionKeys.filter((k) => k !== objSel); mutate((c) => { delete c.objections[objSel]; }); setObjSel(rest[0] ?? ''); }} />} />
+                    actions={<RemoveButton label="Remover" onClick={async () => { if (!(await askConfirm('Remover esta objeção ou dúvida?'))) return; const rest = objectionKeys.filter((k) => k !== objSel); mutate((c) => { delete c.objections[objSel]; }); setObjSel(rest[0] ?? ''); }} />} />
                   <Labeled label="Tipo" help="Objeção conta para o limite de insistência. Dúvida comum não conta.">
                     <div className="flex w-fit items-center gap-0.5 rounded-full bg-muted p-1 dark:bg-[#141414]">{([['objecao', 'Objeção'], ['faq', 'Dúvida comum']] as const).map(([v, l]) => <button key={v} type="button" aria-pressed={obj.kind === v} onClick={() => mutate((c) => { c.objections[objSel].kind = v; })} className={cn('rounded-full px-5 py-2 text-sm transition-colors', obj.kind === v ? 'bg-[#0F3D2B] font-semibold text-white' : 'font-medium text-muted-foreground hover:text-foreground')}>{l}</button>)}</div>
                   </Labeled>

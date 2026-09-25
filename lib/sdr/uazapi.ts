@@ -165,7 +165,7 @@ export interface UazapiWebhookMessage {
         }
         ctwaClid?: string
         ctwa_clid?: string
-        ctwaPayload?: string    // confirmado em produção : token opaco base64, passar direto pro Meta CAPI como ctwa_clid, nunca decodificar
+        ctwaPayload?: string    // bloco base64 (~570 caracteres), NÃO é o ctwa_clid que a Meta aceita: o certo é externalAdReply.ctwaClid
         conversionData?: string // confirmado em produção : blob similar a ctwaPayload, fallback
         ctwaSignals?: string    // ex: "all,all"
         entryPointConversionSource?: string // ex: "ctwa_ad"
@@ -213,11 +213,8 @@ export interface UazapiWebhookMessage {
 
 /**
  * Extrai o identificador de atribuição CTWA do payload uazapi. Prioriza
- * ctwaPayload/conversionData (confirmado em payload real de produção,
- * 2026-09-02) sobre ctwaClid (só existia em relato de comunidade, nunca
- * apareceu de fato em nenhum evento real até agora). Os dois blobs são
- * tokens opacos base64 : nunca decodificar, passar direto pro Meta CAPI
- * no campo ctwa_clid, exatamente como recebido.
+ * externalAdReply.ctwaClid, o clique de verdade, que a Meta aceita no CAPI.
+ * ctwaPayload/conversionData são outro bloco base64, só último recurso.
  */
 export function extractCtwaReferral(msg: UazapiWebhookMessage['message'] | undefined | null): {
   ctwaClid: string | null
@@ -230,13 +227,16 @@ export function extractCtwaReferral(msg: UazapiWebhookMessage['message'] | undef
   const ctx = msg?.content?.contextInfo
   if (!ctx) return null
 
+  // O clique de verdade (ex.: "AfiUYt2wI41-podsXp...", ~140 caracteres) vem em externalAdReply.ctwaClid em todo payload
+  // real. ctwaPayload/conversionData são outro bloco base64 (~570 caracteres): a Meta recusa como ctwa_clid
+  // (erro 2804087, conferido em 2026-09-25 com as vendas da Grupo Venda). Ficam só como último recurso.
   const ctwaClid =
-    ctx.ctwaPayload ??
-    ctx.conversionData ??
     ctx.externalAdReply?.ctwaClid ??
     ctx.externalAdReply?.ctwa_clid ??
     ctx.ctwaClid ??
     ctx.ctwa_clid ??
+    ctx.ctwaPayload ??
+    ctx.conversionData ??
     null
 
   const isCtwa = !!ctwaClid || ctx.entryPointConversionSource === 'ctwa_ad'

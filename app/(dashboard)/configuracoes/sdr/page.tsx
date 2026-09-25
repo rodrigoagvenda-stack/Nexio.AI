@@ -6,6 +6,7 @@ import { AutomationsNav } from '@/components/automacoes/AutomationsNav';
 import { SubNav } from '@/components/sdr/ui';
 import { SdrResumo, type SdrGo } from '@/components/sdr/SdrResumo';
 import { SdrConversa } from '@/components/sdr/SdrConversa';
+import { ConfirmHost } from '@/components/sdr/ConfirmHost';
 import { SdrConhecimento } from '@/components/sdr/SdrConhecimento';
 import { SdrConexoes, normalizeSub, type ConSub } from '@/components/sdr/SdrConexoes';
 import { useUser } from '@/lib/hooks/useUser';
@@ -61,6 +62,7 @@ export default function SdrPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-[1900px] flex-col gap-6 pb-14 pt-2">
+      <ConfirmHost />
       <AutomationsNav active="sdr" />
       <SubNav items={TABS} active={tab} onChange={(t) => go(t)} label="SDR" />
 
