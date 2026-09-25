@@ -173,12 +173,12 @@ export function SdrConversa({ persona, onSavePersona, funnelActive, onFunnelActi
   }
 
   async function toggleFunnel(v: boolean) {
-    if (dirty) { toast({ title: 'Publique as alterações antes de ligar ou desligar o roteiro', variant: 'warning' }); return; }
+    if (dirty) { toast({ title: 'Publique as alterações antes de trocar o modo do SDR', variant: 'warning' }); return; }
     const res = await fetch('/api/sdr/funnel', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active: v }) });
     const json = await res.json().catch(() => ({}));
     if (!res.ok || !json.success) { toast({ title: json.message || 'Não foi possível alterar o roteiro', variant: 'destructive' }); return; }
     onFunnelActive(v);
-    toast({ title: v ? 'Roteiro ligado' : 'Roteiro desligado', variant: 'success' });
+    toast({ title: v ? 'SDR Guiado ligado' : 'SDR Autônomo ligado', variant: 'success' });
   }
 
   async function createFromTemplate() {
@@ -250,6 +250,37 @@ export function SdrConversa({ persona, onSavePersona, funnelActive, onFunnelActi
         </div>
       )}
 
+      <section aria-label="Como o SDR atua" className={cn(CARD, 'flex flex-col gap-4 px-7 py-6')}>
+        <div className="flex flex-col gap-1">
+          <h3 className="text-lg font-semibold text-foreground">Como o SDR atua?</h3>
+          <p className="text-[13px] text-muted-foreground">Escolha o jeito de conduzir a conversa. Dá para trocar quando quiser.</p>
+        </div>
+        <div role="radiogroup" aria-label="Modo do SDR" className="grid gap-4 md:grid-cols-2">
+          {([
+            { on: true, title: 'SDR Guiado', text: 'Você define as perguntas. Ele conduz com atenção, cumprimenta, responde dúvidas sobre o negócio e entrega o lead pronto.' },
+            { on: false, title: 'SDR Autônomo', text: 'Ele decide sozinho o caminho, usando a base de conhecimento e as objeções para conduzir a conversa.' },
+          ] as const).map((m) => {
+            const active = funnelActive === m.on;
+            return (
+              <button
+                key={m.title}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => { if (!active) void toggleFunnel(m.on); }}
+                className={cn('flex flex-col gap-2 rounded-xl border px-5 py-4 text-left transition-colors', active ? 'border-[#1E6B47] bg-accent' : 'border-border bg-muted/40 hover:bg-muted')}
+              >
+                <span className="flex items-center gap-3">
+                  <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2', active ? 'border-[#01573C] dark:border-[#96F63C]' : 'border-muted-foreground/40')}>{active && <span className="h-2.5 w-2.5 rounded-full bg-[#01573C] dark:bg-[#96F63C]" />}</span>
+                  <span className="text-[17px] font-semibold text-foreground">{m.title}</span>
+                </span>
+                <span className="pl-8 text-sm leading-[150%] text-muted-foreground">{m.text}</span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
       <Chips items={chips} active={section} onChange={setSection} label="Partes da conversa" />
 
       <div className="flex flex-col gap-6 xl:flex-row xl:items-stretch">
@@ -300,7 +331,7 @@ export function SdrConversa({ persona, onSavePersona, funnelActive, onFunnelActi
           <>
             <aside className={cn(CARD, card, 'w-full shrink-0 xl:w-[330px]')}>
               <div className="flex items-start justify-between gap-3 px-6 pb-3 pt-6"><div className="flex flex-col gap-1"><h3 className="text-lg font-semibold text-foreground">Roteiro</h3><p className="text-[13px] text-muted-foreground">Nesta ordem</p></div>
-                <label className="flex items-center gap-3 text-sm font-semibold text-foreground">{funnelActive ? 'Ligado' : 'Desligado'}<Toggle on={funnelActive} onChange={(v) => void toggleFunnel(v)} label="Ligar ou desligar o roteiro" /></label></div>
+                <span className={cn('rounded-full px-3 py-1 text-xs font-semibold', funnelActive ? 'bg-[#E4F1E9] text-[#01573C] dark:bg-[#12301F] dark:text-[#96F63C]' : 'bg-muted text-muted-foreground')}>{funnelActive ? 'Em uso' : 'Sem uso'}</span></div>
               <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-3">
                 {draft.steps.map((s, i) => <ListRow key={s.id} num={i + 1} active={s.id === stepSel} edited={stepEdited(s)} title={stepTitle(s)} sub={s.question} onClick={() => { setStepSel(s.id); setFieldsEdit(false); }} />)}
                 <ListRow active={stepSel === '__end'} num={<Flag className="h-3.5 w-3.5" />} edited={getClosing(saved, 'closingMessage') !== getClosing(draft, 'closingMessage')} title="Ao terminar" sub={draft.closingMessage || 'Sem mensagem final'} onClick={() => setStepSel('__end')} />
