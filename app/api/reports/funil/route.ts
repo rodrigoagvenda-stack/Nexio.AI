@@ -5,9 +5,9 @@
 // confiável pra isso (extração via Orbit grava 'inbound' mesmo pra lead que
 // nunca foi contatado, ver lib/sdr/extraction.ts).
 //
-// "Fechado" usa conversas_do_whatsapp.kanban_stage = 'fechado', mesma fonte
-// já usada em /api/reports/cac, pra manter os números consistentes entre
-// os dois relatórios.
+// "Fechado" usa o status do lead no CRM (status = 'Fechado' e closed_at no período), a mesma base do
+// faturamento e do ticket médio. A etapa do kanban da conversa (kanban_stage) quase ninguém alimenta e
+// deixava Fechamentos, CAC e taxas em zero mesmo com venda registrada (Rodrigo, 2026-09-25).
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
     l.call_status === 'realizada' && l.call_agendada_para && l.call_agendada_para >= since && l.call_agendada_para <= until
   ).length
 
-  const vendasFechadas = filtered.filter(c => c.kanban_stage === 'fechado').length
+  const vendasFechadas = (leadsRows ?? []).filter(l => l.status === 'Fechado' && !!l.closed_at && (l.closed_at as string) >= since && (l.closed_at as string) <= until).length
 
   const inRange = (iso: string | null | undefined) => !!iso && iso >= since && iso <= until
   const leadsAll = leadsRows ?? []

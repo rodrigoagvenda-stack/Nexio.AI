@@ -29,7 +29,7 @@ interface FunilData {
 const CARD = 'rounded-[14px] border border-border bg-card';
 const LIME = 'text-[#01573C] dark:text-[#96F63C]';
 const brl = (cents: number | null | undefined, digits = 2) => (cents == null ? '-' : `R$ ${(cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: digits, maximumFractionDigits: digits })}`);
-const pct = (num: number, den: number) => (den > 0 ? Math.round((num / den) * 100) : null);
+const pct = (num: number, den: number) => (den > 0 ? Math.min(100, Math.round((num / den) * 100)) : null);
 const dayFmt = (d: Date) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '');
 
 function useFunil(origem: 'inbound' | 'outbound', range: { from: Date; to: Date } | null) {
@@ -125,6 +125,13 @@ export function FunilTab({ range, prevRange, periodLabel }: { range: { from: Dat
               <p className="text-xs text-muted-foreground">{d.faturamento_cents > 0 ? `${brl(d.faturamento_cents, 0)} em ${vf} ${vf === 1 ? 'venda' : 'vendas'}` : 'sem vendas com valor no período'}</p>
             </div>
           </div>
+
+          {(d.sem_resultado ?? 0) > 0 && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.08] px-5 py-4 text-sm">
+              <p className="font-semibold text-foreground">{d.sem_resultado} {d.sem_resultado === 1 ? 'reunião já passou' : 'reuniões já passaram'} sem o resultado marcado no CRM</p>
+              <p className="mt-0.5 text-muted-foreground">Marque cada uma como realizada ou no-show. Enquanto isso, as reuniões efetivadas e as taxas de efetivação e de fechamento ficam abaixo ou acima da realidade.</p>
+            </div>
+          )}
 
           <div className="flex flex-col gap-6 xl:flex-row xl:items-stretch">
             <section className={cn(CARD, 'flex min-w-0 flex-[1.6] flex-col gap-5 px-7 py-7')}>
