@@ -41,7 +41,9 @@ const PLANS = [
       'Atendimento via chat',
       'CRM Kanban',
       'Métricas e relatórios',
-      '1 número WhatsApp',
+      'Anti noshow: lembretes antes da reunião',
+      '1 número de WhatsApp',
+      'Cerca de 60 conversas por mês',
     ],
   },
   {
@@ -52,7 +54,9 @@ const PLANS = [
     highlights: [
       'Tudo do Start',
       'Google Calendar integrado',
-      '2 números WhatsApp',
+      'Follow-up e remarketing',
+      'Rastreio de anúncios (Meta Ads e Pixel)',
+      'Cerca de 180 conversas por mês',
     ],
   },
 ];
@@ -67,8 +71,13 @@ const FEATURES: Feature[] = [
   { label: 'Métricas e relatórios', group: 'Core',        starter: true,    growth: true    },
   { label: 'Briefing com IA',       group: 'Core',        starter: true,    growth: true    },
   { label: 'Suporte',               group: 'Core',        starter: 'Igual', growth: 'Igual' },
-  { label: 'Números WhatsApp',      group: 'Core',        starter: '1',     growth: '2'     },
+  { label: 'Números WhatsApp',      group: 'Core',        starter: '1',     growth: '1'     },
+  { label: 'Conversas por mês (estimado)', group: 'Core',  starter: '60',    growth: '180'   },
+  { label: 'Anti noshow',           group: 'Automações',  starter: true,    growth: true    },
+  { label: 'Follow-up no canvas',   group: 'Automações',  starter: false,   growth: true    },
+  { label: 'Remarketing',           group: 'Automações',  starter: false,   growth: true    },
   { label: 'Google Calendar',       group: 'Integrações', starter: false,   growth: true    },
+  { label: 'Rastreio de anúncios (Meta Ads e Pixel)', group: 'Integrações', starter: false, growth: true },
 ];
 
 const ALL_INCLUDE = [
@@ -108,7 +117,7 @@ interface CardProps {
 }
 
 function PlanCard({ plan, extraNumbers, delay, isCurrent, isLoading, onSelect }: CardProps) {
-  const totalPrice = plan.basePrice + extraNumbers * 97;
+  const totalPrice = plan.basePrice;
   const count = useCountUp(totalPrice, 900, delay);
 
   return (

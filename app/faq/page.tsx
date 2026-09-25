@@ -19,7 +19,7 @@ const FAQS = [
   },
   {
     q: 'Qual a diferença entre o plano Start e o Growth?',
-    a: 'O Start tem SDR com IA, CRM, chat e 1 número de WhatsApp. O Growth inclui 2 números de WhatsApp e adiciona o Google Calendar integrado pra agendamento automático direto na conversa.',
+    a: 'O Start tem SDR com IA, CRM, chat, Anti noshow e 1 número de WhatsApp. O Growth também tem 1 número de WhatsApp e adiciona o Google Calendar integrado, o follow-up e o remarketing automáticos e o rastreio de anúncios (Meta Ads e Pixel), para você saber de qual anúncio veio cada venda.',
   },
   {
     q: 'O Zaapply responde fora do horário comercial?',

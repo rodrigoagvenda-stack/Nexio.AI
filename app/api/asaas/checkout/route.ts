@@ -71,8 +71,9 @@ export async function POST(request: NextRequest) {
 
     const basePlanValue = PLAN_VALUES[plan]
     if (!basePlanValue) return NextResponse.json({ error: 'Plano inválido' }, { status: 400 })
-    const extraNumbers = Math.max(0, Math.min(9, Number(extraNumbersRaw) || 0))
-    const planValue = basePlanValue + extraNumbers * 97
+    // Um número de WhatsApp em todos os planos: sem número extra (decisão de 25/09/2026). extraNumbersRaw é ignorado.
+    void extraNumbersRaw
+    const planValue = basePlanValue
 
     const cpfCnpj = (cpfCnpjRaw || '').replace(/\D/g, '')
     if (!cpfCnpj) return NextResponse.json({ error: 'CPF ou CNPJ obrigatório para processar pagamento' }, { status: 400 })

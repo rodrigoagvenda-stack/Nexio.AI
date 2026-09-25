@@ -1,17 +1,18 @@
 ﻿'use client';
 
 import { useState } from 'react';
+import { TOKEN_PACK_SIZES, priceForTokens } from '@/lib/billing/plans';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
 import { Loader2, Zap, Copy, Check, QrCode, X } from 'lucide-react';
 
-const PACKS = [
-  { tokens: 100_000,   price: 15,  label: '100K', highlight: false },
-  { tokens: 500_000,   price: 60,  label: '500K', highlight: true  },
-  { tokens: 1_000_000, price: 100, label: '1M',   highlight: false },
-  { tokens: 2_000_000, price: 180, label: '2M',   highlight: false },
-];
+const PACKS = TOKEN_PACK_SIZES.map((tokens, i) => ({
+  tokens,
+  price: priceForTokens(tokens),
+  label: `${tokens / 1_000_000}M`,
+  highlight: i === 1,
+}));
 
 interface PixData {
   qrcodeImage: string;

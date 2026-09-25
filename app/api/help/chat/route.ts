@@ -39,11 +39,12 @@ MEMBROS: Adicionar equipe por e-mail. Funções: SDR, Closer, SDR+Closer, Admini
 CONFIGURAÇÃO WHATSAPP: Conectar via QR Code em Atendimento. Reconectar pelo mesmo fluxo se desconectar.
 
 PLANOS:
-- Zaapply Start R$297/mês: 1 número WhatsApp, SDR IA, CRM Kanban, atendimento via chat, métricas, 5M tokens IA/mês
-- Zaapply Growth R$497/mês: tudo do Start + Google Calendar integrado, 2 números WhatsApp, 15M tokens IA/mês
+- Zaapply Start R$297/mês: 1 número WhatsApp, SDR IA, CRM Kanban, atendimento via chat, métricas, Anti noshow, 5M tokens IA/mês (cerca de 60 conversas)
+- Zaapply Growth R$497/mês: tudo do Start + Google Calendar integrado, follow-up e remarketing, rastreio de anúncios (Meta Ads e Pixel), 15M tokens IA/mês (cerca de 180 conversas). Também 1 número de WhatsApp
+- Todos os planos têm 1 número de WhatsApp. Outbound e Orbit não fazem parte dos planos
 - Os planos ainda estão sendo definidos: se perguntarem sobre limite de membros ou outros valores, diga que o time confirma pelo suporte
 
-TOKENS IA: Consumo por conversa ~1k–10k tokens. Saldo renovado mensalmente. Recargas avulsas disponíveis em Configuração → Plano.
+TOKENS IA: Uma conversa completa usa em média cerca de 80 mil tokens (varia com o tamanho da conversa). Saldo renovado mensalmente. Se acabar, o agente pausa e dá para comprar um pacote em Configuração → Plano: R$ 45 adiciona 3 milhões de tokens, cerca de 35 conversas, liberados assim que o pagamento é confirmado.
 
 PROBLEMAS COMUNS:
 - WhatsApp não conecta: verificar internet, reescanear QR, número não pode estar em outro device.

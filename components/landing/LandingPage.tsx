@@ -13,23 +13,25 @@ const ALL_FEATURES = [
   'SDR com IA',
   'CRM Kanban',
   'Atendimento via chat',
+  'Anti noshow',
   'Google Calendar integrado',
-  '2 números de WhatsApp',
+  'Follow-up e remarketing',
+  'Rastreio de anúncios (Meta Ads e Pixel)',
 ];
 
 const PLANS = [
   {
     name: 'Zaapply Start',
     price: '297',
-    members: '1 número de WhatsApp',
-    included: ['SDR com IA', 'CRM Kanban', 'Atendimento via chat'],
+    members: '1 número de WhatsApp, cerca de 60 conversas por mês',
+    included: ['SDR com IA', 'CRM Kanban', 'Atendimento via chat', 'Anti noshow'],
     badge: null as string | null,
   },
   {
     name: 'Zaapply Growth',
     price: '497',
-    members: '2 números de WhatsApp',
-    included: ['SDR com IA', 'CRM Kanban', 'Atendimento via chat', 'Google Calendar integrado', '2 números de WhatsApp'],
+    members: '1 número de WhatsApp, cerca de 180 conversas por mês',
+    included: ['SDR com IA', 'CRM Kanban', 'Atendimento via chat', 'Anti noshow', 'Google Calendar integrado', 'Follow-up e remarketing', 'Rastreio de anúncios (Meta Ads e Pixel)'],
     badge: 'Mais completo',
   },
 ];
@@ -214,7 +216,7 @@ export function LandingPage() {
               </div>
               <div className="flex items-center gap-2.5">
                 <Users2 className="w-4 h-4 text-[#7fae8f]" strokeWidth={1.75} />
-                <p className="text-sm text-[#ccc]">2 números de WhatsApp</p>
+                <p className="text-sm text-[#ccc]">Follow-up, remarketing e rastreio de anúncios</p>
               </div>
             </div>
           </Reveal>

@@ -1,9 +1,9 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getPlatformConfig } from '@/lib/platform-config'
+import { TOKEN_MIN_PURCHASE_BRL, tokensForAmount } from '@/lib/billing/plans'
 
-// R$1 = 50K tokens  →  R$20 = 1M tokens
-const TOKENS_PER_REAL = 50_000
+// Preço e tamanho do pacote vêm de lib/billing/plans.ts (R$ 45 = 3M tokens)
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,8 +19,8 @@ export async function POST(request: NextRequest) {
     if (!userData) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
 
     const body = await request.json()
-    const amount = Math.max(20, Number(body.amount) || 20)
-    const tokensToGrant = amount * TOKENS_PER_REAL
+    const amount = Math.max(TOKEN_MIN_PURCHASE_BRL, Number(body.amount) || TOKEN_MIN_PURCHASE_BRL)
+    const tokensToGrant = tokensForAmount(amount)
 
     const cfg = await getPlatformConfig()
     const apiKey = cfg.asaas_api_key

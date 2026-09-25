@@ -729,7 +729,7 @@ Clique no membro, depois em **Remover membro**, e confirme. O acesso é revogado
 `Cada plano define a capacidade máxima de atendentes e números WhatsApp:
 
 • **Start**:  Até 3 atendentes, 1 número WhatsApp
-• **Growth**:  Até 10 atendentes, 2 números WhatsApp
+• **Growth**:  Até 10 atendentes, 1 número WhatsApp
 [INFO]
 Durante o período de teste não há limite de membros. Os limites acima valem depois da assinatura.
 [/INFO]
@@ -751,12 +751,16 @@ Para ver o seu plano, acesse **Configuração → Plano e uso**.`,
 • Atendimento via chat
 • CRM Kanban
 • Métricas e relatórios
+• Anti noshow (lembretes antes da reunião)
 • 1 número WhatsApp
+• Cerca de 60 conversas por mês (5M tokens)
 
 ## Zaapply Growth:  R$ 497/mês
 • Tudo do Start, mais:
 • Google Calendar integrado
-• 2 números WhatsApp`,
+• Follow-up e remarketing automáticos
+• Rastreio de anúncios (Meta Ads e Pixel)
+• Cerca de 180 conversas por mês (15M tokens)`,
       },
       {
         question:  'Como assinar',
@@ -781,13 +785,13 @@ Para cancelar, entre em contato em **contato@zaapply.com.br**. O acesso permanec
 `Tokens são a unidade de consumo do Agente IA. Cada resposta gerada consome tokens proporcionais ao tamanho da mensagem e do contexto da conversa.
 
 ## Estimativas de consumo
-• Conversa curta (5 mensagens) ≈ 1.000 tokens
-• Conversa média (15 mensagens) ≈ 4.000 tokens
-• Conversa longa (30 mensagens) ≈ 10.000 tokens
-• 5M tokens ≈ 500–1.000 conversas completas
+Uma conversa completa, com resposta, memória e follow-up, usa em média cerca de 80 mil tokens. Conversas curtas gastam bem menos e negociações longas gastam mais.
+• 5M tokens (Start) ≈ 60 conversas
+• 15M tokens (Growth) ≈ 180 conversas
+• 3M tokens (pacote extra de R$ 45) ≈ 35 conversas
 
 ## Recarregar tokens
-Quando o saldo fica abaixo do limite, um aviso aparece no topo do sistema. Clique em **Recarregar tokens** para adicionar crédito sem aguardar a renovação mensal.
+Você recebe um aviso ao chegar em 80% e 95% da franquia. Se ela acabar, o agente pausa até você comprar um pacote ou o mês renovar. Em **Configuração → Plano**, compre R$ 45 (3 milhões de tokens) e o uso é liberado assim que o pagamento é confirmado.
 [INFO]
 Tokens não utilizados no mês não acumulam para o mês seguinte. O saldo é renovado automaticamente na data de renovação do plano.
 [/INFO]`,

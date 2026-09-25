@@ -56,6 +56,17 @@ export async function POST(request: NextRequest) {
 
     const service = createServiceClient()
 
+    // Plano Start: só Anti noshow. Bloqueia apenas quando a flag está explicitamente falsa, então empresas
+    // antigas (flags ausentes ou ligadas) não mudam.
+    const { data: company } = await service.from('companies').select('features').eq('id', context.companyId).single()
+    const features = (company?.features ?? {}) as Record<string, unknown>
+    if (tipo === 'remarketing' && features.remarketing === false) {
+      return NextResponse.json({ error: 'Remarketing está disponível no plano Growth.' }, { status: 403 })
+    }
+    if (['follow_geral', 'follow_proposta', 'webhook_seq'].includes(tipo) && features.follow_up === false) {
+      return NextResponse.json({ error: 'Follow-up está disponível no plano Growth.' }, { status: 403 })
+    }
+
     const { data: sequence, error: seqErr } = await service
       .from('follow_sequences')
       .insert({ company_id: context.companyId, nome, tipo, ativo })

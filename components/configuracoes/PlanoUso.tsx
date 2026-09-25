@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { PLANS as PLAN_OPTIONS } from '@/lib/onboarding/model';
 import { cn } from '@/lib/utils';
+import { TOKEN_MIN_PURCHASE_BRL, TOKEN_PACK_SIZES, approxConversations, priceForTokens, tokensForAmount } from '@/lib/billing/plans';
 import { CARD, CardTitle, FIELD, LIME, StatusPill } from './cfg-ui';
 
 interface CompanyFull {
@@ -59,7 +60,7 @@ export function PlanoUso() {
   const [copiedPix, setCopiedPix] = useState(false);
 
   const [extraOpen, setExtraOpen] = useState(false);
-  const [extraAmount, setExtraAmount] = useState(20);
+  const [extraAmount, setExtraAmount] = useState(TOKEN_MIN_PURCHASE_BRL);
   const [buyingTokens, setBuyingTokens] = useState(false);
   const plansRef = useRef<HTMLDivElement>(null);
 
@@ -240,18 +241,18 @@ export function PlanoUso() {
             <div className="flex items-center justify-between gap-4">
               <div className="flex flex-col gap-[3px]">
                 <p className="text-[15px] font-semibold leading-[18px] text-foreground">Tokens extras</p>
-                <p className="text-[13.5px] text-muted-foreground">Cada R$ 20 adiciona 1 milhão. PIX ou cartão.</p>
+                <p className="text-[13.5px] text-muted-foreground">R$ {TOKEN_MIN_PURCHASE_BRL} adiciona {tokensForAmount(TOKEN_MIN_PURCHASE_BRL) / 1_000_000} milhões de tokens, cerca de {approxConversations(tokensForAmount(TOKEN_MIN_PURCHASE_BRL))} conversas. PIX ou cartão.</p>
               </div>
               <Button variant="secondary" className="h-10 px-5 text-sm" onClick={() => setExtraOpen((o) => !o)}>{extraOpen ? 'Fechar' : 'Comprar'}</Button>
             </div>
             {extraOpen && (
               <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-                {[20, 50, 100].map((v) => (
+                {TOKEN_PACK_SIZES.slice(0, 3).map((t) => priceForTokens(t)).map((v) => (
                   <button key={v} type="button" onClick={() => setExtraAmount(v)} className={cn('rounded-lg border px-3 py-1.5 text-[13px] font-medium transition-colors', extraAmount === v ? 'border-[#1E6B47] bg-accent text-foreground' : 'border-border text-muted-foreground hover:text-foreground')}>
-                    R$ {v} <span className="opacity-60">({v / 20} mi)</span>
+                    R$ {v} <span className="opacity-60">({tokensForAmount(v) / 1_000_000} mi)</span>
                   </button>
                 ))}
-                <input type="number" min={20} step={10} value={extraAmount} onChange={(e) => setExtraAmount(Math.max(20, Number(e.target.value)))} aria-label="Valor em reais" className="h-9 w-24 rounded-lg border border-border bg-card px-2.5 text-center font-mono text-[13px]" />
+                <input type="number" min={TOKEN_MIN_PURCHASE_BRL} step={TOKEN_MIN_PURCHASE_BRL} value={extraAmount} onChange={(e) => setExtraAmount(Math.max(TOKEN_MIN_PURCHASE_BRL, Number(e.target.value)))} aria-label="Valor em reais" className="h-9 w-24 rounded-lg border border-border bg-card px-2.5 text-center font-mono text-[13px]" />
                 <Button className="ml-auto h-9 px-5 text-[13px]" onClick={() => buyExtraTokens()} disabled={buyingTokens}>{buyingTokens ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Pagar'}</Button>
               </div>
             )}

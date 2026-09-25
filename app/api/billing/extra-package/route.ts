@@ -10,15 +10,12 @@
  * Valor é calculado server-side; nunca aceito do cliente.
  */
 
-// Tabela de preços server-side : nunca confiar no amount do cliente
-const TOKEN_PRICE_MAP: Record<number, number> = {
-  1_000_000:  97,
-  5_000_000: 420,
- 10_000_000: 750,
- 20_000_000: 1300,
-}
-
 import { NextRequest, NextResponse } from 'next/server'
+import { TOKEN_PACK_SIZES, priceForTokens } from '@/lib/billing/plans'
+
+// Tabela de preços server-side : nunca confiar no amount do cliente. Preço único em lib/billing/plans.ts
+const TOKEN_PRICE_MAP: Record<number, number> = Object.fromEntries(TOKEN_PACK_SIZES.map((t) => [t, priceForTokens(t)]))
+
 import { requireAuth } from '@/lib/auth/require-auth'
 import { createServiceClient } from '@/lib/supabase/server'
 import { createOrGetCustomer, createPixCharge, getPixQrCode } from '@/lib/asaas/client'

@@ -29,6 +29,7 @@ import { getPayment, getSubscription } from '@/lib/asaas/client'
 import { syslog } from '@/lib/logger'
 import { rateLimit } from '@/lib/rate-limit'
 import { logCompanyNotice } from '@/lib/notifications/server'
+import { applyPlanFeatures } from '@/lib/billing/plans'
 
 const CONFIRMED_EVENTS = new Set(['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED'])
 
@@ -175,7 +176,7 @@ async function handleSubscriptionPayment(
 ) {
   const { data: company } = await supabase
     .from('companies')
-    .select('id, asaas_subscription_id')
+    .select('id, asaas_subscription_id, plan_type')
     .eq('asaas_subscription_id', payment.subscription)
     .single()
 
@@ -208,6 +209,12 @@ async function handleSubscriptionPayment(
     token_alert_80_sent_at: null,
     token_alert_95_sent_at: null,
   }).eq('id', company.id)
+
+  // Funções por plano só entram quando o plano muda (assinatura nova ou troca), não a cada renovação,
+  // para não sobrescrever ajustes manuais de quem já é cliente.
+  if (company.plan_type !== planType) {
+    await applyPlanFeatures(supabase, company.id, planType)
+  }
 }
 
 async function handleExtraPackagePayment(
