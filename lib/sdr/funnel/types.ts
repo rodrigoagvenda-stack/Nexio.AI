@@ -197,6 +197,8 @@ export interface Reading {
   comentario?: boolean
   /** A mensagem é um áudio cuja transcrição é ininteligível (não dá pra saber o que a pessoa quis dizer). */
   audioConfuso?: boolean
+  /** A mensagem traz um cumprimento ou gentileza dirigida a nós (bom dia, tudo bem e você?, obrigada) que merece uma resposta humana curta. */
+  social?: boolean
   /** Além da intenção principal, a mensagem traz OUTRA pergunta sobre a empresa/serviço ("como funciona?") que precisa de resposta própria. */
   perguntaExtra?: boolean
   /** Campos que o leitor devolveu mas foram descartados por não ter prova na conversa (auditoria). */

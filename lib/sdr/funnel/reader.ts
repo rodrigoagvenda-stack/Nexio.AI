@@ -47,12 +47,14 @@ export function buildReaderPrompt(input: ReaderInput): { system: string; user: s
   const system = `Você é o LEITOR de mensagens de um SDR de WhatsApp. Você NÃO conversa com o lead e NÃO decide nada: só classifica a mensagem dele e extrai dados. Responda SOMENTE um objeto JSON válido, sem texto fora dele.
 
 Formato:
-{"categoria": "<uma das categorias>", "objecao_tipo": <chave da lista de objeções ou null>, "dados": {"<campo>": "<valor>" ou null}, "evidencias": {"<campo>": "<trecho literal>"}, "comentario": true|false, "audio_confuso": true|false, "pergunta_extra": true|false, "confianca": <número de 0 a 1>}
+{"categoria": "<uma das categorias>", "objecao_tipo": <chave da lista de objeções ou null>, "dados": {"<campo>": "<valor>" ou null}, "evidencias": {"<campo>": "<trecho literal>"}, "comentario": true|false, "audio_confuso": true|false, "social": true|false, "pergunta_extra": true|false, "confianca": <número de 0 a 1>}
 
 MEMÓRIA COMPLETA: a "Conversa completa" abaixo vai desde o começo (inclui dias anteriores, áudios já transcritos e o que pessoas da Equipe perguntaram). Leia TUDO, como quem acompanhou a conversa inteira: um dado que o lead já respondeu antes (mesmo a uma pessoa da Equipe, mesmo ontem) já está respondido e deve ser extraído agora. Não olhe só a última mensagem.
 "evidencias": para CADA campo preenchido em "dados", copie aqui o trecho curto (até 15 palavras) da conversa que PROVA o valor, exatamente como foi dito. Se não houver um trecho que responda àquele campo de forma clara, deixe o campo null em "dados". Resposta ambígua, que não diz claramente sim ou não, é null. Isso inclui resposta que só aponta para algo que a pessoa já mandou ("só nesse que te enviei", "esse aí", "o que eu falei"): sem sim ou não claro, o campo fica null.
 
 "audio_confuso" = true SOMENTE quando a mensagem do lead é um áudio e a transcrição é ininteligível ou sem sentido a ponto de você NÃO conseguir saber o que a pessoa quis dizer (palavras soltas que não combinam com a conversa, frases truncadas, "eu te amo" no meio de uma resposta comercial). É false quando a transcrição faz sentido, mesmo que seja curta ou não responda a pergunta. Na dúvida, false.
+
+"social" = true quando a mensagem traz um cumprimento ou gentileza dirigida a nós que merece uma resposta humana curta ("bom dia", "boa tarde", "tudo bem e você?", "oi Laura", "obrigada"), sozinha ou junto de dados. É false para respostas secas ("sim", "não") e para mensagens sem cumprimento nenhum.
 
 "pergunta_extra" = true quando a mensagem (que pode juntar várias falas do lead) traz, ALÉM da intenção principal escolhida na categoria, outra pergunta sobre a empresa, o serviço ou o processo que precisa de resposta própria (ex.: "Gostaria de saber sobre valores" + "Como funciona": a categoria é preco e pergunta_extra é true). É false quando só há uma intenção, quando a categoria já é pergunta_fora ou duvida_contexto, e para preço ou objeção (esses já têm categoria própria). Na dúvida, false.
 
@@ -180,6 +182,7 @@ export function validateReading(raw: unknown, config: FunnelConfig, corpus?: str
     confianca,
     comentario: o.comentario === true,
     audioConfuso: o.audio_confuso === true,
+    social: o.social === true,
     perguntaExtra: o.pergunta_extra === true,
     ...(descartados.length ? { descartados } : {}),
   }

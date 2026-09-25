@@ -1799,9 +1799,9 @@ Olá, Rodrigo! Tudo bem por aqui, e com você? Como posso te ajudar hoje? Se qui
   // ── Camada 3 (FIXO condicional): agendamento : exato do AI Agent2 ─
   const schedulingBlock = ctx.calendarId
     ? `\n\nREGRA CRÍTICA DE AGENDAMENTO:
-0. ⛔ ANTES de chamar "Agente_de_Agendamento" PELA PRIMEIRA VEZ nesta conversa : confira "Link do briefing já enviado" no CHECKLIST abaixo. Se for NÃO e existir um link de briefing/formulário no "Contexto sobre o lead" ou no retorno do Play_conhecimento (seção FECHAMENTO), MANDE esse link agora, nesta resposta, antes de agendar : o link é obrigatório sempre, independente do lead ter demonstrado interesse na hora. Só chame "Agente_de_Agendamento" no PRÓXIMO turno, depois do link já ter sido mandado. Se não existir link nenhum configurado, ignore este passo e siga direto pro 1.
+0. Não mande link de briefing, formulário nem prova social antes de agendar: quando o lead aceitar marcar (ou o funil já anunciou a conversa), chame "Agente_de_Agendamento" direto.
 1. Se a ÚLTIMA mensagem que você enviou ao lead era uma pergunta de confirmação de agendamento (ex: "[Nome], [dia] [data] às [hora] : confirma?") E a resposta do lead for qualquer afirmação ("sim", "pode", "ok", "confirmo", "isso", "s", "claro", "quero"), chame IMEDIATAMENTE "Agente_de_Agendamento" : NÃO processe mais nada, NÃO chame outras tools.
-2. Se o lead demonstrar QUALQUER intenção de agendar, remarcar ou cancelar uma REUNIÃO ou CALL com data e hora marcadas, chame IMEDIATAMENTE "Agente_de_Agendamento" : sem enviar nenhuma mensagem de texto antes, sem dizer "aguarde", sem dizer "já verifico" (a não ser que o passo 0 acima se aplique, aí manda o link primeiro).
+2. Se o lead demonstrar QUALQUER intenção de agendar, remarcar ou cancelar uma REUNIÃO ou CALL com data e hora marcadas, chame IMEDIATAMENTE "Agente_de_Agendamento" : sem enviar nenhuma mensagem de texto antes, sem dizer "aguarde", sem dizer "já verifico".
 Em ambos os casos: chame a tool diretamente e retorne exatamente o que ela responder, sem alterar nada. Mensagens genéricas sobre outros assuntos NÃO devem acionar esse agente.
 ⛔ PROIBIDO chamar "Agente_de_Agendamento" para: pedido de teste grátis, link de teste, cadastro, demonstração, dúvida sobre produto ou preço, ou qualquer coisa que não seja marcar uma reunião/call com data e hora reais. Esse agente só sabe mexer no Google Calendar : ele NÃO conhece o produto, não tem link de teste e não envia e-mail nenhum. Pedido de teste/trial é respondido com "Play_conhecimento"/"Play_objecoes", nunca com este agente.`
     : ''
@@ -2074,8 +2074,6 @@ function formatChecklist(checklist: ChecklistAtendimento | null): string {
   }
   lines.push(`Apresentação já feita: ${checklist.apresentacao_feita ? 'SIM : NUNCA se apresente de novo' : '⛔ NÃO : OBRIGATÓRIO nesta resposta, se apresente (nome do agente + empresa)'}`)
   lines.push(`Nome do lead já foi perguntado: ${checklist.nome_perguntado ? 'SIM : NUNCA pergunte de novo' : '⛔ NÃO : OBRIGATÓRIO nesta resposta, pergunte o nome do lead (item SEPARADO da apresentação, os dois são obrigatórios independentemente)'}`)
-  lines.push(`Prova social (Instagram) já enviada: ${checklist.prova_social_enviada ? 'SIM : NUNCA mande de novo' : '⛔ NÃO : OBRIGATÓRIO mandar o link https://www.instagram.com/grupovenda/ (passo 6 do fluxo de qualificação) assim que decisor e investimento estiverem confirmados, SEMPRE antes de oferecer o link do briefing'}`)
-  lines.push(`Link do briefing já enviado: ${checklist.link_briefing_enviado ? 'SIM' : 'NÃO : se o "Contexto sobre o lead" ou o Play_conhecimento tiver um link de briefing/formulário, ele é OBRIGATÓRIO antes de chamar Agente_de_Agendamento pela primeira vez nesta conversa, independente do lead ter demonstrado interesse'}`)
   if (checklist.disponibilidade_lead) {
     lines.push(`Disponibilidade que o lead JÁ INFORMOU (mesmo que numa frase solta, não em resposta direta a uma pergunta de horário): "${checklist.disponibilidade_lead}". ⛔ NUNCA pergunte "qual sua preferência de horário" ou similar de novo : use essa informação diretamente pra propor/confirmar o agendamento.`)
   }
@@ -2087,7 +2085,14 @@ function formatChecklist(checklist: ChecklistAtendimento | null): string {
     for (const pr of checklist.perguntas_e_respostas) lines.push(`- ${pr.pergunta}: ${pr.resposta}`)
   }
   if (checklist.estagio_atual) lines.push(`Estágio atual da conversa: ${checklist.estagio_atual}`)
-  if (checklist.ficha_funil) lines.push(checklist.ficha_funil)
+  if (checklist.ficha_funil) {
+    lines.push('FUSÃO COM O FUNIL (o funil manda, você é a voz humana dele):')
+    lines.push('1. Consulte a FICHA DO LEAD e a memória abaixo ANTES de responder: o que o funil já perguntou, o que o lead já respondeu e o que já foi dito NÃO se repete.')
+    lines.push('2. O funil decide o que perguntar e em que ordem. Você NÃO inventa perguntas de qualificação novas e NÃO manda links (Instagram, briefing, formulário) que não estejam na ficha.')
+    lines.push('3. Se o lead disser algo social ("bom dia", "tudo bem e você?", "obrigada", uma brincadeira), responda de forma humana e curta, UMA frase, sem pergunta e sem promessa. Se o funil tem um passo pendente, retome em seguida; se já é hora de agendar, siga o agendamento.')
+    lines.push('4. No agendamento, chame "Agente_de_Agendamento" direto: NÃO explique a reunião de novo, NÃO valide a dor com frase genérica ("é comum"), NÃO prometa resultado e NÃO peça permissão ("posso te passar os horários?").')
+    lines.push(checklist.ficha_funil)
+  }
   if (checklist.memoria?.resumo) {
     lines.push(`Memória da conversa inteira (feita pelo sistema a partir de TUDO que foi dito, inclusive dias anteriores e o que pessoas da equipe já perguntaram; NÃO repita pergunta já respondida aqui): ${checklist.memoria.resumo}`)
     if (checklist.memoria.pendencias?.length) lines.push(`Perguntas do lead ainda sem resposta (responda estas): ${checklist.memoria.pendencias.join('; ')}`)

@@ -382,7 +382,8 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
         openai,
         onUsage: p.deps.onUsage,
         media: midia,
-        info: !midia && informou,
+        info: !midia && informou && !reading.social,
+        social: !midia && reading.social === true,
       })
       let texto = rx.texto
       let usouEco = false
