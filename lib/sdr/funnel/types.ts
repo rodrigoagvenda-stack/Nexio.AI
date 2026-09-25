@@ -33,6 +33,8 @@ export interface FunnelField {
 
 export interface FunnelStep {
   id: string
+  /** Nome da pergunta na tela de edição ("Perfil do Google"). Só para exibir: o motor ignora. */
+  title?: string
   /** Texto aprovado, palavra por palavra. Aceita {nome}. */
   question: string
   fields: FunnelField[]
@@ -65,6 +67,8 @@ export interface FunnelObjection {
 
 export interface FunnelConfig {
   version: 1
+  /** Nome de quem assume a conversa, usado na tela de edição para trocar o nome nos textos. O motor ignora. */
+  humanName?: string
   steps: FunnelStep[]
   /** Respostas fixas de preço, na ordem (a 1a vez usa a 1a, etc). */
   priceScripts: string[]
