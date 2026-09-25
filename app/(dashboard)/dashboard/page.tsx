@@ -16,7 +16,6 @@ import { ConversionDonut } from '@/components/dashboard/ConversionDonut';
 import { SalesFunnelTabs } from '@/components/dashboard/SalesFunnelTabs';
 import { RecentSales } from '@/components/dashboard/RecentSales';
 import { AdConversations } from '@/components/dashboard/AdConversations';
-import { AdRanking } from '@/components/dashboard/AdRanking';
 import { useFeatures } from '@/components/layout/FeaturesProvider';
 import { FirstStepsCard } from '@/components/onboarding/FirstStepsCard';
 import { FunilTab } from '@/components/dashboard/FunilTab';
@@ -170,7 +169,6 @@ export default function DashboardPage() {
   const previousRange = useMemo(() => getPreviousPeriodRange(selectedPeriod, dateRange), [selectedPeriod, dateRange]);
 
 
-  const adDays = currentRange ? Math.max(1, Math.ceil((currentRange.to.getTime() - currentRange.from.getTime()) / 86_400_000)) : 30;
 
   // ── Derived lead sets ─────────────────────────────────────────────────────
   const filteredLeads = useMemo(() => {
@@ -508,17 +506,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Anúncios: conversas que vieram do anúncio e quais anúncios trazem mais */}
-      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 items-stretch">
-        <div className="lg:col-span-2">
-          <AdConversations since={currentRange?.from} until={currentRange?.to} />
-        </div>
-        <div className="relative h-[420px] lg:h-auto">
-          <div className="h-full lg:absolute lg:inset-0">
-            <AdRanking days={adDays} />
-          </div>
-        </div>
-      </div>
+      {/* Anúncios: conversas que vieram do anúncio (ranking por anúncio fora por enquanto, atribuição ainda não casa) */}
+      <AdConversations since={currentRange?.from} until={currentRange?.to} />
       </>
       )}
 
