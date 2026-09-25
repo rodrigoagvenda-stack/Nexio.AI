@@ -109,6 +109,8 @@ export interface FunnelConfig {
   closingMessage?: string
   /** Quando o áudio do lead não pôde ser transcrito. Ausente = texto padrão; vazio = fica em silêncio. */
   audioFailReply?: string
+  /** Quando o áudio foi transcrito mas não dá pra entender o que a pessoa disse. Ausente = texto padrão. */
+  audioUnclearReply?: string
   /** Reação humana curta quando o lead conta algo além da resposta. Ausente = ligada; false = desligada. */
   reactions?: boolean
   /** Quando a pergunta fora do roteiro não tem resposta na base. */
@@ -193,6 +195,8 @@ export interface Reading {
   confianca: number
   /** O lead disse algo além da resposta seca (dificuldade, história, desabafo): candidato a uma reação humana. */
   comentario?: boolean
+  /** A mensagem é um áudio cuja transcrição é ininteligível (não dá pra saber o que a pessoa quis dizer). */
+  audioConfuso?: boolean
   /** Além da intenção principal, a mensagem traz OUTRA pergunta sobre a empresa/serviço ("como funciona?") que precisa de resposta própria. */
   perguntaExtra?: boolean
   /** Campos que o leitor devolveu mas foram descartados por não ter prova na conversa (auditoria). */

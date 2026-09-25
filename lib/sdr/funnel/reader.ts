@@ -47,10 +47,12 @@ export function buildReaderPrompt(input: ReaderInput): { system: string; user: s
   const system = `Você é o LEITOR de mensagens de um SDR de WhatsApp. Você NÃO conversa com o lead e NÃO decide nada: só classifica a mensagem dele e extrai dados. Responda SOMENTE um objeto JSON válido, sem texto fora dele.
 
 Formato:
-{"categoria": "<uma das categorias>", "objecao_tipo": <chave da lista de objeções ou null>, "dados": {"<campo>": "<valor>" ou null}, "evidencias": {"<campo>": "<trecho literal>"}, "comentario": true|false, "pergunta_extra": true|false, "confianca": <número de 0 a 1>}
+{"categoria": "<uma das categorias>", "objecao_tipo": <chave da lista de objeções ou null>, "dados": {"<campo>": "<valor>" ou null}, "evidencias": {"<campo>": "<trecho literal>"}, "comentario": true|false, "audio_confuso": true|false, "pergunta_extra": true|false, "confianca": <número de 0 a 1>}
 
 MEMÓRIA COMPLETA: a "Conversa completa" abaixo vai desde o começo (inclui dias anteriores, áudios já transcritos e o que pessoas da Equipe perguntaram). Leia TUDO, como quem acompanhou a conversa inteira: um dado que o lead já respondeu antes (mesmo a uma pessoa da Equipe, mesmo ontem) já está respondido e deve ser extraído agora. Não olhe só a última mensagem.
-"evidencias": para CADA campo preenchido em "dados", copie aqui o trecho curto (até 15 palavras) da conversa que PROVA o valor, exatamente como foi dito. Se não houver um trecho que responda àquele campo de forma clara, deixe o campo null em "dados". Resposta ambígua, que não diz claramente sim ou não, é null.
+"evidencias": para CADA campo preenchido em "dados", copie aqui o trecho curto (até 15 palavras) da conversa que PROVA o valor, exatamente como foi dito. Se não houver um trecho que responda àquele campo de forma clara, deixe o campo null em "dados". Resposta ambígua, que não diz claramente sim ou não, é null. Isso inclui resposta que só aponta para algo que a pessoa já mandou ("só nesse que te enviei", "esse aí", "o que eu falei"): sem sim ou não claro, o campo fica null.
+
+"audio_confuso" = true SOMENTE quando a mensagem do lead é um áudio e a transcrição é ininteligível ou sem sentido a ponto de você NÃO conseguir saber o que a pessoa quis dizer (palavras soltas que não combinam com a conversa, frases truncadas, "eu te amo" no meio de uma resposta comercial). É false quando a transcrição faz sentido, mesmo que seja curta ou não responda a pergunta. Na dúvida, false.
 
 "pergunta_extra" = true quando a mensagem (que pode juntar várias falas do lead) traz, ALÉM da intenção principal escolhida na categoria, outra pergunta sobre a empresa, o serviço ou o processo que precisa de resposta própria (ex.: "Gostaria de saber sobre valores" + "Como funciona": a categoria é preco e pergunta_extra é true). É false quando só há uma intenção, quando a categoria já é pergunta_fora ou duvida_contexto, e para preço ou objeção (esses já têm categoria própria). Na dúvida, false.
 
@@ -70,7 +72,7 @@ Categorias (escolha UMA, a intenção principal que exige resposta especial):
 - despedida: encerra a conversa (obrigado, valeu, até mais, "ok" final) SEM responder uma pergunta pendente e sem pedir nada. "ok" ou "sim" respondendo a uma pergunta que fizemos NÃO é despedida.
 - agendar: pede ou aceita marcar reunião, call ou horário. Também é agendar: escolher uma das opções oferecidas, dizer que um horário não serve, sugerir OUTRO dia ou horário (mesmo com frases como "vou estar mais tranquila na quarta") e perguntar sobre os horários.
 - resposta_passo: responde, mesmo em parte, o que perguntamos, ou informa dados sobre o negócio dele.
-- duvida_contexto: a pessoa não entendeu do que se trata, quem somos ou por que estamos falando com ela ("o que seria?", "uque seria", "como assim?", "quem é?", "do que se trata?", "que áudio é esse?", "de onde vocês são?", "o que vocês querem comigo?"), mesmo junto de um cumprimento ("bom dia, o que seria?"). É sobre o PRÓPRIO contato ou assunto da conversa, não sobre o serviço ou a empresa em geral (isso é pergunta_fora). Tem prioridade sobre outro.
+- duvida_contexto: a pessoa não entendeu do que se trata, quem somos ou por que estamos falando com ela ("o que seria?", "uque seria", "como assim?", uma mensagem só com "?" ou "❓", "quem é?", "do que se trata?", "que áudio é esse?", "de onde vocês são?", "o que vocês querem comigo?"), mesmo junto de um cumprimento ("bom dia, o que seria?"). É sobre o PRÓPRIO contato ou assunto da conversa, não sobre o serviço ou a empresa em geral (isso é pergunta_fora). Tem prioridade sobre outro.
 - conversa: a pessoa está CONVERSANDO com a gente e não responde ao roteiro: contesta ou discorda ("isso é estranho", "eu pesquiso e aparece, você pesquisa e não?"), se confunde ou desconfia, pede algo que não é preço nem pergunta sobre a empresa (um vídeo, uma prova, explicar de outro jeito, falar com o dono) ou comenta algo que pede uma resposta de pessoa. Use só quando a mensagem pede uma resposta própria e não se encaixa em resposta_passo, preco, objecao da lista, pergunta_fora, duvida_contexto nem ok.
 - outro: qualquer outra coisa (cumprimento, "ok" sem contexto, mensagem ininteligível).
 
@@ -177,6 +179,7 @@ export function validateReading(raw: unknown, config: FunnelConfig, corpus?: str
     dados,
     confianca,
     comentario: o.comentario === true,
+    audioConfuso: o.audio_confuso === true,
     perguntaExtra: o.pergunta_extra === true,
     ...(descartados.length ? { descartados } : {}),
   }

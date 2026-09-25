@@ -19,7 +19,7 @@ import { splitOpening, stepFunnel } from './machine'
 import { detectAskedStep } from './sync'
 import { assessLead, buildResumo, classifySegment, nextStatus } from './crm'
 import { buildEcho, buildReaction, leadVolunteered, shouldReact } from './reaction'
-import { DEFAULT_AUDIO_FAIL_REPLY, isUnreadableAudio } from './audio'
+import { DEFAULT_AUDIO_FAIL_REPLY, DEFAULT_AUDIO_UNCLEAR_REPLY, isUnreadableAudio } from './audio'
 import { enrichOutboundMedia, type MediaRow } from '../media-understanding'
 import { buildFicha, humanizeScript } from './humanize'
 import { runConversation } from './converse'
@@ -261,6 +261,18 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
     const isFirstTurn = totalOutbound === 0
 
     reading = await readMessage({ config, state, leadText: p.leadText, transcript, isFirstTurn }, openai, p.deps.onUsage)
+
+    // Áudio transcrito mas ininteligível (ruído, palavras soltas): pede texto ou novo áudio em vez de fingir que entendeu
+    // (achado ao vivo 2026-09-25, lead da Elane do restaurante: "confratagem" virou dois "Recebi o seu áudio" e nenhuma pergunta).
+    // Só avisa uma vez seguida: se o mesmo aviso já foi o último que mandamos, segue o fluxo normal.
+    if (reading.audioConfuso && p.mediaKind === 'audio' && state.stage === 'qualifying') {
+      const reply = (typeof config.audioUnclearReply === 'string' && config.audioUnclearReply.trim()) || DEFAULT_AUDIO_UNCLEAR_REPLY
+      if (!outboundNewestFirst.slice(0, 2).some((t) => t.trim() === reply.trim())) {
+        await p.deps.send([reply])
+        await p.deps.log('funnel_audio_confuso', { transcricao: p.leadText.slice(0, 200) }).catch(() => {})
+        return { handled: true }
+      }
+    }
 
     result = stepFunnel(config, state, reading, { isFirstTurn, leadText: p.leadText })
     if (result.needBox) {
