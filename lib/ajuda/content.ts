@@ -759,7 +759,8 @@ Para ver o seu plano, acesse **Configuração → Plano e uso**.`,
 • Tudo do Start, mais:
 • Google Calendar integrado
 • Follow-up e remarketing automáticos
-• Rastreio de anúncios (Meta Ads e Pixel)
+• Rastreio de anúncios (Meta Ads): de qual anúncio veio cada conversa e o custo
+• Envio das vendas de volta para a Meta (Pixel): disponível com a conexão pela API oficial (CoEx)
 • Cerca de 180 conversas por mês (15M tokens)`,
       },
       {
@@ -785,7 +786,7 @@ Para cancelar, entre em contato em **contato@zaapply.com.br**. O acesso permanec
 `Tokens são a unidade de consumo do Agente IA. Cada resposta gerada consome tokens proporcionais ao tamanho da mensagem e do contexto da conversa.
 
 ## Estimativas de consumo
-Uma conversa completa, com resposta, memória e follow-up, usa em média cerca de 80 mil tokens. Conversas curtas gastam bem menos e negociações longas gastam mais.
+Uma conversa completa usa em média cerca de 84 mil tokens. Esse número foi medido em operação real e conta cada resposta do agente, a memória da conversa, os follow-ups e o agendamento. Conversas curtas gastam bem menos e negociações longas gastam mais.
 • 5M tokens (Start) ≈ 60 conversas
 • 15M tokens (Growth) ≈ 180 conversas
 • 3M tokens (pacote extra de R$ 45) ≈ 35 conversas

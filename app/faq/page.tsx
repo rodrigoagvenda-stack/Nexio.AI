@@ -19,7 +19,7 @@ const FAQS = [
   },
   {
     q: 'Qual a diferença entre o plano Start e o Growth?',
-    a: 'O Start tem SDR com IA, CRM, chat, Anti noshow e 1 número de WhatsApp. O Growth também tem 1 número de WhatsApp e adiciona o Google Calendar integrado, o follow-up e o remarketing automáticos e o rastreio de anúncios (Meta Ads e Pixel), para você saber de qual anúncio veio cada venda.',
+    a: 'O Start tem SDR com IA, CRM, chat, Anti noshow e 1 número de WhatsApp. O Growth também tem 1 número de WhatsApp e adiciona o Google Calendar integrado, o follow-up e o remarketing automáticos e o rastreio de anúncios (Meta Ads), para você saber de qual anúncio veio cada conversa e quanto ela custou. O envio das vendas de volta para a Meta, para ela otimizar os anúncios, funciona com a conexão pela API oficial (CoEx).',
   },
   {
     q: 'O Zaapply responde fora do horário comercial?',

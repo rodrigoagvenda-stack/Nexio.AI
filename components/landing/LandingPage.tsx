@@ -16,7 +16,7 @@ const ALL_FEATURES = [
   'Anti noshow',
   'Google Calendar integrado',
   'Follow-up e remarketing',
-  'Rastreio de anúncios (Meta Ads e Pixel)',
+  'Rastreio de anúncios (Meta Ads)',
 ];
 
 const PLANS = [
@@ -31,7 +31,7 @@ const PLANS = [
     name: 'Zaapply Growth',
     price: '497',
     members: '1 número de WhatsApp, cerca de 180 conversas por mês',
-    included: ['SDR com IA', 'CRM Kanban', 'Atendimento via chat', 'Anti noshow', 'Google Calendar integrado', 'Follow-up e remarketing', 'Rastreio de anúncios (Meta Ads e Pixel)'],
+    included: ['SDR com IA', 'CRM Kanban', 'Atendimento via chat', 'Anti noshow', 'Google Calendar integrado', 'Follow-up e remarketing', 'Rastreio de anúncios (Meta Ads)'],
     badge: 'Mais completo',
   },
 ];

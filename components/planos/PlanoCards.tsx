@@ -55,7 +55,7 @@ const PLANS = [
       'Tudo do Start',
       'Google Calendar integrado',
       'Follow-up e remarketing',
-      'Rastreio de anúncios (Meta Ads e Pixel)',
+      'Rastreio de anúncios (Meta Ads)',
       'Cerca de 180 conversas por mês',
     ],
   },
@@ -77,7 +77,7 @@ const FEATURES: Feature[] = [
   { label: 'Follow-up no canvas',   group: 'Automações',  starter: false,   growth: true    },
   { label: 'Remarketing',           group: 'Automações',  starter: false,   growth: true    },
   { label: 'Google Calendar',       group: 'Integrações', starter: false,   growth: true    },
-  { label: 'Rastreio de anúncios (Meta Ads e Pixel)', group: 'Integrações', starter: false, growth: true },
+  { label: 'Rastreio de anúncios (Meta Ads)', group: 'Integrações', starter: false, growth: true },
 ];
 
 const ALL_INCLUDE = [

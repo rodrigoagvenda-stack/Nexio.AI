@@ -61,7 +61,6 @@ export async function GET() {
         meta_ad_account_name: config.meta_ad_account_name ?? null,
         meta_pixel_id: config.meta_pixel_id ?? null,
         meta_capi_waba_id: config.meta_capi_waba_id ?? null,
-        meta_capi_page_id: config.meta_capi_page_id ?? null,
         meta_pixel_token: config.meta_pixel_token ? '••••••••' : null,
         billing_recurring: config.billing_recurring ?? false,
         meeting_duration_min: config.meeting_duration_min ?? null,
@@ -109,7 +108,6 @@ export async function PUT(request: NextRequest) {
       meta_pixel_id,
       meta_pixel_token,
       meta_capi_waba_id,
-      meta_capi_page_id,
       billing_recurring,
       meeting_duration_min,
     } = body
@@ -141,11 +139,6 @@ export async function PUT(request: NextRequest) {
       const waba = String(meta_capi_waba_id ?? '').trim()
       if (waba && !/^[0-9]{8,20}$/.test(waba)) return NextResponse.json({ error: 'O ID da conta do WhatsApp Business tem só números (de 8 a 20 dígitos)' }, { status: 400 })
       configUpdates.meta_capi_waba_id = waba || null
-    }
-    if (meta_capi_page_id !== undefined) {
-      const page = String(meta_capi_page_id ?? '').trim()
-      if (page && !/^[0-9]{8,20}$/.test(page)) return NextResponse.json({ error: 'O ID da Página tem só números (de 8 a 20 dígitos)' }, { status: 400 })
-      configUpdates.meta_capi_page_id = page || null
     }
     if (billing_recurring !== undefined) configUpdates.billing_recurring = billing_recurring
     if (meeting_duration_min !== undefined) {

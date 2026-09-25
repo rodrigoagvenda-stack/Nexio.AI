@@ -401,10 +401,9 @@ function MetaAdsPanel({ cfg, reload }: { cfg: SdrCfg; reload: () => Promise<void
 function PixelPanel({ cfg, resumo, save }: { cfg: SdrCfg; resumo: Resumo | null; save: (p: Record<string, unknown>) => Promise<boolean> }) {
   const on = !!cfg.meta_pixel_id;
   const [edit, setEdit] = useState(false);
-  const [draft, setDraft] = useState({ id: '', token: '', waba: '', page: '' });
+  const [draft, setDraft] = useState({ id: '', token: '', waba: '' });
   const [saving, setSaving] = useState(false);
   const [quickWaba, setQuickWaba] = useState('');
-  const [quickPage, setQuickPage] = useState('');
   const [resending, setResending] = useState(false);
   const [resendRes, setResendRes] = useState<{ sent: number; failed: number; results: { lead: string; closed_at: string; ok: boolean; message: string | null }[] } | null>(null);
   const [quickSaving, setQuickSaving] = useState(false);
@@ -416,15 +415,15 @@ function PixelPanel({ cfg, resumo, save }: { cfg: SdrCfg; resumo: Resumo | null;
 
   async function submit() {
     setSaving(true);
-    const ok = await save({ meta_pixel_id: draft.id.trim(), meta_pixel_token: draft.token.trim(), meta_capi_waba_id: draft.waba.trim(), meta_capi_page_id: draft.page.trim() });
+    const ok = await save({ meta_pixel_id: draft.id.trim(), meta_pixel_token: draft.token.trim(), meta_capi_waba_id: draft.waba.trim() });
     setSaving(false);
-    if (ok) { setEdit(false); setDraft({ id: '', token: '', waba: '', page: '' }); toast({ title: 'Pixel configurado', variant: 'success' }); }
+    if (ok) { setEdit(false); setDraft({ id: '', token: '', waba: '' }); toast({ title: 'Pixel configurado', variant: 'success' }); }
   }
   async function saveQuickWaba() {
     setQuickSaving(true);
-    const ok = await save({ ...(quickPage.trim() ? { meta_capi_page_id: quickPage.trim() } : {}), ...(quickWaba.trim() ? { meta_capi_waba_id: quickWaba.trim() } : {}) });
+    const ok = await save({ meta_capi_waba_id: quickWaba.trim() });
     setQuickSaving(false);
-    if (ok) { setQuickWaba(''); setQuickPage(''); toast({ title: 'ID salvo', variant: 'success' }); }
+    if (ok) { setQuickWaba(''); toast({ title: 'ID salvo', variant: 'success' }); }
   }
   async function resend() {
     if (!(await askConfirm('Reenviar para a Meta as vendas fechadas nos últimos 60 dias que ela ainda não aceitou? Cada envio usa a data real do fechamento.'))) return;
@@ -450,27 +449,25 @@ function PixelPanel({ cfg, resumo, save }: { cfg: SdrCfg; resumo: Resumo | null;
     <div className="flex flex-col gap-8">
       <Head title="Pixel da Meta" desc="Avisa a Meta quando um lead vira cliente, para ela ligar a venda ao anúncio certo." />
       <StatusCard tone={on ? 'ok' : 'off'} title={on ? 'Configurado' : 'Não configurado'} sub={on ? undefined : 'Opcional. Serve para quem anuncia no Meta.'}
-        actions={on ? (<><button type="button" onClick={() => { setDraft({ id: cfg.meta_pixel_id ?? '', token: '', waba: cfg.meta_capi_waba_id ?? '', page: cfg.meta_capi_page_id ?? '' }); setEdit(true); }} className={PILL3D}>Editar</button><DangerLink onClick={remove}>Remover</DangerLink></>) : <button type="button" onClick={() => setEdit(true)} className={PILL_GREEN}>Configurar o pixel</button>}
-        rows={on ? [{ k: 'Pixel', v: 'ID salvo e token oculto' }, { k: 'Página do Facebook', v: cfg.meta_capi_page_id || 'Não informada' }, { k: 'Conta do WhatsApp Business', v: cfg.meta_capi_waba_id || cfg.meta_wa_waba_id || 'Não informada' }] : undefined}>
+        actions={on ? (<><button type="button" onClick={() => { setDraft({ id: cfg.meta_pixel_id ?? '', token: '', waba: cfg.meta_capi_waba_id ?? '' }); setEdit(true); }} className={PILL3D}>Editar</button><DangerLink onClick={remove}>Remover</DangerLink></>) : <button type="button" onClick={() => setEdit(true)} className={PILL_GREEN}>Configurar o pixel</button>}
+        rows={on ? [{ k: 'Pixel', v: 'ID salvo e token oculto' }, { k: 'Conta do WhatsApp Business', v: cfg.meta_capi_waba_id || cfg.meta_wa_waba_id || 'Não informada' }] : undefined}>
         {edit && (
           <div className="mx-7 mb-6 flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-5 dark:bg-[#141414]">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="flex flex-col gap-2"><label htmlFor="px-id" className="text-[15px] font-semibold text-foreground">ID do pixel</label><input id="px-id" className={INPUT} value={draft.id} onChange={(e) => setDraft({ ...draft, id: e.target.value })} placeholder="1234567890123456" /></div>
-              <div className="flex flex-col gap-2 md:col-span-2"><label htmlFor="px-page" className="text-[15px] font-semibold text-foreground">ID da Página do Facebook</label><input id="px-page" inputMode="numeric" className={INPUT} value={draft.page} onChange={(e) => setDraft({ ...draft, page: e.target.value.replace(/[^0-9]/g, '') })} placeholder="Só números" /><p className="text-[13px] text-muted-foreground">A Meta aceita a Página ou a conta do WhatsApp Business, o que estiver ligado ao seu conjunto de dados no Gerenciador de Eventos. Quem conecta o número por QR code costuma usar a Página. Preencha só um dos dois.</p></div>
-              <div className="flex flex-col gap-2 md:col-span-2"><label htmlFor="px-waba" className="text-[15px] font-semibold text-foreground">ID da conta do WhatsApp Business</label><input id="px-waba" inputMode="numeric" className={INPUT} value={draft.waba} onChange={(e) => setDraft({ ...draft, waba: e.target.value.replace(/D/g, '') })} placeholder="Só números" /><p className="text-[13px] text-muted-foreground">A Meta exige esse ID para aceitar a venda. Está no Gerenciador de Eventos, em Configurações do conjunto de dados, ou em Configurações do negócio, Contas do WhatsApp. Se você usa a API oficial, deixe em branco.</p></div>
+              <div className="flex flex-col gap-2 md:col-span-2"><label htmlFor="px-waba" className="text-[15px] font-semibold text-foreground">ID da conta do WhatsApp Business</label><input id="px-waba" inputMode="numeric" className={INPUT} value={draft.waba} onChange={(e) => setDraft({ ...draft, waba: e.target.value.replace(/[^0-9]/g, '') })} placeholder="Só números" /><p className="text-[13px] text-muted-foreground">Para anúncio de clique para WhatsApp, a Meta só aceita a venda com a conta do WhatsApp Business. Está em Configurações do negócio, Contas do WhatsApp. Quem conecta pela API oficial (CoEx) não precisa preencher: o ID vem sozinho.</p></div>
               <div className="flex flex-col gap-2"><label htmlFor="px-tk" className="text-[15px] font-semibold text-foreground">Token de acesso</label><input id="px-tk" type="password" className={INPUT} value={draft.token} onChange={(e) => setDraft({ ...draft, token: e.target.value })} placeholder={on ? "Deixe em branco para manter o atual" : "EAAxxxxx..."} /></div>
             </div>
             <div className="flex items-center gap-3"><button type="button" disabled={saving || !draft.id.trim() || (!on && !draft.token.trim())} onClick={submit} className={PILL_GREEN}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar pixel'}</button><button type="button" onClick={() => setEdit(false)} className={PILL3D}>Cancelar</button></div>
           </div>
         )}
       </StatusCard>
-      {on && !cfg.meta_capi_waba_id && !cfg.meta_capi_page_id && !cfg.meta_wa_waba_id && (
+      {on && !cfg.meta_capi_waba_id && !cfg.meta_wa_waba_id && (
         <div className="flex flex-col gap-3 rounded-xl border border-[#F5B544]/40 bg-[#F5B544]/[0.12] px-5 py-4">
-          <p className="text-sm text-[#8A5A00] dark:text-[#F5B544]">Falta um ID para a Meta aceitar as vendas. Sem ele, nenhuma venda chega ao anúncio. A Meta aceita um dos dois, o que estiver ligado ao seu conjunto de dados no Gerenciador de Eventos: o ID da Página do Facebook ou o ID da conta do WhatsApp Business.</p>
+          <p className="text-sm text-[#8A5A00] dark:text-[#F5B544]">Para anúncio de clique para WhatsApp, a Meta pede a conta do WhatsApp Business. Sem ela, use a API oficial (CoEx): o ID vem sozinho e as vendas voltam para o anúncio. Enquanto isso, o Dashboard continua mostrando de qual anúncio veio cada conversa. Se o seu número já tem uma conta do WhatsApp Business na Meta, cole o ID abaixo.</p>
           <div className="flex flex-wrap items-center gap-3">
-            <input aria-label="ID da Página do Facebook" inputMode="numeric" className={cn(INPUT, 'max-w-[280px]')} value={quickPage} onChange={(e) => setQuickPage(e.target.value.replace(/[^0-9]/g, ''))} placeholder="ID da Página (só números)" />
-            <input aria-label="ID da conta do WhatsApp Business" inputMode="numeric" className={cn(INPUT, 'max-w-[280px]')} value={quickWaba} onChange={(e) => setQuickWaba(e.target.value.replace(/[^0-9]/g, ''))} placeholder="ID da conta do WhatsApp Business" />
-            <button type="button" disabled={quickSaving || (quickPage.trim().length < 8 && quickWaba.trim().length < 8)} onClick={saveQuickWaba} className={PILL_GREEN}>{quickSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar ID'}</button>
+            <input aria-label="ID da conta do WhatsApp Business" inputMode="numeric" className={cn(INPUT, 'max-w-[320px]')} value={quickWaba} onChange={(e) => setQuickWaba(e.target.value.replace(/[^0-9]/g, ''))} placeholder="ID da conta do WhatsApp Business" />
+            <button type="button" disabled={quickSaving || quickWaba.trim().length < 8} onClick={saveQuickWaba} className={PILL_GREEN}>{quickSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar ID'}</button>
           </div>
         </div>
       )}
@@ -481,7 +478,7 @@ function PixelPanel({ cfg, resumo, save }: { cfg: SdrCfg; resumo: Resumo | null;
           <p className="text-[13px] text-muted-foreground">Nos últimos envios: {capi.sent} aceitos, {capi.failed} recusados.</p>
         </div>
       )}
-      {on && (cfg.meta_capi_waba_id || cfg.meta_capi_page_id || cfg.meta_wa_waba_id) && (
+      {on && (cfg.meta_capi_waba_id || cfg.meta_wa_waba_id) && (
         <div className={cn(CARD, 'flex flex-col gap-4 px-7 py-5')}>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-col gap-1"><p className="text-[15px] font-semibold text-foreground">Reenviar vendas para a Meta</p><p className="text-sm text-muted-foreground">Manda de novo as vendas fechadas nos últimos 60 dias que a Meta ainda não aceitou. A Meta costuma recusar vendas com mais de 7 dias.</p></div>

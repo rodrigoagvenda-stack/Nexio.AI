@@ -213,7 +213,7 @@ export function PlanoUso() {
           </div>
           {!paid && <p className="text-[14.5px] leading-[1.55] text-muted-foreground">{isTrial ? 'Depois do teste, o acesso só continua com uma assinatura. Escolha o plano abaixo quando quiser.' : 'Escolha o plano abaixo para liberar o Zaapply.'}</p>}
           {paid ? (
-            <Button variant="secondary" className="h-12 self-start px-8 text-[15px]" asChild><Link href="/ajuda?tab=chamados">Gerenciar assinatura</Link></Button>
+            <Button variant="secondary" className="h-12 self-start border border-border px-8 text-[15px]" asChild><Link href="/ajuda?tab=chamados">Gerenciar assinatura</Link></Button>
           ) : (
             <Button className="h-12 self-start px-8 text-[15px]" onClick={() => plansRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Assinar agora</Button>
           )}
@@ -243,7 +243,7 @@ export function PlanoUso() {
                 <p className="text-[15px] font-semibold leading-[18px] text-foreground">Tokens extras</p>
                 <p className="text-[13.5px] text-muted-foreground">R$ {TOKEN_MIN_PURCHASE_BRL} adiciona {tokensForAmount(TOKEN_MIN_PURCHASE_BRL) / 1_000_000} milhões de tokens, cerca de {approxConversations(tokensForAmount(TOKEN_MIN_PURCHASE_BRL))} conversas. PIX ou cartão.</p>
               </div>
-              <Button variant="secondary" className="h-10 px-5 text-sm" onClick={() => setExtraOpen((o) => !o)}>{extraOpen ? 'Fechar' : 'Comprar'}</Button>
+              <Button variant="secondary" className="h-10 border border-border px-5 text-sm" onClick={() => setExtraOpen((o) => !o)}>{extraOpen ? 'Fechar' : 'Comprar'}</Button>
             </div>
             {extraOpen && (
               <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
@@ -331,15 +331,20 @@ export function PlanoUso() {
                     </li>
                   ))}
                 </ul>
-                <Button
-                  variant={popular ? 'default' : 'secondary'}
-                  className="h-[46px] text-[15px]"
+                <button
+                  type="button"
+                  className={cn(
+                    'flex h-[46px] w-full items-center justify-center gap-2 rounded-full px-6 text-[15px] font-semibold transition-transform active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60',
+                    popular
+                      ? 'bg-[#96F63C] text-[#0C0C0C] shadow-[inset_0_1px_0_#FFFFFF66,0_3px_0_#4E8A1C]'
+                      : 'border border-[#96F63C]/50 bg-[#01573C] text-white shadow-[inset_0_1px_0_#FFFFFF26,0_3px_0_#003526]',
+                  )}
                   onClick={() => handleCheckout(p.id)}
                   disabled={current || !!checkoutLoading}
                 >
                   {checkoutLoading === p.id && <Loader2 className="h-4 w-4 animate-spin" />}
                   {current ? 'Seu plano atual' : `Escolher ${short}`}
-                </Button>
+                </button>
               </div>
             );
           })}

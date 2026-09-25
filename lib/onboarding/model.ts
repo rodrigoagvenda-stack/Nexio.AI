@@ -16,7 +16,7 @@ export const GOALS: { id: Goal; title: string; desc: string }[] = [
 
 export const PLANS: { id: PlanIntent; name: string; price: number; popular?: boolean; features: string[] }[] = [
   { id: 'starter', name: 'ZAAPPLY START', price: 297, features: ['Agente SDR com IA', 'Atendimento via chat', 'CRM Kanban', 'Métricas e relatórios', 'Anti noshow', '1 número de WhatsApp'] },
-  { id: 'pro', name: 'ZAAPPLY GROWTH', price: 497, popular: true, features: ['Tudo do Start', 'Google Calendar integrado', 'Follow-up e remarketing', 'Rastreio de anúncios'] },
+  { id: 'pro', name: 'ZAAPPLY GROWTH', price: 497, popular: true, features: ['Tudo do Start', 'Google Calendar integrado', 'Follow-up e remarketing', 'Rastreio de anúncios (Meta Ads)'] },
 ];
 
 /** Guardado em companies.onboarding. Empresas antigas têm {} e não veem nada disso. */
