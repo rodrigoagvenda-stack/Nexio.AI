@@ -53,11 +53,11 @@ function AskPanel({ agent }: { agent: string }) {
   }
 
   return (
-    <aside className={cn(CARD, 'flex w-full shrink-0 flex-col xl:w-[380px]')}>
+    <aside className={cn(CARD, 'flex min-h-0 w-full shrink-0 flex-col xl:h-full xl:w-[380px]')}>
       <div className="flex flex-col gap-2 border-b border-border px-6 py-5"><h3 className="text-xl font-semibold text-foreground">Pergunte à {agent}</h3><p className="text-[15px] leading-[150%] text-muted-foreground">Veja como ela responde com o que está na base. Nada é enviado a clientes.</p></div>
       <div className="flex flex-col gap-3 border-b border-border px-6 py-4"><p className="text-[13px] text-muted-foreground">Experimente perguntar</p>
         <div className="flex flex-wrap gap-2">{SUGGESTIONS.map((s) => <button key={s} type="button" onClick={() => void ask(s)} className="rounded-full bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent">{s}</button>)}</div></div>
-      <div className="flex min-h-[260px] flex-1 flex-col justify-end gap-3 overflow-y-auto px-6 py-5" aria-live="polite">
+      <div className="flex min-h-[200px] flex-1 flex-col justify-end gap-3 overflow-y-auto px-6 py-5" aria-live="polite">
         {msgs.map((m, i) => m.from === 'note' ? <p key={i} className="self-center rounded-full bg-muted px-4 py-1.5 text-center text-xs text-muted-foreground">{m.text}</p>
           : m.from === 'agent' ? <div key={i} className="max-w-[92%] self-start rounded-xl rounded-tl-sm bg-[#E4F1E9] px-4 py-3 dark:bg-[#12301F]"><p className="mb-1 text-xs font-semibold text-[#01573C] dark:text-[#96F63C]">{agent}</p><p className="whitespace-pre-wrap text-[15px] leading-[150%] text-foreground">{m.text}</p></div>
           : <div key={i} className="max-w-[92%] self-end rounded-xl rounded-tr-sm bg-muted px-4 py-3 text-[15px] leading-[150%] text-foreground dark:bg-[#1E1E1E]">{m.text}</div>)}
@@ -82,6 +82,22 @@ export function SdrConhecimento({ persona, flowId, agentActive, onReload }: { pe
   const [saving, setSaving] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [page, setPage] = useState(0);
+  const holder = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number | undefined>(undefined);
+
+  // Em tela larga, a base ocupa a altura que sobra (sem estourar a página); em tela estreita, empilha
+  useEffect(() => {
+    const fit = () => {
+      const el = holder.current;
+      if (!el || window.innerWidth < 1280) { setHeight(undefined); return; }
+      setHeight(Math.max(560, Math.floor(window.innerHeight - el.getBoundingClientRect().top - 24)));
+    };
+    fit();
+    const t = setTimeout(fit, 300);
+    window.addEventListener('resize', fit);
+    return () => { window.removeEventListener('resize', fit); clearTimeout(t); };
+  }, [groups]);
 
   const load = useCallback(async () => {
     try {
@@ -104,6 +120,10 @@ export function SdrConhecimento({ persona, flowId, agentActive, onReload }: { pe
   const topics = g?.topics ?? [];
   const topic = topics[Math.min(sel, topics.length - 1)];
   const idx = Math.min(sel, Math.max(0, topics.length - 1));
+  const PER_PAGE = 7;
+  const pages = Math.max(1, Math.ceil(topics.length / PER_PAGE));
+  const curPage = Math.min(page, pages - 1);
+  const visible = topics.map((t, i) => ({ t, i })).slice(curPage * PER_PAGE, (curPage + 1) * PER_PAGE);
   const isEdited = (i: number) => { const o = saved?.topics.find((_, k) => k === i); return !o || !same(o, topics[i]); };
   const total = groups.reduce((n, x) => n + x.topics.length, 0);
   const dirtyGroup = !same(saved?.topics ?? [], topics);
@@ -126,17 +146,17 @@ export function SdrConhecimento({ persona, flowId, agentActive, onReload }: { pe
   const empty = total === 0;
 
   return (
-    <div className="flex flex-col gap-6 xl:flex-row xl:items-stretch">
-      <aside className={cn(CARD, 'flex min-h-[640px] w-full shrink-0 flex-col xl:w-[360px]')}>
+    <div ref={holder} style={{ height }} className="flex flex-col gap-6 xl:flex-row xl:items-stretch">
+      <aside className={cn(CARD, 'flex min-h-[560px] w-full shrink-0 flex-col xl:h-full xl:min-h-0 xl:w-[360px]')}>
         <div className="flex flex-col gap-2 px-6 pb-3 pt-6"><h3 className="text-xl font-semibold text-foreground">O que a {agent} sabe</h3><p className="text-[15px] leading-[150%] text-muted-foreground">Textos que ela consulta para responder o lead. Se a resposta não estiver aqui, ela passa a conversa para uma pessoa.</p></div>
         <div className="flex flex-col gap-1 px-4 pb-2">
           {(['conhecimento', 'objecoes'] as const).map((k) => (
-            <button key={k} type="button" aria-pressed={kind === k} onClick={() => { setKind(k); setSel(0); }} className={cn('flex items-center justify-between rounded-xl px-3.5 py-3 text-left text-[15px] transition-colors', kind === k ? 'bg-[#E4F1E9] font-semibold dark:bg-[#12301F]' : 'hover:bg-muted')}><span className="text-foreground">{KIND_LABEL[k]}</span><span className="tabular-nums text-muted-foreground">{groups.find((x) => x.kind === k)?.topics.length ?? 0}</span></button>
+            <button key={k} type="button" aria-pressed={kind === k} onClick={() => { setKind(k); setSel(0); setPage(0); }} className={cn('flex items-center justify-between rounded-xl px-3.5 py-3 text-left text-[15px] transition-colors', kind === k ? 'bg-[#E4F1E9] font-semibold dark:bg-[#12301F]' : 'hover:bg-muted')}><span className="text-foreground">{KIND_LABEL[k]}</span><span className="tabular-nums text-muted-foreground">{groups.find((x) => x.kind === k)?.topics.length ?? 0}</span></button>
           ))}
         </div>
         <div className="mx-6 my-2 border-t border-border" />
         <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-4 pb-3">
-          {topics.map((t, i) => (
+          {visible.map(({ t, i }) => (
             <button key={i} type="button" aria-current={i === idx ? 'true' : undefined} onClick={() => setSel(i)} className={cn('flex flex-col gap-0.5 rounded-xl px-3.5 py-3 text-left transition-colors', i === idx ? 'bg-[#E4F1E9] dark:bg-[#12301F]' : 'hover:bg-muted')}>
               <span className="flex items-center gap-2 text-[15px] font-semibold text-foreground"><span className="truncate">{t.title}</span>{isEdited(i) && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#F5B544]" aria-label="Editado" />}</span>
               <span className="truncate text-[13px] text-muted-foreground">{t.body.split('\n')[0]}</span>
@@ -144,13 +164,22 @@ export function SdrConhecimento({ persona, flowId, agentActive, onReload }: { pe
           ))}
           {topics.length === 0 && <p className="px-3.5 py-4 text-sm text-muted-foreground">Nada aqui ainda.</p>}
         </div>
+        {topics.length > PER_PAGE && (
+          <div className="flex items-center justify-between gap-2 border-t border-border px-4 py-3 text-[13px] text-muted-foreground">
+            <span>{curPage * PER_PAGE + 1} a {Math.min((curPage + 1) * PER_PAGE, topics.length)} de {topics.length}</span>
+            <div className="flex items-center gap-1.5">
+              <button type="button" disabled={curPage === 0} onClick={() => setPage(curPage - 1)} className="rounded-full bg-muted px-3.5 py-1.5 font-medium transition-colors enabled:hover:text-foreground disabled:opacity-50">Anterior</button>
+              <button type="button" disabled={curPage >= pages - 1} onClick={() => setPage(curPage + 1)} className="rounded-full bg-muted px-3.5 py-1.5 font-semibold text-foreground transition-colors enabled:hover:bg-accent disabled:opacity-50">Próxima</button>
+            </div>
+          </div>
+        )}
         <div className="flex flex-col gap-2 p-4">
-          <button type="button" disabled={!flowId} onClick={() => { upd((t) => { t.push({ header: '', title: 'Novo assunto', body: '' }); }); setSel(topics.length); }} className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border py-3 text-sm font-semibold text-[#01573C] hover:bg-muted disabled:opacity-50 dark:text-[#96F63C]"><Plus className="h-4 w-4" />Adicionar assunto</button>
+          <button type="button" disabled={!flowId} onClick={() => { upd((t) => { t.push({ header: '', title: 'Novo assunto', body: '' }); }); setSel(topics.length); setPage(Math.floor(topics.length / PER_PAGE)); }} className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border py-3 text-sm font-semibold text-[#01573C] hover:bg-muted disabled:opacity-50 dark:text-[#96F63C]"><Plus className="h-4 w-4" />Adicionar assunto</button>
           <button type="button" disabled={!flowId} onClick={() => setAssistantOpen(true)} className="flex items-center justify-center gap-2 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground disabled:opacity-50"><Sparkles className="h-4 w-4" />{empty ? 'Criar a base com o assistente' : 'Refazer a base com o assistente'}</button>
         </div>
       </aside>
 
-      <section className={cn(CARD, 'flex min-h-[640px] min-w-0 flex-1 flex-col gap-6 px-9 py-8')}>
+      <section className={cn(CARD, 'flex min-h-[560px] min-w-0 flex-1 flex-col gap-6 px-9 py-8 xl:h-full xl:min-h-0')}>
         {empty && !dirtyGroup ? (
           <div className="flex flex-1 flex-col items-start justify-center gap-4">
             <h3 className="text-[28px] font-semibold tracking-tight text-foreground">A base da {agent} está vazia</h3>
@@ -164,9 +193,9 @@ export function SdrConhecimento({ persona, flowId, agentActive, onReload }: { pe
               <input aria-label="Nome do assunto" value={topic.title} onChange={(e) => upd((t) => { t[idx].title = e.target.value; })} className="w-full bg-transparent text-[28px] font-semibold leading-8 tracking-tight text-foreground outline-none" />
               <p className="text-[15px] text-muted-foreground">A {agent} usa este texto quando o lead pergunta sobre este assunto.</p>
             </div>
-            <div className="flex flex-col gap-2.5">
+            <div className="flex min-h-0 flex-1 flex-col gap-2.5">
               <label htmlFor="kn-body" className="text-lg font-semibold text-foreground">O que está escrito</label>
-              <textarea id="kn-body" rows={14} value={topic.body} onChange={(e) => upd((t) => { t[idx].body = e.target.value; })} className={cn(INPUT, 'resize-y text-base leading-[170%]', isEdited(idx) && 'border-[#F5B544] focus:border-[#F5B544] dark:border-[#F5B544] dark:focus:border-[#F5B544]')} />
+              <textarea id="kn-body" rows={10} value={topic.body} onChange={(e) => upd((t) => { t[idx].body = e.target.value; })} className={cn(INPUT, 'min-h-[180px] flex-1 resize-none text-base leading-[170%]', isEdited(idx) && 'border-[#F5B544] focus:border-[#F5B544] dark:border-[#F5B544] dark:focus:border-[#F5B544]')} />
               {saved?.updatedAt && <p className="text-sm text-muted-foreground">Última alteração em {dm(saved.updatedAt)}</p>}
             </div>
             <div className="mt-auto flex flex-wrap items-center gap-3">
