@@ -29,20 +29,6 @@ interface SalesFunnelTabsProps {
   until?: Date;
 }
 
-const NOSHOW_STAGES = [
-  { label: '24h antes',   keys: ['24h', '24h_antes', 'antecipacao', '24'] },
-  { label: '2h antes',    keys: ['2h', '2h_antes', 'reforco'] },
-  { label: '15min antes', keys: ['15min', '15min_antes', '15'] },
-  { label: '5min após',   keys: ['5min', '5min_apos', '5min_após', 'resgate', '5'] },
-];
-
-function resolveNoshowCount(counts: Record<string, number>, keys: string[]): number {
-  for (const [k, v] of Object.entries(counts)) {
-    if (keys.some(key => k.toLowerCase().includes(key.toLowerCase()))) return v;
-  }
-  return 0;
-}
-
 const chartConfig = {
   quantidade: {
     label: 'Leads',
@@ -156,14 +142,18 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0
     fetch(`/api/reports/promocoes?${q}`).then((r) => (r.ok ? r.json() : null)).then(setPromo).catch(() => setPromo(null)).finally(() => setPromoLoading(false));
   }, [activeTab, since, until, promoId]);
 
-  const salesData = stages.map(s => ({ name: s.label, quantidade: s.count }));
-  const noshowData = NOSHOW_STAGES.map(s => ({
-    name: s.label,
-    quantidade: resolveNoshowCount(antiNoshowCounts, s.keys),
-  }));
+  const [follow, setFollow] = useState<Record<string, FollowTipo | null>>({});
+  const [followLoading, setFollowLoading] = useState(false);
 
-  const hasAntiNoshow = noshowData.some(d => d.quantidade > 0);
-  const hasRemarketing = remarketingCount > 0;
+  useEffect(() => {
+    if ((activeTab !== 'noshow' && activeTab !== 'remarketing') || !since || !until) return;
+    const tipo = activeTab === 'noshow' ? 'anti_noshow' : 'remarketing';
+    setFollowLoading(true);
+    const q = new URLSearchParams({ tipo, since: since.toISOString().slice(0, 10), until: until.toISOString().slice(0, 10) });
+    fetch(`/api/reports/follow-tipo?${q}`).then((r) => (r.ok ? r.json() : null)).then((d) => setFollow((f) => ({ ...f, [tipo]: d }))).catch(() => setFollow((f) => ({ ...f, [tipo]: null }))).finally(() => setFollowLoading(false));
+  }, [activeTab, since, until]);
+
+  const salesData = stages.map(s => ({ name: s.label, quantidade: s.count }));
 
   const visibleTabs = (Object.keys(TAB_LABELS) as TabValue[]).filter(t => {
     if (t === 'noshow' && !showAntiNoshow) return false;
@@ -222,31 +212,22 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0
               )
             )}
 
-            {activeTab === 'noshow' && (
-              !hasAntiNoshow ? (
-                <EmptyState
-                  message="Nenhum disparo Anti Noshow no período"
-                  detail="Configure sequências de Anti Noshow em Automações para reduzir faltas."
-                  href="/configuracoes/follow"
-                  cta="Configurar automação"
-                />
-              ) : (
-                <HorizontalBars data={noshowData} />
-              )
-            )}
-
-            {activeTab === 'remarketing' && (
-              !hasRemarketing ? (
-                <EmptyState
-                  message="Nenhum lead de remarketing no período"
-                  detail="Configure sequências de remarketing para reativar leads perdidos."
-                  href="/configuracoes/follow"
-                  cta="Configurar remarketing"
-                />
-              ) : (
-                <HorizontalBars data={[{ name: 'Remarketing', quantidade: remarketingCount }]} />
-              )
-            )}
+            {(activeTab === 'noshow' || activeTab === 'remarketing') && (() => {
+              const isNoshow = activeTab === 'noshow';
+              const d = follow[isNoshow ? 'anti_noshow' : 'remarketing'];
+              if (followLoading && !d) return <div className="h-[240px] animate-pulse rounded-xl bg-muted" />;
+              if (!d || !d.configured || d.messages === 0) {
+                return (
+                  <EmptyState
+                    message={isNoshow ? 'Nenhum disparo Anti noshow no período' : 'Nenhum disparo de remarketing no período'}
+                    detail={isNoshow ? 'Configure sequências de Anti noshow em Automações para reduzir faltas.' : 'Configure sequências de remarketing para reativar leads perdidos.'}
+                    href="/configuracoes/follow"
+                    cta={isNoshow ? 'Configurar automação' : 'Configurar remarketing'}
+                  />
+                );
+              }
+              return <FollowPanel data={d} noshow={isNoshow} since={since} until={until} />;
+            })()}
             {activeTab === 'promocoes' && (
               promoLoading && !promo ? (
                 <div className="h-[240px] animate-pulse rounded-xl bg-muted" />
@@ -305,6 +286,35 @@ function PromoPanel({ data, since, until }: { data: NonNullable<PromoData['selec
         <div className="flex flex-col gap-4">
           <div className="flex flex-1 flex-col gap-2 rounded-xl border border-border bg-muted/40 p-6 dark:bg-[#141414]"><span className="text-xs font-semibold tracking-[0.1em] text-muted-foreground">MENSAGENS ENVIADAS</span><span className="text-[40px] font-semibold leading-[44px] tracking-tight text-foreground">{data.messages}</span><span className="text-[13px] text-muted-foreground">Passos da sequência enviados aos {data.dispatched} leads</span></div>
           <div className="flex flex-1 flex-col gap-2 rounded-xl border border-border bg-muted/40 p-6 dark:bg-[#141414]"><span className="text-xs font-semibold tracking-[0.1em] text-muted-foreground">VALOR VENDIDO</span><span className="text-[40px] font-semibold leading-[44px] tracking-tight text-foreground">{brl(data.value)}</span><span className="text-[13px] text-muted-foreground">Soma dos fechamentos depois do primeiro disparo</span></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface FollowTipo { configured: boolean; steps: { label: string; sent: number }[]; leads: number; messages: number; responded: number }
+
+function FollowPanel({ data, noshow, since, until }: { data: FollowTipo; noshow: boolean; since?: Date; until?: Date }) {
+  const max = Math.max(1, ...data.steps.map((s) => s.sent));
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-sm text-muted-foreground">{noshow ? 'Lembretes enviados antes e depois da call' : 'Mensagens de reativação enviadas'}, de {dmy(since)} a {dmy(until)}.</p>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <div className="flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-6 dark:bg-[#141414]">
+          <span className="text-xs font-semibold tracking-[0.1em] text-muted-foreground">{noshow ? 'ENVIOS POR LEMBRETE' : 'ENVIOS POR PASSO'}</span>
+          {data.steps.map((s) => (
+            <div key={s.label} className="flex items-center gap-4">
+              <span className="w-[92px] shrink-0 text-right text-sm font-semibold text-foreground">{s.label}</span>
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <div className="h-9 rounded-md bg-[#01573C]/70 dark:bg-[#1F5A3D]" style={{ width: `${Math.max(s.sent > 0 ? 6 : 0.6, Math.round((s.sent / max) * 100))}%`, minWidth: 3 }} />
+                <span className="text-xl font-semibold text-foreground">{s.sent}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-1 flex-col gap-2 rounded-xl border border-border bg-muted/40 p-6 dark:bg-[#141414]"><span className="text-xs font-semibold tracking-[0.1em] text-muted-foreground">LEADS ALCANÇADOS</span><span className="text-[40px] font-semibold leading-[44px] tracking-tight text-foreground">{data.leads}</span><span className="text-[13px] text-muted-foreground">{data.messages} mensagens enviadas</span></div>
+          <div className="flex flex-1 flex-col gap-2 rounded-xl border border-border bg-muted/40 p-6 dark:bg-[#141414]"><span className="text-xs font-semibold tracking-[0.1em] text-muted-foreground">RESPONDERAM</span><span className="text-[40px] font-semibold leading-[44px] tracking-tight text-foreground">{data.responded}</span><span className="text-[13px] text-muted-foreground">{pct(data.responded, data.leads)}% dos leads alcançados responderam depois do primeiro envio</span></div>
         </div>
       </div>
     </div>
