@@ -19,7 +19,7 @@ interface ClosedLead {
 
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '');
 
-export function RecentSales() {
+export function RecentSales({ since, until }: { since?: Date; until?: Date }) {
   const router = useRouter();
   const [leads, setLeads] = useState<ClosedLead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,28 +48,33 @@ export function RecentSales() {
     })();
   }, []);
 
-  const total = leads.reduce((s, l) => s + (l.project_value || 0), 0);
+  const inRange = leads.filter((l) => {
+    if (!since || !until) return true;
+    const t = new Date(l.closed_at ?? l.updated_at).getTime();
+    return t >= since.getTime() && t <= until.getTime();
+  });
+  const total = inRange.reduce((s, l) => s + (l.project_value || 0), 0);
 
   return (
     <section className="flex h-full min-h-0 flex-col gap-4 rounded-[14px] border border-border bg-card px-6 py-6">
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h3 className="text-xl font-semibold text-foreground">Vendas recentes</h3>
-          <p className="text-[13px] text-muted-foreground">Últimas vendas fechadas, da mais nova para a mais antiga</p>
+          <p className="text-[13px] text-muted-foreground">Vendas fechadas no período, da mais nova para a mais antiga</p>
         </div>
-        {!loading && leads.length > 0 && (
+        {!loading && inRange.length > 0 && (
           <div className="flex shrink-0 flex-col items-end gap-0.5">
             <span className="text-xl font-semibold text-[#01573C] dark:text-[#96F63C]">{formatCurrency(total)}</span>
-            <span className="text-[13px] text-muted-foreground">{leads.length} {leads.length === 1 ? 'venda' : 'vendas'}</span>
+            <span className="text-[13px] text-muted-foreground">{inRange.length} {inRange.length === 1 ? 'venda' : 'vendas'}</span>
           </div>
         )}
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-0.5">
         {loading ? (
           [...Array(4)].map((_, i) => <div key={i} className="h-[68px] animate-pulse rounded-xl bg-muted" />)
-        ) : leads.length === 0 ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">Nenhuma venda fechada ainda.</p>
-        ) : leads.map((l) => {
+        ) : inRange.length === 0 ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">Nenhuma venda fechada neste período.</p>
+        ) : inRange.map((l) => {
           const when = l.closed_at ?? l.updated_at;
           return (
             <button key={l.id} type="button" onClick={() => router.push('/crm')} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3 text-left transition-colors hover:bg-muted dark:bg-[#181818] dark:hover:bg-[#1E1E1E]">

@@ -2,17 +2,26 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { MessageCircle, ArrowRight, Loader2 } from 'lucide-react';
+import { MessageCircle, ArrowRight, Loader2, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ymd } from '@/lib/utils/ymd';
 
-interface Stage { key: string; label: string; count: number; cost_per_unit_cents: number | null; group: 'funil' | 'profundidade' }
-interface Resp { stages: Stage[]; total_spend_cents?: number; total_clicks?: number; note?: string }
+interface Stage { key: string; label: string; count: number }
+interface Depth { total: number; lead_2: number; lead_3: number; lead_5: number; lead_10: number }
+interface Resp {
+  stages: Stage[]
+  total_spend_cents?: number
+  conversation_spend_cents?: number
+  other_spend_cents?: number
+  link_clicks?: number
+  depth?: Depth | null
+  note?: string
+}
 
 const brl = (cents: number) => (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const n = (v: number) => v.toLocaleString('pt-BR');
 const dm = (d?: Date) => (d ? d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '') : '');
 const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) : 0);
-const depthLabel = (label: string) => label.replace('Mensagens com ', '');
 
 function Connector({ label }: { label: string }) {
   return (
@@ -30,7 +39,7 @@ export function AdConversations({ since, until }: { since?: Date; until?: Date }
   useEffect(() => {
     if (!since || !until) return;
     setLoading(true);
-    const q = new URLSearchParams({ since: since.toISOString().slice(0, 10), until: until.toISOString().slice(0, 10) });
+    const q = new URLSearchParams({ since: ymd(since), until: ymd(until) });
     fetch(`/api/reports/message-funnel?${q}`).then((r) => (r.ok ? r.json() : null)).then(setData).catch(() => setData(null)).finally(() => setLoading(false));
   }, [since, until]);
 
@@ -38,20 +47,28 @@ export function AdConversations({ since, until }: { since?: Date; until?: Date }
   const get = (k: string) => stages.find((s) => s.key === k);
   const started = get('conversas_iniciadas')?.count ?? 0;
   const replied = get('primeira_resposta')?.count ?? 0;
-  const depth = stages.filter((s) => s.group === 'profundidade');
-  const depthMax = Math.max(1, ...depth.map((s) => s.count));
-  const clicks = data?.total_clicks ?? 0;
+  const linkClicks = data?.link_clicks ?? 0;
   const spend = data?.total_spend_cents ?? 0;
+  const convSpend = data?.conversation_spend_cents ?? 0;
+  const otherSpend = data?.other_spend_cents ?? 0;
+  const depth = data?.depth && data.depth.total > 0 ? data.depth : null;
   const has = stages.some((s) => s.count > 0) || spend > 0;
   const card = 'flex flex-col gap-2 rounded-xl border border-border bg-muted/40 px-6 py-5 dark:bg-[#141414]';
   const cap = 'text-xs font-semibold tracking-[0.1em] text-muted-foreground';
+  const bars = depth ? [
+    { label: 'Conversas do anúncio', v: depth.total },
+    { label: '2 ou mais respostas', v: depth.lead_2 },
+    { label: '3 ou mais', v: depth.lead_3 },
+    { label: '5 ou mais', v: depth.lead_5 },
+    { label: '10 ou mais', v: depth.lead_10 },
+  ] : [];
 
   return (
     <section className="flex h-full flex-col gap-5 rounded-[14px] border border-border bg-card px-7 py-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-3.5">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#01573C]/10 dark:bg-[#96F63C]/[0.12]"><MessageCircle className="h-5 w-5 text-[#01573C] dark:text-[#96F63C]" /></span>
-          <div className="flex flex-col gap-0.5"><h3 className="text-xl font-semibold text-foreground">Conversas do anúncio</h3><p className="text-[13px] text-muted-foreground">Dados da conta de anúncio da Meta, de {dm(since)} a {dm(until)}</p></div>
+          <div className="flex flex-col gap-0.5"><h3 className="text-xl font-semibold text-foreground">Conversas do anúncio</h3><p className="text-[13px] text-muted-foreground">Gasto e cliques vêm da conta de anúncio da Meta, de {dm(since)} a {dm(until)}</p></div>
         </div>
         {has && spend > 0 && <span className="flex items-center gap-2.5 rounded-full bg-muted px-4 py-2 text-[13px] text-muted-foreground dark:bg-[#181818]">Investido <span className="text-[15px] font-semibold text-foreground">{brl(spend)}</span></span>}
       </div>
@@ -67,22 +84,27 @@ export function AdConversations({ since, until }: { since?: Date; until?: Date }
       ) : (
         <>
           <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr_auto_1fr] lg:items-stretch">
-            <div className={card}><span className={cap}>CLIQUES NO ANÚNCIO</span><span className="text-[40px] font-semibold leading-[44px] tracking-tight text-foreground">{n(clicks)}</span><span className="text-[13px] text-muted-foreground">{clicks > 0 && spend > 0 ? `${brl(Math.round(spend / clicks))} por clique` : 'Sem cliques no período'}</span></div>
-            <Connector label={`${pct(started, clicks)}% viram conversa`} />
-            <div className={card}><span className={cap}>CONVERSAS INICIADAS</span><span className="text-[40px] font-semibold leading-[44px] tracking-tight text-foreground">{n(started)}</span><span className="text-[13px] text-muted-foreground">{started > 0 && spend > 0 ? `${brl(Math.round(spend / started))} por conversa` : 'Nenhuma conversa iniciada'}</span></div>
+            <div className={card}><span className={cap}>CLIQUES NO LINK DO ANÚNCIO</span><span className="text-[40px] font-semibold leading-[44px] tracking-tight text-foreground">{n(linkClicks)}</span><span className="text-[13px] text-muted-foreground">{linkClicks > 0 && convSpend > 0 ? `${brl(Math.round(convSpend / linkClicks))} por clique` : 'Sem cliques no período'}</span></div>
+            <Connector label={`${pct(started, linkClicks)}% viram conversa`} />
+            <div className={card}><span className={cap}>CONVERSAS INICIADAS</span><span className="text-[40px] font-semibold leading-[44px] tracking-tight text-foreground">{n(started)}</span><span className="text-[13px] text-muted-foreground">{started > 0 && convSpend > 0 ? `${brl(Math.round(convSpend / started))} por conversa` : 'Nenhuma conversa iniciada'}</span></div>
             <Connector label={`${pct(replied, started)}% respondidas`} />
-            <div className={cn(card, 'border-[#01573C]/30 bg-[#E4F1E9] dark:border-[#96F63C]/25 dark:bg-[#12301F]')}><span className="text-xs font-semibold tracking-[0.1em] text-[#01573C] dark:text-[#96F63C]">PRIMEIRA RESPOSTA</span><span className="text-[40px] font-semibold leading-[44px] tracking-tight text-foreground">{n(replied)}</span><span className="text-[13px] text-foreground/80">{started > 0 && replied >= started ? 'A empresa respondeu a todas' : started > 0 ? `${n(started - replied)} ainda sem resposta da empresa` : 'Sem conversas para responder'}</span></div>
+            <div className={cn(card, 'border-[#01573C]/30 bg-[#E4F1E9] dark:border-[#96F63C]/25 dark:bg-[#12301F]')}><span className="text-xs font-semibold tracking-[0.1em] text-[#01573C] dark:text-[#96F63C]">PRIMEIRA RESPOSTA</span><span className="text-[40px] font-semibold leading-[44px] tracking-tight text-foreground">{n(replied)}</span><span className="text-[13px] text-foreground/80">{started > 0 ? `${n(replied)} de ${n(started)} conversas respondidas pela empresa, segundo a Meta` : 'Sem conversas para responder'}</span></div>
           </div>
 
-          {depth.length > 0 && (
-            <div className="grid flex-1 gap-6 rounded-xl border border-border bg-muted/40 px-7 py-6 dark:bg-[#141414] lg:grid-cols-[1fr_1.4fr]">
-              <div className="flex flex-col gap-2"><span className={cap}>QUALIDADE DAS CONVERSAS</span><p className="text-xl font-semibold text-foreground">Quanto o lead conversa depois de entrar</p><p className="text-[13px] leading-[150%] text-muted-foreground">Conta trocas de mensagem, não pessoas. Quanto mais trocas, mais interesse real no que você vende.</p></div>
-              <div className="flex items-end justify-around gap-4 pt-4">
-                {depth.map((s) => (
-                  <div key={s.key} className="flex flex-col items-center gap-2">
-                    <span className="text-xl font-semibold text-foreground">{n(s.count)}</span>
-                    <div className="w-16 rounded-t-md bg-[#01573C]/70 dark:bg-[#1F5A3D]" style={{ height: Math.max(8, Math.round((s.count / depthMax) * 120)) }} />
-                    <span className="text-[13px] text-muted-foreground">{depthLabel(s.label)}</span>
+          {otherSpend > 0 && (
+            <p className="flex items-start gap-2.5 text-[13px] leading-[150%] text-muted-foreground"><Info className="mt-0.5 h-4 w-4 shrink-0" />{brl(otherSpend)} do investimento foram para campanhas que não levam ao WhatsApp (como visitas ao perfil). Esse valor entra em Investido, mas fica fora do custo por clique e por conversa.</p>
+          )}
+
+          {depth && (
+            <div className="grid flex-1 gap-6 rounded-xl border border-border bg-muted/40 px-7 py-6 dark:bg-[#141414] lg:grid-cols-[1fr_1.6fr]">
+              <div className="flex flex-col gap-2"><span className={cap}>QUALIDADE DAS CONVERSAS</span><p className="text-xl font-semibold text-foreground">Quanto o lead conversa depois de entrar</p><p className="text-[13px] leading-[150%] text-muted-foreground">Conta conversas do anúncio em que o lead respondeu várias vezes. Medido no Zaapply, conversa por conversa. Quanto mais respostas, mais interesse real no que você vende.</p></div>
+              <div className="flex items-end justify-around gap-3 pt-4">
+                {bars.map((b, i) => (
+                  <div key={b.label} className="flex flex-col items-center gap-2">
+                    <span className="text-xl font-semibold text-foreground">{n(b.v)}</span>
+                    <span className="text-xs font-semibold text-[#01573C] dark:text-[#96F63C]">{i === 0 ? '100%' : `${pct(b.v, depth.total)}%`}</span>
+                    <div className={cn('w-14 rounded-t-md', i === 0 ? 'bg-[#01573C] dark:bg-[#5BBE7E]' : 'bg-[#01573C]/70 dark:bg-[#1F5A3D]')} style={{ height: Math.max(8, Math.round((b.v / Math.max(1, depth.total)) * 120)) }} />
+                    <span className="max-w-[88px] text-center text-[13px] leading-tight text-muted-foreground">{b.label}</span>
                   </div>
                 ))}
               </div>

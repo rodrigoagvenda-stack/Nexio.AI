@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { motion } from 'framer-motion';
 import { Bell, ArrowRight, ChevronDown, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ymd } from '@/lib/utils/ymd';
 import Link from 'next/link';
 import { Bar, BarChart, XAxis, YAxis } from 'recharts';
 import {
@@ -137,7 +138,7 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0
   useEffect(() => {
     if (activeTab !== 'promocoes' || !since || !until) return;
     setPromoLoading(true);
-    const q = new URLSearchParams({ since: since.toISOString().slice(0, 10), until: until.toISOString().slice(0, 10) });
+    const q = new URLSearchParams({ since: ymd(since), until: ymd(until) });
     if (promoId) q.set('sequence_id', promoId);
     fetch(`/api/reports/promocoes?${q}`).then((r) => (r.ok ? r.json() : null)).then(setPromo).catch(() => setPromo(null)).finally(() => setPromoLoading(false));
   }, [activeTab, since, until, promoId]);
@@ -149,7 +150,7 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0
     if ((activeTab !== 'noshow' && activeTab !== 'remarketing') || !since || !until) return;
     const tipo = activeTab === 'noshow' ? 'anti_noshow' : 'remarketing';
     setFollowLoading(true);
-    const q = new URLSearchParams({ tipo, since: since.toISOString().slice(0, 10), until: until.toISOString().slice(0, 10) });
+    const q = new URLSearchParams({ tipo, since: ymd(since), until: ymd(until) });
     fetch(`/api/reports/follow-tipo?${q}`).then((r) => (r.ok ? r.json() : null)).then((d) => setFollow((f) => ({ ...f, [tipo]: d }))).catch(() => setFollow((f) => ({ ...f, [tipo]: null }))).finally(() => setFollowLoading(false));
   }, [activeTab, since, until]);
 
@@ -202,13 +203,16 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0
             {activeTab === 'vendas' && (
               salesData.every(d => d.quantidade === 0) ? (
                 <EmptyState
-                  message="Nenhum lead no funil ainda"
-                  detail="Leads criados no CRM aparecem aqui por etapa."
+                  message="Nenhum lead entrou neste período"
+                  detail="Leads criados no CRM no período escolhido aparecem aqui por etapa."
                   href="/crm"
                   cta="Abrir CRM"
                 />
               ) : (
-                <HorizontalBars data={salesData} />
+                <div className="flex flex-col gap-3">
+                  <p className="text-sm text-muted-foreground">Leads que entraram no período, por etapa em que estão agora.</p>
+                  <HorizontalBars data={salesData} />
+                </div>
               )
             )}
 

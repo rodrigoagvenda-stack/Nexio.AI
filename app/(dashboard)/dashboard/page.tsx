@@ -16,6 +16,7 @@ import { ConversionDonut } from '@/components/dashboard/ConversionDonut';
 import { SalesFunnelTabs } from '@/components/dashboard/SalesFunnelTabs';
 import { RecentSales } from '@/components/dashboard/RecentSales';
 import { AdConversations } from '@/components/dashboard/AdConversations';
+import { AdRanking } from '@/components/dashboard/AdRanking';
 import { useFeatures } from '@/components/layout/FeaturesProvider';
 import { FirstStepsCard } from '@/components/onboarding/FirstStepsCard';
 import { FunilTab } from '@/components/dashboard/FunilTab';
@@ -327,19 +328,20 @@ export default function DashboardPage() {
   }, [selectedPeriod, dateRange, filteredLeads, leadsClosedInPeriod]);
 
   // ── Radial conversion (period-based) ─────────────────────────────────────
-  const allFechados = leads.filter(l => l.status === 'Fechado').length;
   const radialEmAndamento = filteredLeads.filter(l => l.status !== 'Fechado' && l.status !== 'Perdido').length;
 
   // ── Funnel (current pipeline state) ──────────────────────────────────────
-  const remarketingCount = leads.filter(l => l.status === 'Remarketing').length;
+  // O funil respeita o período: leads que entraram no período, contados pela etapa em que estão agora.
+  const funnelCount = (status: string) => filteredLeads.filter(l => l.status === status).length;
+  const remarketingCount = funnelCount('Remarketing');
   const funnelStages = [
-    { label: 'Triagem',          count: activeLeads.filter(l => l.status === 'Triagem').length,          color: 'bg-slate-500' },
-    { label: 'Lead novo',        count: activeLeads.filter(l => l.status === 'Lead novo').length,        color: 'bg-blue-500' },
-    { label: 'Em contato',       count: activeLeads.filter(l => l.status === 'Em contato').length,       color: 'bg-green-400' },
-    { label: 'Interessado',      count: activeLeads.filter(l => l.status === 'Interessado').length,      color: 'bg-green-500' },
-    { label: 'Proposta enviada', count: activeLeads.filter(l => l.status === 'Proposta enviada').length, color: 'bg-green-600' },
+    { label: 'Triagem',          count: funnelCount('Triagem'),          color: 'bg-slate-500' },
+    { label: 'Lead novo',        count: funnelCount('Lead novo'),        color: 'bg-blue-500' },
+    { label: 'Em contato',       count: funnelCount('Em contato'),       color: 'bg-green-400' },
+    { label: 'Interessado',      count: funnelCount('Interessado'),      color: 'bg-green-500' },
+    { label: 'Proposta enviada', count: funnelCount('Proposta enviada'), color: 'bg-green-600' },
     { label: 'Remarketing',      count: remarketingCount,                                                  color: 'bg-amber-500' },
-    { label: 'Fechado',          count: allFechados,                                                       color: 'bg-zinc-700' },
+    { label: 'Fechado',          count: funnelCount('Fechado'),                                                 color: 'bg-zinc-700' },
   ];
 
   // ── Header date ───────────────────────────────────────────────────────────
@@ -501,13 +503,22 @@ export default function DashboardPage() {
             no desktop o card fica absoluto dentro da célula, então não conta pra altura do grid. */}
         <div className="relative h-[420px] lg:h-auto">
           <div className="h-full lg:absolute lg:inset-0">
-            <RecentSales />
+            <RecentSales since={currentRange?.from} until={currentRange?.to} />
           </div>
         </div>
       </div>
 
-      {/* Anúncios: conversas que vieram do anúncio (ranking por anúncio fora por enquanto, atribuição ainda não casa) */}
-      <AdConversations since={currentRange?.from} until={currentRange?.to} />
+      {/* Anúncios: conversas que vieram do anúncio e quais anúncios trazem mais */}
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 items-stretch">
+        <div className="lg:col-span-2">
+          <AdConversations since={currentRange?.from} until={currentRange?.to} />
+        </div>
+        <div className="relative h-[420px] lg:h-auto">
+          <div className="h-full lg:absolute lg:inset-0">
+            <AdRanking since={currentRange?.from} until={currentRange?.to} />
+          </div>
+        </div>
+      </div>
       </>
       )}
 

@@ -23,14 +23,14 @@ interface MetaInsightRow {
   actions?: unknown
 }
 
-// Achado ao vivo (Rodrigo, 2026-09-04) : "date_preset=yesterday" 1x/dia era
-// impreciso demais pra quem acompanha campanha no mesmo dia -- o gasto de
-// HOJE só apareceria amanhã. Agora busca uma janela rolante (hoje + 2 dias
-// anteriores) a cada execução : o upsert (onConflict company_id,ad_id,date)
-// reescreve os mesmos dias com o valor mais atual da Meta a cada rodada, sem
-// duplicar nada. Combinado com o cron rodando de hora em hora (não mais só
-// 1x/dia), o dado de hoje fica sempre razoavelmente fresco.
-function janelaRolante(dias = 3): { since: string; until: string } {
+// Janela de sincronização: 45 dias, todo ciclo. O upsert (onConflict company_id,ad_id,date) reescreve os dias
+// com o valor mais atual da Meta, então o dado de hoje fica fresco e dias que ficaram de fora (conta conectada
+// depois do início das campanhas, cron parado) são preenchidos sozinhos. Antes eram só 3 dias, e o gasto e as
+// conversas de 01 e 02/09 nunca entraram (Rodrigo, 2026-09-25: Gerenciador R$ 2.151 x Zaapply R$ 1.962).
+const JANELA_DIAS = 45
+const MAX_PAGINAS = 20
+
+function janelaRolante(dias = JANELA_DIAS): { since: string; until: string } {
   const hoje = new Date()
   const inicio = new Date(hoje)
   inicio.setDate(inicio.getDate() - (dias - 1))
@@ -42,35 +42,41 @@ async function fetchAdAccountInsights(adAccountId: string, token: string): Promi
   const fields = 'spend,impressions,clicks,campaign_id,campaign_name,ad_id,ad_name,actions'
   const { since, until } = janelaRolante()
   const timeRange = encodeURIComponent(JSON.stringify({ since, until }))
-  const url = `https://graph.facebook.com/v21.0/act_${adAccountId}/insights?level=ad&fields=${fields}&time_range=${timeRange}&time_increment=1&limit=500`
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-  const json = await res.json()
-  if (!res.ok) throw new Error(json?.error?.message ?? `Meta insights falhou (status ${res.status})`)
-  return (json.data ?? []) as MetaInsightRow[]
+  let url: string | null = `https://graph.facebook.com/v21.0/act_${adAccountId}/insights?level=ad&fields=${fields}&time_range=${timeRange}&time_increment=1&limit=500`
+  const all: MetaInsightRow[] = []
+  for (let page = 0; url && page < MAX_PAGINAS; page++) {
+    const res: Response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    const json = await res.json()
+    if (!res.ok) throw new Error(json?.error?.message ?? `Meta insights falhou (status ${res.status})`)
+    all.push(...((json.data ?? []) as MetaInsightRow[]))
+    url = json?.paging?.next ?? null
+  }
+  return all
 }
 
 async function syncCompany(companyId: number, adAccountId: string, token: string, supabase: Supabase): Promise<number> {
   const rows = await fetchAdAccountInsights(adAccountId, token)
+  const fetchedAt = new Date().toISOString()
+  const records = rows
+    .filter((row) => row.ad_id && row.date_start)
+    .map((row) => ({
+      company_id: companyId,
+      ad_id: row.ad_id,
+      ad_name: row.ad_name ?? null,
+      campaign_id: row.campaign_id ?? null,
+      campaign_name: row.campaign_name ?? null,
+      date: row.date_start,
+      spend_cents: Math.round(Number(row.spend ?? 0) * 100),
+      impressions: Number(row.impressions ?? 0),
+      clicks: Number(row.clicks ?? 0),
+      raw: row.actions ?? null,
+      fetched_at: fetchedAt,
+    }))
   let synced = 0
-  for (const row of rows) {
-    if (!row.ad_id || !row.date_start) continue
-    const { error } = await supabase.from('meta_ad_insights').upsert(
-      {
-        company_id: companyId,
-        ad_id: row.ad_id,
-        ad_name: row.ad_name ?? null,
-        campaign_id: row.campaign_id ?? null,
-        campaign_name: row.campaign_name ?? null,
-        date: row.date_start,
-        spend_cents: Math.round(Number(row.spend ?? 0) * 100),
-        impressions: Number(row.impressions ?? 0),
-        clicks: Number(row.clicks ?? 0),
-        raw: row.actions ?? null,
-        fetched_at: new Date().toISOString(),
-      },
-      { onConflict: 'company_id,ad_id,date' }
-    )
-    if (!error) synced++
+  for (let i = 0; i < records.length; i += 200) {
+    const chunk = records.slice(i, i + 200)
+    const { error } = await supabase.from('meta_ad_insights').upsert(chunk, { onConflict: 'company_id,ad_id,date' })
+    if (!error) synced += chunk.length
   }
   return synced
 }
