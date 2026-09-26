@@ -110,12 +110,14 @@ export async function POST(request: NextRequest) {
     // nessa conversa automaticamente : só volta a responder quando alguém
     // reativar de propósito (ou depois de 24h sem reativação, ver
     // PAUSE_AUTO_RELEASE_MS em engine.ts).
+    messageData.source = 'humano'
     const [{ data: savedMessage, error: messageError }] = await Promise.all([
       supabase.from('mensagens_do_whatsapp').insert(messageData).select().single(),
       supabase.from('conversas_do_whatsapp').update({
         ultima_mensagem: messageData.texto_da_mensagem,
         hora_da_ultima_mensagem: new Date().toISOString(),
         agente_pausado: true,
+        pause_reason: 'humano_assumiu',
         agente_pausado_em: new Date().toISOString(),
       }).eq('id', conversationId).eq('company_id', companyId),
     ])

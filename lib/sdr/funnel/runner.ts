@@ -165,6 +165,7 @@ async function execute(
         .from('conversas_do_whatsapp')
         .update({
           agente_pausado: true,
+          pause_reason: 'pausar_conversa',
           agente_pausado_em: new Date().toISOString(),
           current_status: 'livre',
           kanban_stage: 'fila',

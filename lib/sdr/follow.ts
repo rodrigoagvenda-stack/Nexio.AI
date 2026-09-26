@@ -13,6 +13,7 @@
  * - Credenciais: sdr_configs (decrypt) → platform_config (global) : sem process.env
  */
 
+import { auditarSaidaAutomacao } from './output-audit'
 import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
 import { getPlatformConfig } from '@/lib/platform-config'
@@ -763,6 +764,9 @@ export async function gravarMensagemFollow(
     return
   }
 
+  const origemMsg = tipo === 'remarketing' ? 'remarketing' : tipo === 'anti_noshow' ? 'antinoshow' : `follow:${tipo}`
+  await auditarSaidaAutomacao({ companyId, leadId, conversationId: convId, phone, text: displayText, source: origemMsg }, supabase)
+
   const { error: insertErr } = await supabase.from('mensagens_do_whatsapp').insert({
     id_da_conversacao: convId,
     id_do_lead: leadId,
@@ -774,6 +778,7 @@ export async function gravarMensagemFollow(
     sender_type: 'ai',
     status: 'sent',
     nome_do_agente: nomeAgente,
+    source: origemMsg,
     carimbo_de_data_e_hora: new Date().toISOString(),
   })
 
@@ -877,6 +882,7 @@ async function gravarMensagemTrial(
         sender_type: 'ai',
         status: 'sent',
         nome_do_agente: 'Trial SaaS',
+        source: 'follow:trial',
         carimbo_de_data_e_hora: new Date().toISOString(),
       })
 
@@ -1600,7 +1606,7 @@ async function processFollowGeral(
               .limit(1)
               .maybeSingle()
             if (conv?.id) {
-              await supabase.from('conversas_do_whatsapp').update({ agente_pausado: !step.sdr_ativo }).eq('id', conv.id)
+              await supabase.from('conversas_do_whatsapp').update({ agente_pausado: !step.sdr_ativo, pause_reason: step.sdr_ativo ? null : 'follow' }).eq('id', conv.id)
             }
           }
         } catch {
@@ -2372,7 +2378,7 @@ async function processTrialSaas(
             // Reativa SDR para o agente de agendamento assumir a conversa
             const phoneVars = phoneVariants(phone)
             const { data: convSched } = await supabase.from('conversas_do_whatsapp').select('id').eq('company_id', company.id).in('numero_de_telefone', phoneVars).order('hora_da_ultima_mensagem', { ascending: false }).limit(1).maybeSingle()
-            if (convSched?.id) await supabase.from('conversas_do_whatsapp').update({ agente_pausado: false }).eq('id', convSched.id)
+            if (convSched?.id) await supabase.from('conversas_do_whatsapp').update({ agente_pausado: false, pause_reason: null }).eq('id', convSched.id)
             await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'sent', supabase)
             confirmedDispatched.add(step.id)
             firedThisRunTrial.add(trial.id)
@@ -2433,7 +2439,7 @@ async function processTrialSaas(
 
             if (conv?.id) {
               await supabase.from('conversas_do_whatsapp')
-                .update({ agente_pausado: !step.sdr_ativo })
+                .update({ agente_pausado: !step.sdr_ativo, pause_reason: step.sdr_ativo ? null : 'follow' })
                 .eq('id', conv.id)
 
               if (step.sdr_ativo === true) {

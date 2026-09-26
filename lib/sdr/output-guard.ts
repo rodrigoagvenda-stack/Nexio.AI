@@ -111,6 +111,15 @@ function countsAsQuestion(block: string): boolean {
   return block.replace(GREETING_QUESTION_RE, '').includes('?')
 }
 
+/** Bloco com mais de uma pergunta: fica só até a primeira ("Tem site? Já fez anúncio?" vira "Tem site?"). */
+function keepUntilFirstQuestion(block: string): string {
+  const sentences = block.split(/(?<=[.!?…])\s+/)
+  const perguntas = sentences.filter((sent) => countsAsQuestion(sent)).length
+  if (perguntas <= 1) return block
+  const idx = sentences.findIndex((sent) => countsAsQuestion(sent))
+  return sentences.slice(0, idx + 1).join(' ').trim()
+}
+
 /** Usados pelo harness de avaliação pra checar o que de fato saiu pro lead. */
 export const isQuestionBlock = countsAsQuestion
 export const isRepeatOf = (a: string, b: string): boolean => similar(a, b, 0.85)
@@ -230,18 +239,25 @@ export function guardOutput(input: string[], ctx: GuardContext): GuardResult {
     blocks = filtrados
   }
 
-  // Passe 4 : uma pergunta por rajada (R1). Mantém o primeiro bloco com
-  // pergunta, remove os seguintes que também perguntam.
+  // Passe 4 : uma pergunta por rajada (R1). Mantém o primeiro bloco com pergunta, remove os seguintes que também
+  // perguntam, e dentro do bloco mantido corta o que vem depois da primeira pergunta (bloco com duas perguntas).
   let jaTemPergunta = false
-  blocks = blocks.filter((b) => {
-    if (!countsAsQuestion(b)) return true
-    if (!jaTemPergunta) {
-      jaTemPergunta = true
-      return true
+  const umaPergunta: string[] = []
+  for (const b of blocks) {
+    if (!countsAsQuestion(b)) {
+      umaPergunta.push(b)
+      continue
     }
-    violations.push({ rule: 'R1_uma_pergunta', before: b, after: null })
-    return false
-  })
+    if (jaTemPergunta) {
+      violations.push({ rule: 'R1_uma_pergunta', before: b, after: null })
+      continue
+    }
+    jaTemPergunta = true
+    const cortado = keepUntilFirstQuestion(b)
+    if (cortado !== b) violations.push({ rule: 'R1_uma_pergunta', before: b, after: cortado })
+    umaPergunta.push(cortado)
+  }
+  blocks = umaPergunta
 
   return { paragraphs: blocks, violations }
 }

@@ -94,6 +94,8 @@ interface SdrContext {
   pendingHandoff?: { motivo: string }
   /** true quando um evento real foi criado no Calendar NESTE turno (única prova aceita para dizer que agendou). */
   agendamentoConfirmadoNoTurno?: boolean
+  /** Origem gravada em mensagens.source: 'sdr' (padrão) ou 'funil'. */
+  envioSource?: 'sdr' | 'funil'
 }
 
 export interface BufferedMessage {
@@ -396,6 +398,7 @@ async function applyPendingHandoff(
       .from('conversas_do_whatsapp')
       .update({
         agente_pausado: true,
+        pause_reason: 'pausar_conversa',
         agente_pausado_em: new Date().toISOString(),
         current_status: 'livre',
         kanban_stage: 'fila',
@@ -2817,6 +2820,7 @@ async function saveOutbound(
     nome_do_agente: ctx.instanceName || 'SDR IA',
     carimbo_de_data_e_hora: new Date().toISOString(),
     whatsapp_message_id: messageId || null,
+    source: ctx.envioSource ?? 'sdr',
   })
   if (error) console.error(`[SDR:${ctx.companyId}] saveOutbound INSERT error:`, error.message)
 
@@ -3207,7 +3211,7 @@ async function isAgentePausadoAtivo(
   if (pausadoEm && Date.now() - pausadoEm > PAUSE_AUTO_RELEASE_MS) {
     await supabase
       .from('conversas_do_whatsapp')
-      .update({ agente_pausado: false, agente_pausado_em: null })
+      .update({ agente_pausado: false, agente_pausado_em: null, pause_reason: null })
       .eq('id', conversationId)
     return false
   }
@@ -3580,8 +3584,48 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     }
 
     // Verifica se agente está pausado nesta conversa (só APÓS salvar as mensagens)
+    // Pausa posta pelo follow (pause_reason 'follow'): o lead respondeu, então a conversa voltou a ser dele. Libera o SDR
+    // pra responder neste turno em vez de deixar o lead sem retorno (achado 2026-09-26: 19 conversas pausadas, o lead
+    // respondeu depois do follow e ninguém respondeu).
+    {
+      const { data: convPausa } = await supabase
+        .from('conversas_do_whatsapp')
+        .select('agente_pausado, pause_reason')
+        .eq('id', conversationId)
+        .maybeSingle()
+      if (convPausa?.agente_pausado && convPausa.pause_reason === 'follow') {
+        await supabase
+          .from('conversas_do_whatsapp')
+          .update({ agente_pausado: false, agente_pausado_em: null, pause_reason: null })
+          .eq('id', conversationId)
+        await log(companyId, 'pausa_follow_liberada_por_resposta', {}, supabase, phone, leadId)
+      }
+    }
     if (await isAgentePausadoAtivo(conversationId, supabase)) {
       await log(companyId, 'agent_paused_conversation', {}, supabase, phone, leadId)
+      // Pausada por outro motivo (humano, handoff, mídia…) e a última fala nossa foi de automação: ninguém respondeu
+      // o lead. Avisa a equipe (sino), em vez de silêncio.
+      try {
+        const { data: ultimaSaida } = await supabase
+          .from('mensagens_do_whatsapp')
+          .select('source')
+          .eq('id_da_conversacao', conversationId)
+          .eq('direcao', 'outbound')
+          .order('carimbo_de_data_e_hora', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        const src = (ultimaSaida?.source as string | null) ?? ''
+        if (src.startsWith('follow') || src === 'remarketing' || src === 'antinoshow') {
+          await logCompanyNotice(supabase, {
+            companyId,
+            action: 'lead_respondeu_pausado',
+            description: `${ctx.leadName || 'Um lead'} respondeu a uma automação e o SDR está pausado. Ninguém respondeu ainda.`,
+            metadata: { lead_id: leadId, conversation_id: conversationId, origem: src },
+          })
+        }
+      } catch (e: any) {
+        console.error(`[SDR:${companyId}] aviso de resposta em conversa pausada falhou:`, e?.message)
+      }
       return
     }
 
@@ -3596,6 +3640,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
         .from('conversas_do_whatsapp')
         .update({
           agente_pausado: true,
+          pause_reason: 'midia',
           agente_pausado_em: new Date().toISOString(),
           current_status: 'livre',
           kanban_stage: 'fila',
@@ -3650,6 +3695,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
           tipo_de_mensagem: 'text',
           direcao: 'outbound',
           sender_type: 'ai',
+          source: 'sdr',
           carimbo_de_data_e_hora: new Date().toISOString(),
         })
         if (insertAusenteError) console.error(`[SDR:${companyId}] INSERT mensagem fora-do-horário falhou:`, insertAusenteError.message)
@@ -3726,6 +3772,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
           .from('conversas_do_whatsapp')
           .update({
             agente_pausado: true,
+            pause_reason: 'recepcao',
             agente_pausado_em: new Date().toISOString(),
             current_status: 'livre',
             kanban_stage: 'fila',
@@ -3746,6 +3793,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
           tipo_de_mensagem: 'text',
           direcao: 'outbound',
           sender_type: 'ai',
+          source: 'sdr',
           carimbo_de_data_e_hora: new Date().toISOString(),
         })
         if (insertHandoffError) console.error(`[SDR:${companyId}] INSERT mensagem handoff falhou:`, insertHandoffError.message)
@@ -3773,6 +3821,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
         tipo_de_mensagem: 'text',
         direcao: 'outbound',
         sender_type: 'ai',
+        source: 'sdr',
         carimbo_de_data_e_hora: new Date().toISOString(),
       })
       if (insertPerguntaError) console.error(`[SDR:${companyId}] INSERT pergunta recepção falhou:`, insertPerguntaError.message)
@@ -3813,7 +3862,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
           supabase,
           openai,
           send: (texts) =>
-            sendWithHumanDelay(texts, phone, cfg.uazapi_instance_url, cfg.uazapi_token, conversationId, ctx, supabase, cfg.meta_wa_phone_number_id, cfg.meta_wa_token),
+            sendWithHumanDelay(texts, phone, cfg.uazapi_instance_url, cfg.uazapi_token, conversationId, { ...ctx, envioSource: 'funil' }, supabase, cfg.meta_wa_phone_number_id, cfg.meta_wa_token),
           search: (q) => searchDocuments(q, companyId, openai, supabase, 'conhecimento'),
           onUsage: (completion, agent) => pushUsage(acc, completion, agent),
           log: (event, data) => log(companyId, event, data, supabase, phone, leadId),
@@ -4039,6 +4088,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
         tipo_de_mensagem: fromMeType,
         direcao: 'outbound',
         sender_type: 'human',
+        source: 'humano',
         status: 'sent',
         url_da_midia: fromMeMediaUrl ?? null,
         carimbo_de_data_e_hora: new Date().toISOString(),
@@ -4048,6 +4098,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
         ultima_mensagem: fromMeDisplay,
         hora_da_ultima_mensagem: new Date().toISOString(),
         agente_pausado: true,
+        pause_reason: 'humano_assumiu',
         agente_pausado_em: new Date().toISOString(),
       }).eq('id', conv.id)
 
@@ -4215,7 +4266,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
         // agente_pausado_em fica de fora de propósito : sem carimbo, o
         // auto-liberar de 24h (isAgentePausadoAtivo) nunca dispara aqui,
         // diferente da pausa por handoff humano, que é temporária.
-        await supabase.from('conversas_do_whatsapp').update({ agente_pausado: true }).eq('id', convOptOut.id)
+        await supabase.from('conversas_do_whatsapp').update({ agente_pausado: true, pause_reason: 'lead_bloqueado' }).eq('id', convOptOut.id)
       }
 
       await log(companyId, 'opt_out_blocked', { text }, supabase, phoneOptOut)

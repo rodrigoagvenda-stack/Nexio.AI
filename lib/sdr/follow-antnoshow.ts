@@ -8,6 +8,7 @@
  * Rate limit: 30 disparos por execução (fiel ao JSON N8N staticData).
  */
 
+import { auditarSaidaAutomacao } from './output-audit'
 import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
 import { normalizePhone } from './uazapi'
@@ -330,6 +331,7 @@ async function gravarMensagemOutbound(
   }
 
   const now = new Date().toISOString()
+  await auditarSaidaAutomacao({ companyId, leadId, conversationId, text: texto, source: 'antinoshow' }, supabase)
   await Promise.all([
     supabase.from('mensagens_do_whatsapp').insert({
       id_da_conversacao: conversationId,
@@ -341,6 +343,7 @@ async function gravarMensagemOutbound(
       sender_type: 'ai',
       status: 'sent',
       nome_do_agente: 'Follow-up AntNoshow',
+      source: 'antinoshow',
       carimbo_de_data_e_hora: now,
     }),
     supabase.from('mensagens_do_whatsapp').insert({
@@ -351,6 +354,7 @@ async function gravarMensagemOutbound(
       tipo_de_mensagem: 'system',
       direcao: 'outbound',
       sender_type: 'ai',
+      source: 'antinoshow',
       status: 'sent',
       carimbo_de_data_e_hora: new Date(Date.now() + 1).toISOString(),
     }),

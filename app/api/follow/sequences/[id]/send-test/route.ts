@@ -248,6 +248,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
             tipo_de_mensagem: tipo,
             direcao: 'outbound',
             sender_type: 'ai',
+            source: 'follow:teste',
             status: 'sent',
             url_da_midia: urlMidia,
             carimbo_de_data_e_hora: now,
@@ -260,6 +261,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
             tipo_de_mensagem: 'system',
             direcao: 'outbound',
             sender_type: 'ai',
+            source: 'follow:teste',
             status: 'sent',
             url_da_midia: null,
             carimbo_de_data_e_hora: new Date(Date.now() + 1).toISOString(),
@@ -278,7 +280,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
               mensagem,
             hora_da_ultima_mensagem: now,
             // Replica lógica do botão de pause do atendimento: sdr_ativo=false → agente_pausado=true
-            ...(step.sdr_ativo != null ? { agente_pausado: !step.sdr_ativo } : {}),
+            ...(step.sdr_ativo != null ? { agente_pausado: !step.sdr_ativo, pause_reason: step.sdr_ativo ? null : 'follow' } : {}),
           }).eq('id', conversa.id),
           // Achado ao vivo (Rodrigo, 2026-09-18) : send-test nunca gravava em
           // follow_executions, só inseria a mensagem direto no chat. O

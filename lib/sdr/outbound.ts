@@ -25,6 +25,7 @@
  * consome campanhas que já existem em `outbound_campaigns`.
  */
 
+import { auditarSaidaAutomacao } from './output-audit'
 import OpenAI from 'openai'
 import { createServiceClient } from '@/lib/supabase/server'
 import { resolveOpenAIKey } from './rag'
@@ -514,6 +515,7 @@ async function persistOutboundMessage(companyId: number, lead: LeadDisponivel, m
     conversationId = String(created.id)
   }
 
+  await auditarSaidaAutomacao({ companyId, leadId: lead.lead_id, conversationId, text: mensagem, source: 'outbound' }, supabase)
   await supabase.from('mensagens_do_whatsapp').insert({
     company_id: companyId,
     id_da_conversacao: conversationId,
@@ -524,6 +526,7 @@ async function persistOutboundMessage(companyId: number, lead: LeadDisponivel, m
     sender_type: 'ai',
     carimbo_de_data_e_hora: ts,
     nome_do_agente: 'Outbound',
+    source: 'outbound',
     status: 'sent',
   })
 }

@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
           tipo_de_mensagem: message.tipo_de_mensagem,
           direcao: 'outbound',
           sender_type: 'human',
+          source: 'humano',
           sender_user_id: context.userId,
           status: 'sent',
           url_da_midia: message.url_da_midia || null,
