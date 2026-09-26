@@ -58,6 +58,7 @@ import {
 } from '@/lib/billing/usage'
 import { sendInjectionAlertEmail } from '@/lib/email/resend'
 import { logCompanyNotice, notifyInboundMessage } from '@/lib/notifications/server'
+import { newTurnTrace, writeTurnLog, type TurnTrace } from '@/lib/sdr/turn-log'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -96,6 +97,8 @@ interface SdrContext {
   agendamentoConfirmadoNoTurno?: boolean
   /** Origem gravada em mensagens.source: 'sdr' (padrão) ou 'funil'. */
   envioSource?: 'sdr' | 'funil'
+  /** Rastro do turno (ferramentas, RAG) para o sdr_turn_log. */
+  trace?: TurnTrace
 }
 
 export interface BufferedMessage {
@@ -2367,6 +2370,7 @@ O lead veio de um anúncio com este título/gancho: "${adHeadline}". Se ainda fi
       try { args = JSON.parse((toolCall as any).function.arguments) } catch { /* ok */ }
 
       console.log(`[SDR:${ctx.companyId}] → tool: ${fn} | args: ${JSON.stringify(args).slice(0, 200)}`)
+      ctx.trace?.tools.push({ nome: fn, args: JSON.stringify(args).slice(0, 300) })
 
       let result = ''
 
@@ -2375,9 +2379,11 @@ O lead veio de um anúncio com este título/gancho: "${adHeadline}". Se ainda fi
         result = `Pensamento registrado: ${args.thought}`
       } else if (fn === 'Play_conhecimento') {
         result = await searchDocuments(args.query ?? userInput, ctx.companyId, openai, supabase, 'conhecimento')
+        ctx.trace?.rag.push({ base: 'conhecimento', query: String(args.query ?? userInput).slice(0, 200), vazio: !result, tamanho: result.length })
         if (!result) result = 'Base de conhecimento: nenhum resultado encontrado para esta query.'
       } else if (fn === 'Play_objecoes') {
         result = await searchDocuments(args.query ?? userInput, ctx.companyId, openai, supabase, 'objecoes')
+        ctx.trace?.rag.push({ base: 'objecoes', query: String(args.query ?? userInput).slice(0, 200), vazio: !result, tamanho: result.length })
         if (!result) result = 'Objeções: nenhum argumento encontrado. Use o bom senso.'
       } else if (fn === 'Agente_de_Pipeline') {
         result = await runAgentePipeline(args.message ?? userInput, ctx, openai, supabase, acc)
@@ -3888,6 +3894,25 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     // fala ("Perfeito, Jairo! Obrigada...", "vou te passar as opções", "assim você já entende...") e só mandou os horários
     // quando o lead respondeu "ok". Pedir isso no prompt não bastou: aqui é em código. Fechamento enviado = o agendamento
     // responde direto, e só o que ele devolver (os horários) vai pro lead.
+    const lerChecklist = async () => {
+      if (!conversationId) return null
+      const { data } = await supabase.from('conversas_do_whatsapp').select('checklist_atendimento').eq('id', conversationId).maybeSingle()
+      return data?.checklist_atendimento ?? null
+    }
+    ctx.trace = newTurnTrace(await lerChecklist())
+    const gravarTurno = async (desfecho: 'enviado' | 'guarda_suprimiu_tudo' | 'sem_resposta', blocosRedator: string[], violacoes: unknown[], blocosEnviados: string[]) =>
+      writeTurnLog(supabase, {
+        companyId,
+        conversationId,
+        leadId,
+        trace: ctx.trace,
+        checklistDepois: await lerChecklist(),
+        blocosRedator,
+        violacoes,
+        blocosEnviados,
+        usage: acc,
+        desfecho,
+      })
     let aiResponse: string
     if (funilAcabouDeFechar && ctx.calendarId) {
       await log(companyId, 'funnel_fechamento_agenda', { motivo: 'fechamento enviado, horários direto' }, supabase, phone, leadId)
@@ -3910,6 +3935,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       }
     }
     if (!aiResponse) {
+      await gravarTurno('sem_resposta', [], [], [])
       await applyPendingHandoff(ctx, supabase)
       return
     }
@@ -3931,6 +3957,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     if (paragraphs.length === 0) {
       console.log(`[SDR:${companyId}] guarda de saída suprimiu toda a resposta para ${phone}`)
       await log(companyId, 'output_guard_suppressed_all', { original: rawParagraphs }, supabase, phone, leadId)
+      await gravarTurno('guarda_suprimiu_tudo', rawParagraphs, guarded.violations, [])
       await applyPendingHandoff(ctx, supabase)
       recordUsage(companyId, acc, supabase, quotaCheck.packageId).catch(console.error)
       return
@@ -3942,6 +3969,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     console.log(`[SDR:${companyId}] ✓ enviado para ${phone}`)
 
     await log(companyId, 'message_sent', { paragraphs, flowId: cfg.flowId }, supabase, phone, leadId)
+    await gravarTurno('enviado', rawParagraphs, guarded.violations, paragraphs)
     // Handoff pedido durante o turno: só agora (depois de o lead receber o aviso) pausa e enfileira
     await applyPendingHandoff(ctx, supabase)
 
