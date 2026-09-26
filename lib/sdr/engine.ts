@@ -3800,8 +3800,9 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     // qualificação (textos aprovados, estado, portões) e a IA só lê a mensagem.
     // handled=false devolve o turno pro orquestrador (funil desligado, conversa
     // antiga, qualificação completa pra agendar, ou falha antes de enviar).
+    let funilAcabouDeFechar = false
     if ((company?.features as Record<string, unknown> | null)?.sdr_funnel_v2 === true) {
-      const { handled, leadName: nomeInformado } = await runFunnelTurn({
+      const { handled, leadName: nomeInformado, justClosed } = await runFunnelTurn({
         companyId,
         leadId,
         leadName: ctx.leadName,
@@ -3822,6 +3823,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       })
       // Nome que o próprio lead informou (o do perfil do WhatsApp, ex: "Eng Mauricio", não é confiável).
       if (nomeInformado) ctx.leadName = nomeInformado
+      funilAcabouDeFechar = justClosed === true
       if (handled) {
         recordUsage(companyId, acc, supabase, quotaCheck.packageId).catch(console.error)
         checkAndSendQuotaAlerts(companyId, supabase).catch(console.error)
@@ -3834,7 +3836,17 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       ...em,
       content: em.enrichedContent,
     }))
-    const aiResponse = await runOrchestrator(messagesForOrchestrator, history, ctx, leadNotes, supabase, openai, acc)
+    // Achado ao vivo (2026-09-26, lead Jairo): logo depois do fechamento do funil, o orquestrador improvisou uma segunda
+    // fala ("Perfeito, Jairo! Obrigada...", "vou te passar as opções", "assim você já entende...") e só mandou os horários
+    // quando o lead respondeu "ok". Pedir isso no prompt não bastou: aqui é em código. Fechamento enviado = o agendamento
+    // responde direto, e só o que ele devolver (os horários) vai pro lead.
+    let aiResponse: string
+    if (funilAcabouDeFechar && ctx.calendarId) {
+      await log(companyId, 'funnel_fechamento_agenda', { motivo: 'fechamento enviado, horários direto' }, supabase, phone, leadId)
+      aiResponse = await runAgenteAgendamento('Quero agendar a conversa de diagnóstico. Quais horários vocês têm disponíveis?', ctx, openai, supabase, acc, history)
+    } else {
+      aiResponse = await runOrchestrator(messagesForOrchestrator, history, ctx, leadNotes, supabase, openai, acc)
+    }
     if (!aiResponse) {
       await applyPendingHandoff(ctx, supabase)
       return

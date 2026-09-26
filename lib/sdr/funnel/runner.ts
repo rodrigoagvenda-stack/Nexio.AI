@@ -187,7 +187,11 @@ async function execute(
  * (funil desligado, conversa antiga sem estado, qualificação completa, ou falha
  * antes de enviar qualquer coisa).
  */
-export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boolean; leadName?: string }> {
+/**
+ * `justClosed`: neste turno o funil acabou de mandar a mensagem de fechamento (fim das perguntas). O agendamento
+ * tem que responder na sequência, direto com os horários, sem o orquestrador improvisar uma segunda fala.
+ */
+export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boolean; leadName?: string; justClosed?: boolean }> {
   const { supabase, openai } = p.deps
 
   // Áudio que não pôde ser transcrito, no meio da qualificação: avisa em vez de repetir a pergunta.
@@ -436,13 +440,15 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
   if (result.actions.some((a) => a.type === 'delegate_scheduling')) {
     // Qualificação completa: antes de o agendamento (motor antigo) pedir dados, uma mensagem fixa
     // explica o que vai acontecer. Só sai uma vez, na virada (depois disso o estágio já é 'scheduling').
+    let justClosed = false
     if (stageAtStart !== 'scheduling' && config.closingMessage?.trim()) {
       const nome = result.state.data.nome
       const text = nome ? config.closingMessage.replace(/\{nome\}/g, nome) : config.closingMessage.replace(/\{nome\},?\s*/g, '')
       await p.deps.send([text])
+      justClosed = true
     }
     await syncLeadCrm(p, config, stageAtStart, result.state, result.actions)
-    return { handled: false, leadName: result.state.data.nome }
+    return { handled: false, leadName: result.state.data.nome, justClosed }
   }
 
   await execute(p, config, result.state, result.actions, memoria)
