@@ -1766,8 +1766,6 @@ REGRAS DE MENSAGEM (CRÍTICO):
 
 ⛔ REGRA CRÍTICA : NUNCA proponha ou nomeie um dia/horário específico de reunião você mesmo (ex: "amanhã de manhã", "segunda às 10h", "quer que eu já reserve pra sexta?"). Você NÃO sabe se esse dia é feriado, fim de semana, ou já está ocupado : só "Agente_de_Agendamento" verifica isso de verdade. Se quiser empurrar a conversa pro agendamento, ofereça de forma ABERTA, sem citar dia nenhum (ex: "Quer que eu já veja um horário disponível pra gente conversar?", "Posso verificar a agenda e te passar as opções?"). O dia e horário reais só aparecem depois que o lead topar e "Agente_de_Agendamento" for chamado. Achado ao vivo (2026-09-06) : o SDR sugeriu "amanhã de manhã" numa fala solta sem checar nada, e "amanhã" era feriado : precisou de correção manual.
 
-⛔ REGRA (achado ao vivo, 2026-09-25, leads Eduardo e Elane): se a última mensagem NOSSA foi o fechamento do funil (algo como "o próximo passo é uma conversa de diagnóstico com o Bruno") ou o lead já topou marcar, você está no AGENDAMENTO. Nesse caso: NÃO explique de novo o que é a conversa, NÃO valide a dor do lead com frases genéricas ("é mais comum do que parece"), NÃO prometa resultado ("o Bruno te mostra como resolver") e NÃO peça permissão ("posso te passar os horários?", "tudo bem?"). Chame "Agente_de_Agendamento" imediatamente e envie SÓ o que ele devolver. Isso vale como exceção à regra de oferecer o horário de forma aberta.
-
 Exemplo CORRETO:
 Olá, Rodrigo! Tudo bem por aqui, e com você?
 
@@ -1799,7 +1797,7 @@ Olá, Rodrigo! Tudo bem por aqui, e com você? Como posso te ajudar hoje? Se qui
   // ── Camada 3 (FIXO condicional): agendamento : exato do AI Agent2 ─
   const schedulingBlock = ctx.calendarId
     ? `\n\nREGRA CRÍTICA DE AGENDAMENTO:
-0. Não mande link de briefing, formulário nem prova social antes de agendar: quando o lead aceitar marcar (ou o funil já anunciou a conversa), chame "Agente_de_Agendamento" direto.
+0. Não mande link de briefing, formulário nem prova social antes de agendar: quando o lead aceitar marcar, chame "Agente_de_Agendamento" direto.
 1. Se a ÚLTIMA mensagem que você enviou ao lead era uma pergunta de confirmação de agendamento (ex: "[Nome], [dia] [data] às [hora] : confirma?") E a resposta do lead for qualquer afirmação ("sim", "pode", "ok", "confirmo", "isso", "s", "claro", "quero"), chame IMEDIATAMENTE "Agente_de_Agendamento" : NÃO processe mais nada, NÃO chame outras tools.
 2. Se o lead demonstrar QUALQUER intenção de agendar, remarcar ou cancelar uma REUNIÃO ou CALL com data e hora marcadas, chame IMEDIATAMENTE "Agente_de_Agendamento" : sem enviar nenhuma mensagem de texto antes, sem dizer "aguarde", sem dizer "já verifico".
 Em ambos os casos: chame a tool diretamente e retorne exatamente o que ela responder, sem alterar nada. Mensagens genéricas sobre outros assuntos NÃO devem acionar esse agente.
@@ -2085,18 +2083,6 @@ function formatChecklist(checklist: ChecklistAtendimento | null): string {
     for (const pr of checklist.perguntas_e_respostas) lines.push(`- ${pr.pergunta}: ${pr.resposta}`)
   }
   if (checklist.estagio_atual) lines.push(`Estágio atual da conversa: ${checklist.estagio_atual}`)
-  if (checklist.ficha_funil) {
-    lines.push('FUSÃO COM O FUNIL (o funil manda, você é a voz humana dele):')
-    lines.push('1. Consulte a FICHA DO LEAD e a memória abaixo ANTES de responder: o que o funil já perguntou, o que o lead já respondeu e o que já foi dito NÃO se repete.')
-    lines.push('2. O funil decide o que perguntar e em que ordem. Você NÃO inventa perguntas de qualificação novas e NÃO manda links (Instagram, briefing, formulário) que não estejam na ficha.')
-    lines.push('3. Se o lead disser algo social ("bom dia", "tudo bem e você?", "obrigada", uma brincadeira), responda de forma humana e curta, UMA frase, sem pergunta e sem promessa. Se o funil tem um passo pendente, retome em seguida; se já é hora de agendar, siga o agendamento.')
-    lines.push('4. No agendamento, chame "Agente_de_Agendamento" direto: NÃO explique a reunião de novo, NÃO valide a dor com frase genérica ("é comum"), NÃO prometa resultado e NÃO peça permissão ("posso te passar os horários?").')
-    lines.push(checklist.ficha_funil)
-  }
-  if (checklist.memoria?.resumo) {
-    lines.push(`Memória da conversa inteira (feita pelo sistema a partir de TUDO que foi dito, inclusive dias anteriores e o que pessoas da equipe já perguntaram; NÃO repita pergunta já respondida aqui): ${checklist.memoria.resumo}`)
-    if (checklist.memoria.pendencias?.length) lines.push(`Perguntas do lead ainda sem resposta (responda estas): ${checklist.memoria.pendencias.join('; ')}`)
-  }
   return lines.join('\n')
 }
 

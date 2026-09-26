@@ -178,7 +178,7 @@ export function SdrConversa({ persona, onSavePersona, funnelActive, onFunnelActi
     const json = await res.json().catch(() => ({}));
     if (!res.ok || !json.success) { toast({ title: json.message || 'Não foi possível alterar o roteiro', variant: 'destructive' }); return; }
     onFunnelActive(v);
-    toast({ title: v ? 'SDR Guiado ligado' : 'SDR Autônomo ligado', variant: 'success' });
+    toast({ title: v ? 'Funil ligado' : 'SDR ligado', variant: 'success' });
   }
 
   async function createFromTemplate() {
@@ -252,13 +252,13 @@ export function SdrConversa({ persona, onSavePersona, funnelActive, onFunnelActi
 
       <section aria-label="Como o SDR atua" className={cn(CARD, 'flex flex-col gap-4 px-7 py-6')}>
         <div className="flex flex-col gap-1">
-          <h3 className="text-lg font-semibold text-foreground">Como o SDR atua?</h3>
-          <p className="text-[13px] text-muted-foreground">Escolha o jeito de conduzir a conversa. Dá para trocar quando quiser.</p>
+          <h3 className="text-lg font-semibold text-foreground">Como atender os leads?</h3>
+          <p className="text-[13px] text-muted-foreground">Os dois são independentes: um não interfere no outro. Dá para trocar quando quiser.</p>
         </div>
         <div role="radiogroup" aria-label="Modo do SDR" className="grid gap-4 md:grid-cols-2">
           {([
-            { on: true, title: 'SDR Guiado', text: 'Você define as perguntas. Ele conduz com atenção, cumprimenta, responde dúvidas sobre o negócio e entrega o lead pronto.' },
-            { on: false, title: 'SDR Autônomo', text: 'Ele decide sozinho o caminho, usando a base de conhecimento e as objeções para conduzir a conversa.' },
+            { on: true, title: 'Funil', text: 'Robô com roteiro fixo: faz as perguntas que você definiu, na ordem, com os textos que você aprovou. Não improvisa.' },
+            { on: false, title: 'SDR', text: 'Conversa de forma natural e decide sozinho o caminho, usando a base de conhecimento e as objeções até marcar ou fechar.' },
           ] as const).map((m) => {
             const active = funnelActive === m.on;
             return (

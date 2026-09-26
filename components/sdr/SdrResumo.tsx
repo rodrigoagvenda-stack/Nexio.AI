@@ -92,7 +92,7 @@ export function SdrResumo({ cfg, funnelOn, onToggleAgent, onGo }: { cfg: SdrCfg;
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-foreground/85">
               {[
                 [connected, connected ? 'WhatsApp conectado' : 'WhatsApp desconectado'],
-                [true, funnelOn ? 'SDR Guiado' : 'SDR Autônomo'],
+                [true, funnelOn ? 'Funil (robô)' : 'SDR'],
                 [!!always, always ? 'Atende 24 horas' : 'Atende em horário definido'],
               ].map(([ok, label]) => (
                 <span key={label as string} className="flex items-center gap-2"><span className={cn('h-2 w-2 rounded-full', ok ? 'bg-[#01573C] dark:bg-[#96F63C]' : 'bg-amber-500')} />{label as string}</span>
