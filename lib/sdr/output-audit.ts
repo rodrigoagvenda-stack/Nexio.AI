@@ -1,5 +1,5 @@
 /**
- * Auditoria de saída para os envios que NÃO passam pelo orquestrador (follow-up, remarketing, anti no-show, outbound).
+ * Auditoria de saída para os envios que NÃO passam pelo orquestrador (follow-up, remarketing, anti no-show, outbound, funil).
  *
  * Roda a mesma guarda do SDR (output-guard.ts) só em modo REGISTRO: grava as violações em sdr_logs
  * (event_type 'output_guard_violation', modo 'registro') e não altera o texto. Motivo: esses textos são templates

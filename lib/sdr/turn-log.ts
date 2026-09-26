@@ -61,3 +61,50 @@ export async function writeTurnLog(supabase: Supabase, i: TurnLogInput): Promise
     console.error('[SDR turn-log] falha ao gravar (ignorada):', err)
   }
 }
+
+export interface V3TurnLogInput {
+  companyId: number
+  conversationId: number
+  leadId: number
+  turno: number
+  extracao: unknown
+  estadoAntes: unknown
+  estadoDepois: unknown
+  acao: unknown
+  fatosRecuperados: unknown
+  redatorBlocos: string[]
+  violacoes: unknown[]
+  regenerou: boolean
+  blocosEnviados: string[]
+  tokens: number
+  latenciaMs: number
+  configVersion: number
+}
+
+/** Log de turno da v3 (engine='v3'). Nunca derruba o turno. */
+export async function writeV3TurnLog(supabase: Supabase, i: V3TurnLogInput): Promise<void> {
+  try {
+    await supabase.from('sdr_turn_log').insert({
+      company_id: i.companyId,
+      conversation_id: i.conversationId,
+      lead_id: i.leadId,
+      turno: i.turno,
+      engine: 'v3',
+      extracao: i.extracao,
+      estado_antes: i.estadoAntes,
+      estado_depois: i.estadoDepois,
+      acao: i.acao,
+      fatos_recuperados: i.fatosRecuperados,
+      redator_blocos: i.redatorBlocos,
+      validador_violacoes: i.violacoes,
+      regenerou: i.regenerou,
+      blocos_enviados: i.blocosEnviados,
+      modelo: 'gpt-4.1',
+      tokens: i.tokens,
+      latencia_ms: i.latenciaMs,
+      config_version: i.configVersion,
+    })
+  } catch (err) {
+    console.error('[SDR v3 turn-log] falha ao gravar (ignorada):', err)
+  }
+}

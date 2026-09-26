@@ -65,6 +65,8 @@ export interface CompanyConfig {
   nunca_prometer?: string[]
   /** EXTENSÃO: SÓ ESTILO (tom, tamanho, jeito de escrever). Preço, promessa e agendamento nunca ficam aqui: a validação bloqueia. */
   regras_redator?: string[]
+  /** EXTENSÃO: cobrança pelo Asaas quando o lead pede pagamento. Sem isso (ou sem Asaas ativo) o pedido de pagamento escala para a pessoa. */
+  cobranca?: { ativo: boolean; valor?: number; descricao?: string }
   /** EXTENSÃO: regras de negócio conferidas em código pelo validador, no lugar de prosa que a IA pode ignorar. */
   validador?: {
     terminologia?: { evitar: string; usar: string; excecao?: string }[]
@@ -72,6 +74,8 @@ export interface CompanyConfig {
     nomear_humano?: boolean
     /** Assuntos que a empresa atende; o resto cai em `fora_escopo`. */
     escopo_permitido?: string[]
+    /** V6 (fato fora da fonte) e V7 (vício de IA) começam só registrando; ligue aqui depois de medir o falso positivo. */
+    bloquear_v6_v7?: boolean
   }
 }
 

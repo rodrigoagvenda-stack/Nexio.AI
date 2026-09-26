@@ -59,6 +59,8 @@ import {
 import { sendInjectionAlertEmail } from '@/lib/email/resend'
 import { logCompanyNotice, notifyInboundMessage } from '@/lib/notifications/server'
 import { newTurnTrace, writeTurnLog, type TurnTrace } from '@/lib/sdr/turn-log'
+import { auditarSaidaAutomacao } from './output-audit'
+import { runV3Turn } from './v3/turn'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -3854,6 +3856,44 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     // qualificação (textos aprovados, estado, portões) e a IA só lê a mensagem.
     // handled=false devolve o turno pro orquestrador (funil desligado, conversa
     // antiga, qualificação completa pra agendar, ou falha antes de enviar).
+    // ── SDR v3: um único decisor por conversa. Com a flag ligada o orquestrador antigo NÃO roda; desligada, a v3 não roda.
+    // A flag é o botão de emergência: desligar volta ao motor atual na mesma hora, sem migração.
+    if ((company?.features as Record<string, unknown> | null)?.sdr_v3 === true) {
+      let v3Enviou = false
+      try {
+        const v3 = await runV3Turn({
+          ctx,
+          pushName: bufferedMessages[0]?.senderName || null,
+          historico: history,
+          mensagemAtual: combinedText,
+          deps: {
+            supabase,
+            openai,
+            send: (blocos) => {
+              v3Enviou = true
+              return sendWithHumanDelay(blocos, phone, cfg.uazapi_instance_url, cfg.uazapi_token, conversationId, ctx, supabase, cfg.meta_wa_phone_number_id, cfg.meta_wa_token)
+            },
+            log: (event, data) => log(companyId, event, data, supabase, phone, leadId),
+            search: (q) => searchDocuments(q, companyId, openai, supabase, 'conhecimento'),
+            onUsage: (completion, agent) => pushUsage(acc, completion, agent),
+            tokensDoTurno: () => acc.filter((u) => u.agent.startsWith('v3_')).reduce((s, u) => s + u.totalTokens, 0),
+          },
+        })
+        if (v3.handled) {
+          await applyPendingHandoff(ctx, supabase)
+          recordUsage(companyId, acc, supabase, quotaCheck.packageId).catch(console.error)
+          checkAndSendQuotaAlerts(companyId, supabase).catch(console.error)
+          return
+        }
+      } catch (err: any) {
+        // Falha antes de qualquer envio: o lead não fica sem resposta, o turno cai no motor atual (nunca os dois falam no mesmo turno).
+        console.error(`[SDR v3:${companyId}] erro no turno:`, err)
+        await log(companyId, 'v3_erro', { enviou: v3Enviou }, supabase, phone, leadId, err?.message ?? 'erro')
+        if (v3Enviou) throw err
+        await log(companyId, 'v3_fallback_motor_atual', {}, supabase, phone, leadId)
+      }
+    }
+
     let funilAcabouDeFechar = false
     if ((company?.features as Record<string, unknown> | null)?.sdr_funnel_v2 === true) {
       const { handled, leadName: nomeInformado, justClosed } = await runFunnelTurn({
@@ -3867,8 +3907,10 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
         deps: {
           supabase,
           openai,
-          send: (texts) =>
-            sendWithHumanDelay(texts, phone, cfg.uazapi_instance_url, cfg.uazapi_token, conversationId, { ...ctx, envioSource: 'funil' }, supabase, cfg.meta_wa_phone_number_id, cfg.meta_wa_token),
+          send: async (texts) => {
+            await auditarSaidaAutomacao({ companyId, leadId, conversationId, phone, text: texts.join('\n\n'), source: 'funil' }, supabase)
+            return sendWithHumanDelay(texts, phone, cfg.uazapi_instance_url, cfg.uazapi_token, conversationId, { ...ctx, envioSource: 'funil' }, supabase, cfg.meta_wa_phone_number_id, cfg.meta_wa_token)
+          },
           search: (q) => searchDocuments(q, companyId, openai, supabase, 'conhecimento'),
           onUsage: (completion, agent) => pushUsage(acc, completion, agent),
           log: (event, data) => log(companyId, event, data, supabase, phone, leadId),
