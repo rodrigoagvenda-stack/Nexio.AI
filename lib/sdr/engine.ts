@@ -92,6 +92,8 @@ interface SdrContext {
   qaDryRun: boolean
   /** Pausa/handoff pedido durante o turno, aplicado só depois do envio da resposta ao lead. */
   pendingHandoff?: { motivo: string }
+  /** true quando um evento real foi criado no Calendar NESTE turno (única prova aceita para dizer que agendou). */
+  agendamentoConfirmadoNoTurno?: boolean
 }
 
 export interface BufferedMessage {
@@ -1263,6 +1265,15 @@ Se não tiver certeza de um campo, mantenha o valor atual do lead.`
 }
 
 /** Agente de Agendamento : Google Calendar + Meet */
+/**
+ * Texto que PROMETE ou CONFIRMA um agendamento ("vou agendar", "tá agendado", "reunião marcada", "convite enviado").
+ * Só pode sair pro lead se um evento real foi criado neste turno (ctx.agendamentoConfirmadoNoTurno).
+ * Achado ao vivo (2026-09-25, lead Anderson, conversa 878): o orquestrador escreveu "Vou agendar sua conversa com o
+ * Bruno hoje às 09:00" sem chamar o agendamento; nenhum evento foi criado e a trava antiga só olhava "tá agendado 🎉".
+ */
+export const AGENDAMENTO_AFIRMADO_RE =
+  /\b(vou|vamos|irei)\s+(agendar|marcar|confirmar|reservar)\b|\b(t[áa]|est[áa]|ficou|foi)\s+(agendad[oa]|marcad[oa]|confirmad[oa])\b|\breuni[aã]o\s+(criada|marcada|agendada|confirmada)\b|\b(agendei|marquei|confirmei)\b|convite\s+(j[áa]\s+)?(foi\s+)?enviado/i
+
 async function runAgenteAgendamento(
   message: string,
   ctx: SdrContext,
@@ -1634,6 +1645,7 @@ REGRAS:
           calendar_event_id: event.eventId,
         }).eq('id', ctx.leadId)
         agendamentoRealNesteTurno = { eventId: event.eventId, meetUrl: event.meetUrl, startIso: event.start.toISOString() }
+        ctx.agendamentoConfirmadoNoTurno = true
         return JSON.stringify({
           event_id: event.eventId,
           meet_url: event.meetUrl,
@@ -1683,7 +1695,7 @@ REGRAS:
   // "Agendar_gcal" realmente bem-sucedido aconteceu nesse turno, é uma
   // resposta fabricada : bloqueia antes de sair pro lead, em vez de confiar
   // que o modelo só produz esse texto quando o evento existe de verdade.
-  const pareceConfirmacao = /tá agendado|ta agendado/i.test(resultado) && resultado.includes('🎉')
+  const pareceConfirmacao = AGENDAMENTO_AFIRMADO_RE.test(resultado) || (/tá agendado|ta agendado/i.test(resultado) && resultado.includes('🎉'))
   if (pareceConfirmacao && !agendamentoRealNesteTurno) {
     console.error(`[SDR:${ctx.companyId}] Agente_de_Agendamento : bloqueada confirmação sem Agendar_gcal bem-sucedido nesse turno. Texto original: ${resultado.slice(0, 200)}`)
     return `Desculpe, ${ctx.leadName}, tive um problema técnico ao confirmar o agendamento agora. Pode me confirmar o dia e horário de novo, por favor? 🙏`
@@ -2315,6 +2327,7 @@ O lead veio de um anúncio com este título/gancho: "${adHeadline}". Se ainda fi
           calendar_event_id: event.eventId,
           updated_at: new Date().toISOString(),
         }).eq('id', ctx.leadId)
+        ctx.agendamentoConfirmadoNoTurno = true
         return `Perfeito, ${leadName}! Reunião criada com sucesso ✅\n📅 ${formatDateTimeBR(event.start)}\n🔗 ${event.meetUrl}\n\nConvite enviado para ${leadEmail}. Qualquer dúvida é só me chamar 👍`
       } catch (err: any) {
         console.error(`[SDR:${ctx.companyId}] criação de evento (pós-email) falhou:`, err.message)
@@ -3832,6 +3845,20 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       aiResponse = await runAgenteAgendamento('Quero agendar a conversa de diagnóstico. Quais horários vocês têm disponíveis?', ctx, openai, supabase, acc, history)
     } else {
       aiResponse = await runOrchestrator(messagesForOrchestrator, history, ctx, leadNotes, supabase, openai, acc)
+    }
+    // Trava de agendamento (achado 2026-09-25, conversa 878): promessa ou confirmação de agendamento só sai se o evento
+    // foi criado neste turno. Se o modelo escreveu isso sem chamar a ferramenta, roda o agendamento de verdade com a
+    // mensagem do lead (ele cria o evento ou pede o dado que falta) e usa a resposta dele no lugar.
+    if (aiResponse && ctx.calendarId && !ctx.agendamentoConfirmadoNoTurno && AGENDAMENTO_AFIRMADO_RE.test(aiResponse)) {
+      const { data: leadAg } = await supabase.from('leads').select('calendar_event_id, call_status').eq('id', leadId).single()
+      const jaAgendado = !!leadAg?.calendar_event_id && leadAg?.call_status === 'agendada'
+      if (!jaAgendado) {
+        await log(companyId, 'agendamento_sem_ferramenta', { texto: aiResponse.slice(0, 300) }, supabase, phone, leadId)
+        const retry = await runAgenteAgendamento(combinedText, ctx, openai, supabase, acc, history)
+        aiResponse = !ctx.agendamentoConfirmadoNoTurno && AGENDAMENTO_AFIRMADO_RE.test(retry)
+          ? `Desculpe, ${ctx.leadName}, tive um problema técnico ao confirmar o agendamento agora. Pode me confirmar o dia e horário de novo, por favor? 🙏`
+          : retry
+      }
     }
     if (!aiResponse) {
       await applyPendingHandoff(ctx, supabase)
