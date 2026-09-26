@@ -15,7 +15,7 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
 
   qualificacao: {
     perguntas: [
-      { id: 'nome', ordem: 1, obrigatoria: true, campo: 'nome', texto: 'Olá, tudo bem? Sou a Laura, atendente do Grupo Venda Marketing Digital. Qual o seu nome?' },
+      { id: 'nome', ordem: 1, obrigatoria: false, campo: 'nome', texto: 'Olá, tudo bem? Sou a Laura, atendente do Grupo Venda Marketing Digital. Qual o seu nome?' },
       { id: 'negocio', ordem: 2, obrigatoria: true, campo: 'negocio', texto: '{nome}, qual o nome, o ramo e a cidade da sua empresa?' },
       { id: 'perfil_google', ordem: 3, obrigatoria: true, campo: 'tem_perfil_google', texto: 'Você possui o perfil do Google Meu Negócio criado? Se sim, me manda o link ou um print dele.' },
       { id: 'site', ordem: 4, obrigatoria: false, campo: 'tem_site', texto: 'Tem site?' },
@@ -218,8 +218,7 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
     nome_humano: 'Bruno',
   },
 
-  // A frase do robô NÃO está na base do dono: veio do exemplo da spec. Revisar.
-  identidade: { frase_robo: 'Sou a assistente do Grupo Venda! O Bruno acompanha tudo e entra quando precisar.' },
+  identidade: { frase_robo: 'Sou a assistente virtual do Grupo Venda! O Bruno acompanha tudo e entra na conversa quando precisar.', modo: 'literal' },
 
   fora_escopo: { frase: 'A gente trabalha só com presença no Google e Google Ads, então isso não é com a gente.' },
 
@@ -228,7 +227,7 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
   agendamento: { ativo: true },
 
   ligacao: {
-    oferta: 'Sem problema! Posso te explicar rapidinho por aqui mesmo, ou já te conecto direto com o Bruno, nosso CEO e especialista em Google Meu Negócio aqui do Grupo Venda. Ele mesmo te retorna. O que prefere?',
+    oferta: 'Sem problema! Posso te explicar por aqui, ou já te conecto com o Bruno, nosso CEO e especialista em Google Meu Negócio, que te retorna direto. O que prefere?',
     confirmacao: 'Perfeito! Já avisei o Bruno, ele deve te retornar em breve.',
   },
 
@@ -247,12 +246,14 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
     },
     {
       id: 'plano_essencial',
+      so_quando_perguntado: true,
       titulo: 'Plano Essencial (para quem quer sair do zero, rápido)',
       texto:
         'Google Meu Negócio: diagnóstico do perfil atual, perfil criado ou corrigido do zero, categoria principal e até 3 secundárias, descrição, produtos, serviços e atributos configurados, fotos reais enviadas pela conta verificada do proprietário, calendário com 4 posts do primeiro mês prontos, verificação do perfil concluída junto ao Google. Site institucional: one page (uma página só), com SEO local. Mensuração: Google Analytics, Google Tag Manager e Search Console configurados. Ativação de 30 dias: posts semanais no Google, script de pedido de avaliação pronto e relatório de resultado no dia 30.',
     },
     {
       id: 'plano_prime',
+      so_quando_perguntado: true,
       titulo: 'Plano Prime (para quem quer presença séria, pronta para crescer)',
       texto:
         'Google Meu Negócio: o mesmo trabalho completo do Essencial. Site institucional completo: até 15 páginas (institucional e páginas de serviço detalhadas). SEO local avançado: páginas por cidade e por categoria, com URL dedicada para cada uma, sem uma página competir com a outra. GEO (otimização para buscas por IA): checklist de rastreabilidade, FAQ real na página, schema de negócio local e conteúdo de primeira mão. Mensuração: igual ao Essencial. Ativação de 30 dias: igual ao Essencial.',
@@ -277,11 +278,16 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
     'configurar, criar ou executar qualquer coisa durante a conversa com o Bruno',
   ],
 
+  // Só estilo. As regras de negócio (terminologia, nomear o Bruno, escopo) ficam em "validador".
   regras_redator: [
-    'Chame a reunião com o Bruno de "análise com o Bruno", nunca de "diagnóstico". "Diagnóstico do perfil" é um item pago que faz parte dos planos.',
-    'Use apenas os fatos fornecidos. Se a resposta não está nos fatos, não invente nem complete com o que "provavelmente" é verdade: chame o Bruno.',
-    'Descreva o que um plano inclui só quando o lead perguntar algo específico sobre ele. Nunca empurre o plano maior sem entender a necessidade do lead.',
-    'Nunca diga só "nosso especialista vai te ligar": sempre nomeie o Bruno.',
-    'Fale só de presença digital (Google Meu Negócio, site, SEO local) e Google Ads. Não cote nem comente outros serviços.',
+    'Escreva curto e direto, no jeito de conversa de WhatsApp.',
+    'Tom consultivo e natural, sem formalidade excessiva.',
   ],
+
+  validador: {
+    terminologia: [{ evitar: 'diagnóstico', usar: 'análise com o Bruno', excecao: 'diagnóstico do perfil (item pago dos planos)' }],
+    nomear_humano: true,
+    escopo_permitido: ['presença digital (Google Meu Negócio, site, SEO local)', 'Google Ads'],
+  },
+
 }

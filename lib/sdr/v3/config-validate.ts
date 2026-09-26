@@ -2,7 +2,7 @@
  * Validação da CompanyConfig ao salvar (spec seção 7). Função pura.
  * Bloqueia (erros) o que quebraria o motor ou contradiz as regras da própria config; avisa o que só merece revisão.
  */
-import { PLACEHOLDERS_VALIDOS, type CompanyConfig } from './config-types'
+import { FATOS_AVISO_CHARS, FATOS_MAX_CHARS, PLACEHOLDERS_VALIDOS, type CompanyConfig } from './config-types'
 
 export interface ConfigValidation {
   erros: string[]
@@ -84,8 +84,8 @@ export function validateCompanyConfig(raw: unknown): ConfigValidation {
     add(`Objeção ${o.id}`, o.resposta)
     if (o.resposta_sem_dado) add(`Objeção ${o.id} (sem ${o.resposta_sem_dado.campo})`, o.resposta_sem_dado.resposta)
     if (o.modo === 'literal') {
-      const n = asArray(o.resposta).reduce((s, r) => s + frases(r), 0)
-      if (n > 3) avisos.push(`Objeção ${o.id} é literal e tem ${n} frases: acima de 3 o texto fica longo para copiar.`)
+      const n = Math.max(0, ...asArray(o.resposta).map(frases))
+      if (n > 3) avisos.push(`Objeção ${o.id} é literal e tem um bloco com ${n} frases: acima de 3 o bloco fica longo para copiar. Divida em blocos.`)
     }
   })
 
@@ -115,6 +115,22 @@ export function validateCompanyConfig(raw: unknown): ConfigValidation {
   add('Objeção repetida', c.objecao_repetida?.frase)
   add('Encerramento por recusas', c.encerramento_recusas?.frase)
   ;(c.fatos ?? []).forEach((f) => add(`Fato ${f.id}`, f.texto))
+
+  // ── fatos: tamanho (o que for longo vai para o RAG)
+  const totalFatos = (c.fatos ?? []).reduce((s, f) => s + (f.texto?.length ?? 0), 0)
+  if (totalFatos > FATOS_MAX_CHARS) erros.push(`Fatos somam ${totalFatos} caracteres (máximo ${FATOS_MAX_CHARS}). Mova o que for longo para a base de conhecimento (RAG).`)
+  else if (totalFatos > FATOS_AVISO_CHARS) avisos.push(`Fatos somam ${totalFatos} caracteres (aviso acima de ${FATOS_AVISO_CHARS}). Deixe na config só o curto e fixo; o que for longo vai para a base de conhecimento (RAG).`)
+
+  // ── regras do redator: só estilo. Regra de negócio mora no decisor e no validador.
+  const NEGOCIO_RE = /\b(pre[cç]o|valor(es)?|desconto|garant\w*|prometer|promessa|prazo|agend\w*|cobran\w*|cobrar|reuni[aã]o|diagn[oó]stico|plano|fatos?)\b/i
+  ;(c.regras_redator ?? []).forEach((r, i) => {
+    if (NEGOCIO_RE.test(r)) erros.push(`Regra do redator ${i + 1} mistura regra de negócio (preço, promessa, agendamento, plano ou fatos). Aqui vai só estilo; mova para "validador" ou "nunca_prometer".`)
+    add(`Regra do redator ${i + 1}`, r)
+  })
+  ;(c.validador?.terminologia ?? []).forEach((t, i) => {
+    if (!t.evitar?.trim() || !t.usar?.trim()) erros.push(`Terminologia ${i + 1}: preencha o termo a evitar e o termo a usar.`)
+    add(`Terminologia ${i + 1}`, t.usar)
+  })
 
   // ── regras que valem para TODO texto da própria config
   const phOk = new Set<string>(PLACEHOLDERS_VALIDOS)
