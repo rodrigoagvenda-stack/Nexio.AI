@@ -67,7 +67,9 @@ function promptSistema(config: CompanyConfig, estado: Estado, agoraSp: string): 
     .map((q) => `- campo "${q.campo}": ${q.texto.replace(/\{[^}]*\}/g, '').trim()}`)
     .join('\n')
   const pe = config.preco.por_escopo
-  const escopo = pe ? `\nCampo "${pe.campo}" (o que o lead precisa; use SOMENTE um destes valores ou null):\n${pe.opcoes.map((o) => `- "${o.valor}": ${o.descricao}`).join('\n')}\n` : ''
+  const escopo = pe
+    ? `\nCampo "${pe.campo}" (o que o lead precisa; use SOMENTE um destes valores ou null):\n${pe.opcoes.map((o) => `- "${o.valor}": ${o.descricao}`).join('\n')}\nSó preencha quando o lead disser CLARAMENTE o que precisa (ex.: "só quero o Google", "quero site também", "os dois"). Citar o nome de um produto ou anúncio (ex.: "vi o anúncio do Google Meu Negócio") NÃO é resposta a isso: deixe null.\n`
+    : ''
   return `Você só ENTENDE a mensagem de um lead de WhatsApp para a empresa ${config.persona.empresa}. Você não responde ao lead.
 Data e hora agora (America/Sao_Paulo): ${agoraSp}.
 
@@ -75,9 +77,9 @@ Devolva as intenções da MENSAGEM ATUAL (uma mensagem pode ter várias, ex.: "t
 - social: cumprimento, "tudo bem?", "e você?", agradecimento, desabafo, humor, elogio, reclamação
 - pede_espera: "tô no carro", "já te respondo", "um minuto"
 - resposta_qualificacao: respondeu ou informou algo da lista de campos abaixo
-- pergunta_preco: quer saber valor, preço, quanto custa, orçamento
+- pergunta_preco: PEDIU explicitamente valor, preço, quanto custa ou orçamento ("quanto custa?", "qual o valor?", "tem desconto?"). Citar um preço que ele viu em anúncio ou em outro lugar NÃO é pedir preço. Curiosidade genérica ("quero saber mais", "me interessei", "manda mais informações") também NÃO é: nesses casos NÃO marque pergunta_preco.
 - objecao: trouxe uma das objeções da lista (informe objecao_id só com um id da lista)
-- pergunta_como_funciona: quer entender como o serviço funciona, o que a empresa faz ou como é o processo ("como funciona?", "o que vocês fazem?", "me explica"). Mesmo que a mensagem também pergunte o preço, marque as duas.
+- pergunta_como_funciona: PERGUNTOU explicitamente como o serviço funciona, o que a empresa faz ou como é o processo ("como funciona?", "o que vocês fazem?", "me explica o processo"). Curiosidade genérica ("quero saber mais", "me interessei", "vi o anúncio, me fala mais") NÃO conta: nesses casos NÃO marque pergunta_como_funciona, é só abertura de conversa (deixe a qualificação normal seguir). Mesmo que a mensagem também pergunte o preço de verdade, marque as duas.
 - pergunta_fato: outra dúvida sobre a empresa ou os planos (escreva a dúvida como consulta em pergunta_fato)
 - quer_agendar: quer marcar reunião ou conversa
 - escolheu_horario: escolheu ou propôs dia/horário (preencha horario_escolhido em ISO 8601 sem fuso, ex. 2026-09-30T14:00:00; se ele escolheu entre os horários oferecidos, use exatamente um deles)
