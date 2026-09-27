@@ -16,6 +16,7 @@ import { carregarEstado, salvarEstado } from './state'
 import type { Acao, Estado, Etapa } from './types'
 import { corrigirMecanico, norm, sentencas, validar, type Violacao } from './validator'
 import { redigir } from './writer'
+import { atualizarResumoIA } from './resumo'
 
 type Supabase = ReturnType<typeof createServiceClient>
 
@@ -327,6 +328,22 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
       configVersion: cfgRow.version,
     })
     await deps.log('v3_turno', { turno: estado.turno, acao: acao.tipo, etapa: estado.etapa, violacoes: violacoes.map((v) => `${v.regra}:${v.modo}`) })
+
+    // Resumo executivo pro painel (LeadInfoSidebar): só gasta a chamada quando o turno tem chance real de
+    // trazer novidade (achado 27/09/2026: v3 nunca escrevia em resumo_ia). Turno só social/"outro" sem
+    // nenhum dado novo capturado e sem ação relevante não vale a chamada.
+    const acaoRelevante = ['agendar', 'gerar_cobranca', 'escalar', 'escalar_duvida', 'oferecer_horarios', 'responder_preco', 'responder_como_funciona', 'responder_fato'].includes(acao.tipo)
+    const soSocialOuOutro = extracao.intencoes.every((i) => i === 'social' || i === 'outro')
+    if (Object.keys(extracao.dados).length > 0 || acaoRelevante || !soSocialOuOutro) {
+      await atualizarResumoIA(openai, supabase, {
+        companyId: ctx.companyId,
+        leadId: ctx.leadId,
+        resumoAtual: (lead?.resumo_ia as string | null) ?? null,
+        mensagemLead: mensagemAtual,
+        respostaSdr: blocos.join(' '),
+        dadosNovos: extracao.dados,
+      }, deps.onUsage)
+    }
   } catch (err: any) {
     console.error(`[SDR v3:${ctx.companyId}] pós-envio falhou (ignorado):`, err?.message)
     await deps.log('v3_pos_envio_falhou', { erro: err?.message ?? 'erro' }).catch(() => {})
