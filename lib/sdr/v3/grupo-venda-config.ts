@@ -18,7 +18,10 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
       { id: 'nome', ordem: 1, obrigatoria: false, campo: 'nome', texto: 'Olá, tudo bem? Sou a Laura, atendente do Grupo Venda Marketing Digital. Qual o seu nome?' },
       { id: 'negocio', ordem: 2, obrigatoria: true, campo: 'negocio', texto: '{nome}, qual o nome, o ramo e a cidade da sua empresa?' },
       { id: 'perfil_google', ordem: 3, obrigatoria: true, campo: 'tem_perfil_google', texto: 'Você possui o perfil do Google Meu Negócio criado? Se sim, me manda o link ou um print dele.' },
-      { id: 'site', ordem: 4, obrigatoria: false, campo: 'tem_site', texto: 'Tem site?' },
+      // Mesmo texto de preco.por_escopo.pergunta (se mudar um, muda o outro): substitui a antiga pergunta solta "Tem site?",
+      // que perguntava sobre outra coisa (site que já existe) sem nunca travar o agendamento no que realmente importa pro
+      // Bruno (se o lead precisa que a gente monte um site). Obrigatória: nunca agenda reunião sem saber o escopo.
+      { id: 'escopo', ordem: 4, obrigatoria: true, campo: 'escopo', texto: 'Pra te passar o valor certinho: você precisa só da configuração do Google Meu Negócio ou precisa de um site também?' },
       { id: 'anuncios', ordem: 5, obrigatoria: false, campo: 'fez_anuncio', texto: 'Já fez anúncio no Google ou no Meta?' },
       { id: 'canal_aquisicao', ordem: 6, obrigatoria: false, campo: 'so_indicacao', texto: 'Hoje, você vive só de indicação e boca a boca?' },
       { id: 'dor_central', ordem: 7, obrigatoria: false, campo: 'aparece_no_google', texto: 'Quando você procura a sua empresa no Google, ela aparece ou não?' },

@@ -85,6 +85,7 @@ Devolva as intenções da MENSAGEM ATUAL (uma mensagem pode ter várias, ex.: "t
 - escolheu_horario: escolheu ou propôs dia/horário (preencha horario_escolhido em ISO 8601 sem fuso, ex. 2026-09-30T14:00:00; se ele escolheu entre os horários oferecidos, use exatamente um deles)
 - informou_email: passou o e-mail
 - pede_ligacao: quer que liguem ou prefere ligação
+- pede_remarcar: já tem reunião marcada e pede pra mudar de dia/horário ou cancelar ("não vou poder", "pode remarcar?", "quero cancelar", "vou faltar", "preciso adiar")
 - pede_humano: quer falar com uma pessoa, atendente ou o responsável
 - pergunta_se_e_robo: pergunta se é robô, IA, bot ou pessoa
 - recusa: disse que não quer, não tem interesse, para de mandar mensagem

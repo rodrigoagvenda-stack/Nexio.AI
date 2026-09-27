@@ -13,6 +13,7 @@ const ok = (nome: string, cond: boolean, extra = '') => {
 const ex = (p: Partial<Extracao>): Extracao => ({ intencoes: ['outro'], social: null, objecao_id: null, pergunta_fato: null, dados: {}, horario_escolhido: null, tom_do_lead: 'informal', confianca: 'alta', resposta_automatica: false, ...p })
 const ctx = (p: Partial<DecisorCtx> = {}): DecisorCtx => ({ temCalendario: true, cobrancaAtiva: false, primeiraMensagemNossa: false, pushName: null, contextoOutbound: null, origemAnuncio: null, reuniaoExistente: null, mensagemLead: '', ...p })
 const est = (p: Partial<Estado> = {}): Estado => ({ ...ESTADO_INICIAL(2), etapa: 'qualificando', ...p })
+const txt = (a: any) => [a.conteudo?.texto ?? ''].flat().join('\n')
 
 // 1 abertura com pushName como palpite
 let d = decidir(ex({ intencoes: ['social'], social: { tipo: 'cumprimento', texto_do_lead: 'boa tarde, vi o anúncio' } }), ESTADO_INICIAL(2), config, ctx({ primeiraMensagemNossa: true, pushName: 'Carla Souza' }))
@@ -57,7 +58,7 @@ e2 = decidir(ex({ intencoes: ['outro'] }), e2.estado, config, ctx())
 ok('"outro" 2x seguidas escala', e2.acao.tipo === 'escalar')
 
 // 7 qualificação completa e agendamento
-const completo = est({ dados: { negocio: 'dentista', tem_perfil_google: 'sim', decisor: 'sim' } })
+const completo = est({ dados: { negocio: 'dentista', tem_perfil_google: 'sim', decisor: 'sim', escopo: 'gmn' } })
 d = decidir(ex({ intencoes: ['outro'] }), completo, config, ctx())
 ok('qualificação completa oferece horários', d.acao.tipo === 'oferecer_horarios')
 d = decidir(ex({ intencoes: ['quer_agendar'] }), est({ dados: { negocio: 'x' } }), config, ctx())
@@ -66,16 +67,35 @@ ok('quer agendar sem qualificação: NÃO oferece horário, pergunta', d.acao.ti
 // 7b já existe reunião marcada: nunca reabre qualificação (caso do lead que confirma presença no lembrete de anti no-show, mesmo com campo obrigatório faltando)
 d = decidir(ex({ intencoes: ['social'], social: { tipo: 'retribuicao_pedida', texto_do_lead: 'Sim' } }), est({ dados: { decisor: 'sim' } }), config, ctx({ reuniaoExistente: 'quinta-feira, 01/10, às 14h' }))
 ok('reunião já marcada: confirma a reunião em vez de perguntar o que falta', d.acao.tipo === 'responder_fato' && d.acao.fatos.some((f) => f.id === 'reuniao_existente') && !d.acao.proxima_pergunta, d.acao.tipo)
+d = decidir(ex({ intencoes: ['pede_remarcar'] }), est(), config, ctx({ reuniaoExistente: 'quinta-feira, 01/10, às 14h' }))
+ok('reunião já marcada + pede remarcar/cancelar: escala pro humano, não fica confirmando a reunião velha', d.acao.tipo === 'escalar' && !!d.acao.handoff, d.acao.tipo)
+d = decidir(ex({ intencoes: ['escolheu_horario'], horario_escolhido: '2026-10-05T10:00:00' }), completo, config, ctx({ reuniaoExistente: 'quinta-feira, 01/10, às 14h' }))
+ok('reunião já marcada + lead cita outro horário direto: NÃO cria evento novo (evita duplicar no Calendar), só confirma a reunião existente', d.acao.tipo === 'responder_fato' && d.acao.fatos.some((f) => f.id === 'reuniao_existente'), d.acao.tipo)
+d = decidir(ex({ intencoes: ['pede_ligacao'] }), est(), config, ctx({ reuniaoExistente: 'quinta-feira, 01/10, às 14h' }))
+ok('reunião já marcada + pede ligação: confirma a reunião em vez de oferecer outro canal', d.acao.tipo === 'responder_fato' && d.acao.fatos.some((f) => f.id === 'reuniao_existente'), d.acao.tipo)
 d = decidir(ex({ intencoes: ['escolheu_horario', 'informou_email'], horario_escolhido: '2026-10-01T14:00:00', dados: { email: 'a@b.com', nome_completo: 'Ana Souza' } }), completo, config, ctx())
 ok('horário + e-mail + nome completo: agendar', d.acao.tipo === 'agendar')
 d = decidir(ex({ intencoes: ['escolheu_horario'], horario_escolhido: '2026-10-01T14:00:00' }), completo, config, ctx())
 ok('horário sem e-mail: pede dados', d.acao.tipo === 'pedir_dados_agendamento')
 d = decidir(ex({ intencoes: ['pede_pagamento'] }), est(), config, ctx())
 ok('pagamento sem cobrança ativa escala', d.acao.tipo === 'escalar')
+d = decidir(ex({ intencoes: ['pede_pagamento'] }), est({ dados: { nome: 'Ana' } }), config, ctx({ cobrancaAtiva: true }))
+ok('pagamento com cobrança ativa mas escopo desconhecido: pergunta o escopo antes (nunca cobra valor fixo errado)', d.acao.tipo === 'perguntar' && txt(d.acao).includes('site também'), d.acao.tipo)
+d = decidir(ex({ intencoes: ['pede_pagamento'] }), est({ dados: { escopo: 'site' } }), config, ctx({ cobrancaAtiva: true }))
+ok('pagamento com escopo já conhecido: segue pro CPF/CNPJ normalmente', d.acao.tipo === 'perguntar' && d.acao.proxima_pergunta?.id === 'cpf_cnpj', d.acao.tipo)
+
+// 7c qualificação nunca completa sem o escopo (Start ou Essencial)
+d = decidir(ex({ intencoes: ['outro'] }), est({ dados: { negocio: 'dentista', tem_perfil_google: 'sim', decisor: 'sim' } }), config, ctx())
+ok('sem escopo: qualificação NÃO está completa, não oferece horário', d.acao.tipo !== 'oferecer_horarios', d.acao.tipo)
+
+// 7d volta depois de encerrar: preço e objeções recomeçam do zero (senão a 1ª pergunta de preço no retorno já escala)
+const encerradoComHistorico = est({ etapa: 'encerrado', pedidos_de_preco: 2, objecoes_respondidas: ['caro'] })
+d = decidir(ex({ intencoes: ['social'], social: { tipo: 'cumprimento', texto_do_lead: 'Oi, voltei' } }), encerradoComHistorico, config, ctx())
+ok('volta depois de encerrar: zera pedidos de preço', d.estado.pedidos_de_preco === 0)
+ok('volta depois de encerrar: zera objeções já respondidas', d.estado.objecoes_respondidas.length === 0)
 
 function regrasPrime(b: string[]) { return validar(b, { config, estado: est(), acao: { tipo: 'perguntar', conteudo: null, fatos: [], proxima_pergunta: null, contexto: [] } as any, mensagensDoLead: [], ultimasNossas: [], eventoConfirmadoNoTurno: false }).map((x) => `${x.regra}:${x.modo}`).join(',') }
 // 7b como funciona e preço por escopo (Start e Essencial; Prime nunca aparece)
-const txt = (a: any) => [a.conteudo?.texto ?? ''].flat().join('\n')
 d = decidir(ex({ intencoes: ['pergunta_preco', 'pergunta_como_funciona'] }), est({ dados: { nome: 'Luciano' } }), config, ctx())
 ok('como funciona: texto fixo, chama pelo nome', d.acao.tipo === 'responder_como_funciona' && d.acao.conteudo?.modo === 'literal' && txt(d.acao).startsWith('Luciano, deixa eu te explicar'), txt(d.acao).slice(0, 60))
 ok('como funciona sem escopo: termina perguntando o escopo e não empilha outra pergunta', txt(d.acao).trim().endsWith('ou precisa de um site também?') && !d.acao.proxima_pergunta && d.estado.contadores.escopo_perguntado === true)

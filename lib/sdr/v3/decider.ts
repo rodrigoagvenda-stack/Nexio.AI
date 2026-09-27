@@ -110,6 +110,10 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   if (estado.etapa === 'encerrado' && !I.has('recusa') && !soAgradecimento) {
     estado.etapa = 'qualificando'
     estado.recusas = 0
+    // Volta com a página em branco pra preço e objeção: senão, o primeiro pedido de preço depois de
+    // voltar já escala direto pro Bruno (contador antigo de antes de encerrar), sem nem responder de novo.
+    estado.pedidos_de_preco = 0
+    estado.objecoes_respondidas = []
   }
 
   const completa = qualificacaoCompleta(estado, config)
@@ -263,8 +267,8 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
       : { estado, acao: base('aguardar') }
   }
 
-  // 7. pede ligação
-  if (I.has('pede_ligacao') && config.ligacao) {
+  // 7. pede ligação (quem já tem reunião marcada não recebe oferta de outro canal: cai na regra 10, que confirma a reunião)
+  if (I.has('pede_ligacao') && config.ligacao && !ctx.reuniaoExistente) {
     if (estado.contadores.ligacao_oferecida) {
       estado.etapa = 'escalado'
       return {
@@ -290,7 +294,8 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   }
 
   // 9. atalhos de agendamento: horário e/ou e-mail informados
-  if (ctx.temCalendario && (I.has('escolheu_horario') || I.has('informou_email'))) {
+  // (nunca quando já existe reunião marcada: criaria um evento novo no Calendar sem cancelar o antigo; a regra 10 trata isso)
+  if (ctx.temCalendario && !ctx.reuniaoExistente && (I.has('escolheu_horario') || I.has('informou_email'))) {
     const nomeCompleto = estado.dados.nome_completo || (estado.dados.nome?.trim().split(/\s+/).length >= 2 ? estado.dados.nome : '')
     if (ex.horario_escolhido) estado.dados.horario_escolhido = ex.horario_escolhido
     const horario = estado.dados.horario_escolhido
@@ -316,7 +321,9 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
 
   // 10. já existe reunião marcada: nunca reabre qualificação a partir daqui, mesmo que falte campo obrigatório
   // (ex.: lead confirmando presença no lembrete de anti no-show com "Sim" não pode receber "qual o nome da empresa?" de novo).
+  // Pedido de remarcar ou cancelar vai pro humano: o código não cancela evento no Calendar, escalar é o único jeito seguro.
   if (ctx.temCalendario && ctx.reuniaoExistente) {
+    if (I.has('pede_remarcar')) return escalar('lead pediu pra remarcar ou cancelar a reunião já marcada')
     return {
       estado,
       acao: base('responder_fato', {
@@ -342,6 +349,11 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // 12. pagamento
   if (I.has('pede_pagamento')) {
     if (!ctx.cobrancaAtiva) return escalar('lead pediu para pagar e a cobrança automática não está ativa')
+    // Preço por escopo: nunca gera cobrança do valor fixo da config sem saber qual escopo (Start e Essencial têm valores diferentes)
+    if (pe && !opcao) {
+      estado.contadores.escopo_perguntado = true
+      return { estado, acao: base('perguntar', { conteudo: { modo: 'literal', texto: preencher(pe.pergunta, estado.dados) } }) }
+    }
     if (!filled(estado.dados, 'cpf_cnpj')) {
       return {
         estado,
