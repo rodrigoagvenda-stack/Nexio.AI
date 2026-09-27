@@ -118,7 +118,7 @@ export async function runV3CalendarRealTest(companyId = 30): Promise<{ passos: P
     // Setup: lead de teste, claramente marcado
     const { data: lead, error: leadErr } = await supabase
       .from('leads')
-      .insert({ company_id: companyId, contact_name: 'TESTE CLAUDE (apagar)', whatsapp: testePhone, status: 'Em contato', origem: 'teste_interno' })
+      .insert({ company_id: companyId, contact_name: 'TESTE CLAUDE (apagar)', company_name: 'TESTE CLAUDE (apagar)', whatsapp: testePhone, status: 'Em contato', origem: 'teste_interno' })
       .select('id')
       .single()
     if (leadErr || !lead) throw new Error(`falha ao criar lead de teste: ${leadErr?.message}`)
