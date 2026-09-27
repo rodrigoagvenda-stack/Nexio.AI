@@ -81,6 +81,18 @@ d = decidir(ex({ intencoes: ['escolheu_horario', 'informou_email'], horario_esco
 ok('horário + e-mail + nome completo: agendar', d.acao.tipo === 'agendar')
 d = decidir(ex({ intencoes: ['escolheu_horario'], horario_escolhido: '2026-10-01T14:00:00' }), completo, config, ctx())
 ok('horário sem e-mail: pede dados', d.acao.tipo === 'pedir_dados_agendamento')
+
+// 7e regressão real (lead Cícero, 27/09): escolheu_horario chega no MESMO turno que outra intenção de
+// prioridade maior (como funciona) e some sem deixar rastro; turnos seguintes, sem repetir a escolha,
+// caem num loop de reoferecer os mesmos horários pra sempre em vez de pedir o que falta.
+d = decidir(ex({ intencoes: ['escolheu_horario', 'pergunta_como_funciona'], horario_escolhido: '2026-09-28T15:00:00' }), completo, config, ctx())
+ok('horário + como funciona no mesmo turno: horário não se perde (fica salvo em dados)', d.estado.dados.horario_escolhido === '2026-09-28T15:00:00', JSON.stringify(d.estado.dados))
+const comHorarioPendente = { ...d.estado }
+d = decidir(ex({ intencoes: ['social'] }), comHorarioPendente, config, ctx())
+ok('turno seguinte sem repetir a escolha: NÃO reoferece horários de novo (pede o que falta)', d.acao.tipo === 'pedir_dados_agendamento', d.acao.tipo)
+d = decidir(ex({ intencoes: ['outro'], dados: { email: 'cicero@teste.com', nome_completo: 'Cícero Silva' } }), comHorarioPendente, config, ctx())
+ok('turno seguinte com e-mail e nome completo já preenchidos: fecha o agendamento sem precisar repetir escolheu_horario', d.acao.tipo === 'agendar', d.acao.tipo)
+
 d = decidir(ex({ intencoes: ['pede_pagamento'] }), est(), config, ctx())
 ok('pagamento sem cobrança ativa escala', d.acao.tipo === 'escalar')
 d = decidir(ex({ intencoes: ['pede_pagamento'] }), est({ dados: { nome: 'Ana' } }), config, ctx({ cobrancaAtiva: true }))

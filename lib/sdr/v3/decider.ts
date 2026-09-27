@@ -90,6 +90,11 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
 
   // 0. merge dos dados (só o que o lead disse) e fechamento das perguntas respondidas
   for (const [k, v] of Object.entries(ex.dados ?? {})) if (typeof v === 'string' && v.trim()) estado.dados[k] = v.trim()
+  // horario_escolhido é campo separado de "dados" no extrator (não fica dentro de ex.dados), e por isso não
+  // entrava no merge acima. Bug real (lead Cícero, 27/09): quando o mesmo turno também casava com uma regra de
+  // prioridade maior (ex.: pergunta_como_funciona), a regra 9 nunca rodava e a escolha de horário do lead se
+  // perdia pra sempre, mesmo ele repetindo. Precisa ser incondicional, igual ex.dados, não só dentro da regra 9.
+  if (ex.horario_escolhido) estado.dados.horario_escolhido = ex.horario_escolhido
   const campoDe = (id: string) => config.qualificacao.perguntas.find((q) => q.id === id)?.campo
   for (const p of estado.perguntas_feitas) if (!p.respondida && campoDe(p.id) && filled(estado.dados, campoDe(p.id)!)) p.respondida = true
 
@@ -351,6 +356,23 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
       return { estado, acao: comPergunta(a) }
     }
     if (!ctx.temCalendario) return escalar('qualificação completa e a empresa não tem calendário')
+    // Já tem um horário pendente de confirmação (o lead escolheu antes, só faltou nome/e-mail, ou o turno em que
+    // ele escolheu foi resolvido por outra regra de prioridade maior nesse meio-tempo): nunca reoferece do zero
+    // igual disco riscado, resolve o que falta primeiro (mesmo bug real do lead Cícero, 27/09).
+    if (estado.dados.horario_escolhido) {
+      const nomeCompleto = estado.dados.nome_completo || (estado.dados.nome?.trim().split(/\s+/).length >= 2 ? estado.dados.nome : '')
+      const email = estado.dados.email
+      estado.etapa = 'confirmando'
+      if (email && nomeCompleto) return { estado, acao: base('agendar', { etapa_depois: 'agendado' }) }
+      const falta = [!nomeCompleto ? 'nome completo' : '', !email ? 'e-mail' : ''].filter(Boolean)
+      return {
+        estado,
+        acao: base('pedir_dados_agendamento', {
+          conteudo: { modo: 'livre', texto: `Pra fechar o agendamento, só preciso do seu ${falta.join(' e ')}.` },
+          etapa_depois: 'confirmando',
+        }),
+      }
+    }
     estado.contadores.horarios_ofertados = true
     return { estado, acao: base('oferecer_horarios', { etapa_depois: 'oferta_horario' }) }
   }
