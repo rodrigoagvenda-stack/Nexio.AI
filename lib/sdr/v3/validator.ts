@@ -33,6 +33,9 @@ const ABERTURAS = ['entendi', 'perfeito', 'otimo', 'show', 'claro', 'legal', 'be
 const ELOGIO_RE = /\b(?:boa|[oó]tima|excelente|[oó]timo)\s+pergunta\b/i
 const JUSTIFICATIVA_RE = /\b(?:assim|pra|para)\s+(?:eu\s+)?(?:consigo|posso|poder|conseguir)\b|\bso\s+pra\s+(?:eu\s+)?entender\b|\bpra\s+te\s+ajudar\s+melhor\b/i
 const ESPECIALISTA_RE = /\b(?:nosso|um|o)\s+especialista\b/i
+// Saudação social com "?" ("tudo bem?", "e você?"): nunca conta como "a" pergunta da regra V1, senão a correção
+// mecânica mantém só a saudação e apaga a pergunta de verdade que vem depois (achado ao vivo, 27/09/2026).
+const PERGUNTA_SOCIAL_RE = /^(oi[,!]?\s*)?(tudo bem|td bem|como vai|e (voc[eê]|vc))[\s,!]*\??$/i
 
 export const norm = (t: string) =>
   t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim()
@@ -212,6 +215,7 @@ export function corrigirMecanico(blocos: string[], v: ValidadorCtx, violacoes: V
         sentencas(b)
           .filter((s) => {
             if (!s.includes('?')) return true
+            if (PERGUNTA_SOCIAL_RE.test(s.trim())) return true
             if (achou) return false
             achou = true
             return true

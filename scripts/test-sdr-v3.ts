@@ -68,11 +68,15 @@ ok('quer agendar sem qualificação: NÃO oferece horário, pergunta', d.acao.ti
 d = decidir(ex({ intencoes: ['social'], social: { tipo: 'retribuicao_pedida', texto_do_lead: 'Sim' } }), est({ dados: { decisor: 'sim' } }), config, ctx({ reuniaoExistente: 'quinta-feira, 01/10, às 14h' }))
 ok('reunião já marcada: confirma a reunião em vez de perguntar o que falta', d.acao.tipo === 'responder_fato' && d.acao.fatos.some((f) => f.id === 'reuniao_existente') && !d.acao.proxima_pergunta, d.acao.tipo)
 d = decidir(ex({ intencoes: ['pede_remarcar'] }), est(), config, ctx({ reuniaoExistente: 'quinta-feira, 01/10, às 14h' }))
-ok('reunião já marcada + pede remarcar/cancelar: escala pro humano, não fica confirmando a reunião velha', d.acao.tipo === 'escalar' && !!d.acao.handoff, d.acao.tipo)
-d = decidir(ex({ intencoes: ['escolheu_horario'], horario_escolhido: '2026-10-05T10:00:00' }), completo, config, ctx({ reuniaoExistente: 'quinta-feira, 01/10, às 14h' }))
-ok('reunião já marcada + lead cita outro horário direto: NÃO cria evento novo (evita duplicar no Calendar), só confirma a reunião existente', d.acao.tipo === 'responder_fato' && d.acao.fatos.some((f) => f.id === 'reuniao_existente'), d.acao.tipo)
+ok('reunião já marcada + pede remarcar sem dizer quando: oferece horários novos (não escala, não fica só confirmando a reunião velha)', d.acao.tipo === 'oferecer_horarios', d.acao.tipo)
+const jaTinhaDadosDeAgendamento = { ...completo, dados: { ...completo.dados, email: 'marcos@email.com', nome_completo: 'Marcos Silva' } }
+d = decidir(ex({ intencoes: ['escolheu_horario'], horario_escolhido: '2026-10-05T10:00:00' }), jaTinhaDadosDeAgendamento, config, ctx({ reuniaoExistente: 'quinta-feira, 01/10, às 14h' }))
+ok('reunião já marcada + lead cita outro horário direto (já tinha e-mail/nome de antes): segue pra agendar (o turno cancela o evento antigo depois de criar o novo)', d.acao.tipo === 'agendar', d.acao.tipo)
 d = decidir(ex({ intencoes: ['pede_ligacao'] }), est(), config, ctx({ reuniaoExistente: 'quinta-feira, 01/10, às 14h' }))
-ok('reunião já marcada + pede ligação: confirma a reunião em vez de oferecer outro canal', d.acao.tipo === 'responder_fato' && d.acao.fatos.some((f) => f.id === 'reuniao_existente'), d.acao.tipo)
+ok('reunião já marcada + pede ligação: responde com o fato da empresa (Bruno liga no WhatsApp), não oferece outro canal', d.acao.tipo === 'responder_fato' && d.acao.fatos.some((f) => f.id === 'reuniao_ligacao'), d.acao.tipo)
+const cfgSemFatoLigacao: any = { ...config, ligacao: { ...config.ligacao, reuniao_e_ligacao: undefined } }
+d = decidir(ex({ intencoes: ['pede_ligacao'] }), est(), cfgSemFatoLigacao, ctx({ reuniaoExistente: 'quinta-feira, 01/10, às 14h' }))
+ok('reunião já marcada + pede ligação, empresa sem esse fato configurado: confirma a reunião (nunca inventa como funciona)', d.acao.tipo === 'responder_fato' && d.acao.fatos.some((f) => f.id === 'reuniao_existente'), d.acao.tipo)
 d = decidir(ex({ intencoes: ['escolheu_horario', 'informou_email'], horario_escolhido: '2026-10-01T14:00:00', dados: { email: 'a@b.com', nome_completo: 'Ana Souza' } }), completo, config, ctx())
 ok('horário + e-mail + nome completo: agendar', d.acao.tipo === 'agendar')
 d = decidir(ex({ intencoes: ['escolheu_horario'], horario_escolhido: '2026-10-01T14:00:00' }), completo, config, ctx())
@@ -199,5 +203,11 @@ ok('V11 deixa passar resposta real', !regras(['Temos mais de 7 anos de mercado.'
 const sujo = ['Legal — dentista!', 'Tem site? E anúncios?']
 const fix = corrigirMecanico(sujo, vc(), validar(sujo, vc()))
 ok('correção mecânica: 1 pergunta e sem travessão', fix.join(' ').match(/\?/g)?.length === 1 && !/[—–]/.test(fix.join(' ')), JSON.stringify(fix))
+
+// saudação social ("tudo bem?") nunca conta como "a" pergunta da V1: não pode apagar a pergunta de verdade (achado ao vivo, 27/09)
+const comSaudacao = ['Oi, tudo bem?', 'Eu sou a Laura, aqui do Grupo Venda Marketing Digital.', 'Qual o seu nome?']
+const fixSaudacao = corrigirMecanico(comSaudacao, vc(), validar(comSaudacao, vc()))
+ok('correção mecânica: saudação "tudo bem?" não apaga a pergunta de verdade', fixSaudacao.join(' ').includes('Qual o seu nome?'), JSON.stringify(fixSaudacao))
+
 console.log(falhas === 0 ? '\nTODOS OK' : `\n${falhas} FALHA(S)`)
 process.exit(falhas === 0 ? 0 : 1)

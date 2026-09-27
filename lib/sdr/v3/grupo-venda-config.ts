@@ -254,6 +254,9 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
   ligacao: {
     oferta: 'Sem problema! Posso te explicar por aqui, ou já te conecto com o Bruno, nosso CEO e especialista em Google Meu Negócio, que te retorna direto. O que prefere?',
     confirmacao: 'Perfeito! Já avisei o Bruno, ele deve te retornar em breve.',
+    // Fato específico da Grupo Venda (não é regra geral do sistema): quem já tem reunião marcada e pergunta
+    // sobre ligação já está atendido, porque o Bruno liga direto no WhatsApp no horário marcado.
+    reuniao_e_ligacao: 'Show! O Bruno, nosso CEO e especialista, é quem te liga direto no WhatsApp no horário marcado, então já está certinho.',
   },
 
   agradecimento_fim: { frase: 'Eu que agradeço! Qualquer coisa tô aqui.' },

@@ -97,23 +97,23 @@ export async function runV3LiveSelfTest(companyId = 30): Promise<{ configVersion
   let r = await turno(openai, config, ESTADO_INICIAL(cfgRow.version), [], mensagem, {})
   resultados.push({ nome: '0. Gancho do anúncio na abertura', lead: mensagem, sdr: r.blocos.join(' | '), acao: r.acao.tipo, escalou: !!r.acao.handoff, violacoes: r.violacoes.map((v) => `${v.regra}:${v.modo}`), passou: r.acao.tipo !== 'responder_como_funciona' && r.acao.tipo !== 'responder_preco', esperado: 'NÃO solta preço nem "como funciona" só pelo gancho do anúncio' })
 
-  const estQualificado: Estado = { ...ESTADO_INICIAL(cfgRow.version), etapa: 'agendado', dados: { nome: 'Marcos', negocio: 'barbearia em Sorocaba', tem_perfil_google: 'sim', escopo: 'gmn', decisor: 'sim' } }
+  const estQualificado: Estado = { ...ESTADO_INICIAL(cfgRow.version), etapa: 'agendado', dados: { nome: 'Marcos', negocio: 'barbearia em Sorocaba', tem_perfil_google: 'sim', escopo: 'gmn', decisor: 'sim', email: 'marcos@email.com', nome_completo: 'Marcos Silva' } }
   const histAgendado: MsgHist[] = [{ role: 'assistant', content: 'Marcos, agendado! Quinta às 14h.' }]
 
-  // 1. reunião marcada + pede remarcar/cancelar: escala pro Bruno
+  // 1. reunião marcada + pede remarcar sem dizer quando: oferece horários novos, não escala nem fica só confirmando a reunião velha
   mensagem = 'Poxa, vou ter um imprevisto, não vou poder às 14h, dá pra mudar?'
   r = await turno(openai, config, estQualificado, histAgendado, mensagem, { reuniaoExistente: 'quinta-feira, 01/10, às 14h' })
-  resultados.push({ nome: '1. Reunião marcada, lead avisa imprevisto', lead: mensagem, sdr: r.blocos.join(' | '), acao: r.acao.tipo, escalou: !!r.acao.handoff, violacoes: r.violacoes.map((v) => `${v.regra}:${v.modo}`), passou: r.acao.tipo === 'escalar' && !!r.acao.handoff, esperado: 'Escala pro Bruno (não fica só confirmando a reunião velha)' })
+  resultados.push({ nome: '1. Reunião marcada, lead avisa imprevisto', lead: mensagem, sdr: r.blocos.join(' | '), acao: r.acao.tipo, escalou: !!r.acao.handoff, violacoes: r.violacoes.map((v) => `${v.regra}:${v.modo}`), passou: r.acao.tipo === 'oferecer_horarios' || r.acao.tipo === 'escalar', esperado: 'Oferece horários novos pra remarcar (ou escala, nunca só confirma a reunião velha ignorando o imprevisto)' })
 
-  // 2. reunião marcada + lead cita outro horário direto: não pode criar evento duplicado
+  // 2. reunião marcada + lead cita outro horário direto: consulta disponibilidade e segue pra agendar (o turno cancela o evento antigo depois de criar o novo)
   mensagem = 'Prefiro sexta às 10h então'
   r = await turno(openai, config, estQualificado, histAgendado, mensagem, { reuniaoExistente: 'quinta-feira, 01/10, às 14h' })
-  resultados.push({ nome: '2. Reunião marcada, lead cita outro horário direto', lead: mensagem, sdr: r.blocos.join(' | '), acao: r.acao.tipo, escalou: !!r.acao.handoff, violacoes: r.violacoes.map((v) => `${v.regra}:${v.modo}`), passou: r.acao.tipo !== 'agendar', esperado: 'NÃO agenda de novo (evitaria duplicar evento no Calendar)' })
+  resultados.push({ nome: '2. Reunião marcada, lead cita outro horário direto', lead: mensagem, sdr: r.blocos.join(' | '), acao: r.acao.tipo, escalou: !!r.acao.handoff, violacoes: r.violacoes.map((v) => `${v.regra}:${v.modo}`), passou: r.acao.tipo === 'agendar' || r.acao.tipo === 'oferecer_horarios' || r.acao.tipo === 'pedir_dados_agendamento', esperado: 'Consulta o horário pedido e segue o fluxo de agendar (nunca fica preso confirmando só a reunião velha)' })
 
-  // 3. reunião marcada + pede ligação: confirma a reunião, não oferece outro canal
+  // 3. reunião marcada + pede ligação: responde com o fato da empresa (Bruno liga no WhatsApp), não oferece outro canal
   mensagem = 'Vocês não podem só me ligar em vez da call?'
   r = await turno(openai, config, estQualificado, histAgendado, mensagem, { reuniaoExistente: 'quinta-feira, 01/10, às 14h' })
-  resultados.push({ nome: '3. Reunião marcada, lead pede ligação', lead: mensagem, sdr: r.blocos.join(' | '), acao: r.acao.tipo, escalou: !!r.acao.handoff, violacoes: r.violacoes.map((v) => `${v.regra}:${v.modo}`), passou: r.acao.tipo !== 'oferecer_ligacao', esperado: 'Confirma a reunião, não oferece outro canal' })
+  resultados.push({ nome: '3. Reunião marcada, lead pede ligação', lead: mensagem, sdr: r.blocos.join(' | '), acao: r.acao.tipo, escalou: !!r.acao.handoff, violacoes: r.violacoes.map((v) => `${v.regra}:${v.modo}`), passou: r.acao.tipo !== 'oferecer_ligacao', esperado: 'Confirma a reunião ou explica o fato do Bruno ligar no WhatsApp, não oferece outro canal' })
 
   // 4. pagamento com escopo desconhecido: pergunta o escopo antes de gerar cobrança
   const estSemEscopo: Estado = { ...ESTADO_INICIAL(cfgRow.version), etapa: 'qualificando', dados: { nome: 'Ana', negocio: 'clínica em Curitiba', tem_perfil_google: 'nao', decisor: 'sim' } }

@@ -294,8 +294,9 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   }
 
   // 9. atalhos de agendamento: horário e/ou e-mail informados
-  // (nunca quando já existe reunião marcada: criaria um evento novo no Calendar sem cancelar o antigo; a regra 10 trata isso)
-  if (ctx.temCalendario && !ctx.reuniaoExistente && (I.has('escolheu_horario') || I.has('informou_email'))) {
+  // (vale também com reunião já marcada: é uma remarcação. O turno cancela o evento antigo antes de criar o novo,
+  // nunca cria os dois sem cancelar; ver eventoParaCancelar em agenda.ts)
+  if (ctx.temCalendario && (I.has('escolheu_horario') || I.has('informou_email'))) {
     const nomeCompleto = estado.dados.nome_completo || (estado.dados.nome?.trim().split(/\s+/).length >= 2 ? estado.dados.nome : '')
     if (ex.horario_escolhido) estado.dados.horario_escolhido = ex.horario_escolhido
     const horario = estado.dados.horario_escolhido
@@ -321,9 +322,20 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
 
   // 10. já existe reunião marcada: nunca reabre qualificação a partir daqui, mesmo que falte campo obrigatório
   // (ex.: lead confirmando presença no lembrete de anti no-show com "Sim" não pode receber "qual o nome da empresa?" de novo).
-  // Pedido de remarcar ou cancelar vai pro humano: o código não cancela evento no Calendar, escalar é o único jeito seguro.
   if (ctx.temCalendario && ctx.reuniaoExistente) {
-    if (I.has('pede_remarcar')) return escalar('lead pediu pra remarcar ou cancelar a reunião já marcada')
+    // Pergunta sobre ligação: é fato da empresa (ex.: Grupo Venda, o Bruno liga no WhatsApp), nunca oferece
+    // canal genérico pra quem já tem reunião marcada.
+    if (I.has('pede_ligacao') && config.ligacao?.reuniao_e_ligacao) {
+      return {
+        estado,
+        acao: base('responder_fato', { fatos: [{ id: 'reuniao_ligacao', texto: config.ligacao.reuniao_e_ligacao }], etapa_depois: 'agendado' }),
+      }
+    }
+    // Pediu remarcar/cancelar mas ainda não disse pra quando: oferece horários novos (a regra 9 trata quando ele escolher).
+    if (I.has('pede_remarcar')) {
+      estado.contadores.horarios_ofertados = true
+      return { estado, acao: base('oferecer_horarios', { etapa_depois: 'oferta_horario' }) }
+    }
     return {
       estado,
       acao: base('responder_fato', {

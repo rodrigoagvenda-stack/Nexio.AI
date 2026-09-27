@@ -68,7 +68,13 @@ export interface CompanyConfig {
   palavras_proibidas: string[]
   agendamento: { ativo: boolean; calendario_id?: string }
   /** EXTENSÃO: pedido de ligação. */
-  ligacao?: { oferta: string; confirmacao: string }
+  ligacao?: {
+    oferta: string
+    confirmacao: string
+    /** Fato da empresa (não regra geral): como funciona quando quem JÁ tem reunião marcada pergunta sobre
+     * ligação (ex.: na Grupo Venda o Bruno liga direto no WhatsApp). Sem isso, só confirma a reunião existente. */
+    reuniao_e_ligacao?: string
+  }
   /** EXTENSÃO: resposta única ao agradecimento depois de encerrar. */
   agradecimento_fim?: { frase: string }
   /** EXTENSÃO: fatos da empresa (planos, dados, cobrança). Nesta fase ficam na config, não em `documents`. */

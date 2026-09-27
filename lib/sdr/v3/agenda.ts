@@ -5,7 +5,7 @@
  */
 import type { createServiceClient } from '@/lib/supabase/server'
 import { MIN_NOTICE_MINUTES } from '@/lib/slot-notice'
-import { checkAvailableSlots, createEventWithMeet, formatDateTimeBR, getMeetingDurationMinutes, parseBrazilDateTime } from '@/lib/google-calendar'
+import { cancelEvent, checkAvailableSlots, createEventWithMeet, formatDateTimeBR, getMeetingDurationMinutes, parseBrazilDateTime } from '@/lib/google-calendar'
 
 type Supabase = ReturnType<typeof createServiceClient>
 
@@ -73,7 +73,9 @@ export type ResultadoAgendamento =
 export async function agendarReuniao(
   ctx: AgendaCtx,
   supabase: Supabase,
-  p: { dataHora: string; email: string; nomeCompleto: string },
+  /** eventoParaCancelar: id do evento antigo no Calendar quando isso é uma REMARCAÇÃO (lead já tinha reunião marcada).
+   * Nunca cancela antes de criar a nova: se cancelasse primeiro e a criação falhasse, o lead ficaria sem reunião nenhuma. */
+  p: { dataHora: string; email: string; nomeCompleto: string; eventoParaCancelar?: string },
 ): Promise<ResultadoAgendamento> {
   try {
     if (!p.email.includes('@')) return { ok: false, motivo: 'invalido', detalhe: 'e-mail inválido' }
@@ -117,6 +119,14 @@ export async function agendarReuniao(
       attendeeEmail: p.email,
       attendeeName: p.nomeCompleto,
     })
+    if (p.eventoParaCancelar) {
+      try {
+        await cancelEvent(ctx.calendarId, p.eventoParaCancelar, ctx.companyId)
+      } catch (err: any) {
+        // A reunião nova já existe (o que importa pro lead); só registra que o evento velho ficou órfão no Calendar.
+        console.error(`[SDR v3:${ctx.companyId}] cancelar evento antigo (remarcação) falhou, evento novo criado normalmente:`, err?.message)
+      }
+    }
     await supabase
       .from('leads')
       .update({

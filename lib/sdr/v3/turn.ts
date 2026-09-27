@@ -198,7 +198,9 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
   }
   if (acao.tipo === 'agendar') {
     const nomeCompleto = estado.dados.nome_completo || estado.dados.nome
-    const r = await agendarReuniao(agendaCtx!, supabase, { dataHora: estado.dados.horario_escolhido, email: estado.dados.email, nomeCompleto })
+    // Reunião já existia nesse turno (remarcação): cancela o evento antigo depois de criar o novo, nunca deixa os dois soltos.
+    const eventoParaCancelar = reuniaoExistente ? (lead?.calendar_event_id ?? undefined) : undefined
+    const r = await agendarReuniao(agendaCtx!, supabase, { dataHora: estado.dados.horario_escolhido, email: estado.dados.email, nomeCompleto, eventoParaCancelar })
     if (r.ok) {
       ctx.agendamentoConfirmadoNoTurno = true
       estado.etapa = 'agendado'

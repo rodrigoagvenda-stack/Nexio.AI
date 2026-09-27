@@ -132,6 +132,7 @@ export function validateCompanyConfig(raw: unknown): ConfigValidation {
   add('Fora do escopo', c.fora_escopo?.frase)
   add('Ligação, oferta', c.ligacao?.oferta)
   add('Ligação, confirmação', c.ligacao?.confirmacao)
+  add('Ligação, reunião já é ligação', c.ligacao?.reuniao_e_ligacao)
   add('Agradecimento', c.agradecimento_fim?.frase)
   add('Objeção repetida', c.objecao_repetida?.frase)
   add('Encerramento por recusas', c.encerramento_recusas?.frase)
