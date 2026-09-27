@@ -300,8 +300,9 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     }
   }
 
-  // 10. quer agendar / qualificação completa
-  if (ctx.temCalendario && ctx.reuniaoExistente && (I.has('quer_agendar') || completa)) {
+  // 10. já existe reunião marcada: nunca reabre qualificação a partir daqui, mesmo que falte campo obrigatório
+  // (ex.: lead confirmando presença no lembrete de anti no-show com "Sim" não pode receber "qual o nome da empresa?" de novo).
+  if (ctx.temCalendario && ctx.reuniaoExistente) {
     return {
       estado,
       acao: base('responder_fato', {
