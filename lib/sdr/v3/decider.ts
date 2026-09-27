@@ -119,8 +119,8 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // do anúncio, e tem infinitas variações de texto. Na primeira mensagem da conversa, só libera falar preço ou
   // explicar o serviço quando o texto LITERAL do lead pede isso, palavra por palavra: nunca por causa do que a IA
   // achou que a intenção era. Depois da abertura, o classificador de intenção volta a valer normalmente.
-  const PRECO_EXPLICITO_RE = /quanto (custa|fica|sai|e|eh|e o valor)|qual (o |e o )?(valor|preco|orcamento)|tem desconto|valor (do|da|pra|para)/
-  const COMO_FUNCIONA_EXPLICITO_RE = /como funciona|como (e|eh) o processo|como (voces? |voce )?faz(em)?|o que voces? faz(em)?|me explica/
+  const PRECO_EXPLICITO_RE = /quanto (custa|fica|sai|e|eh|e o valor|eu pago|invisto)|qual (o |e o )?(valor|preco|orcamento|investimento)|tem desconto|valor (do|da|pra|para)|\bpreco\b|\binvestimento\b/
+  const COMO_FUNCIONA_EXPLICITO_RE = /como funciona|como (e|eh) (o processo|feito)|qual (e|eh) o processo|como (voces? |voce )?faz(em)?|o que voces? faz(em)?|me explica/
   const pedeuPrecoDeVerdade = !abertura || PRECO_EXPLICITO_RE.test(norm(ctx.mensagemLead))
   const pedeuComoFuncionaDeVerdade = !abertura || COMO_FUNCIONA_EXPLICITO_RE.test(norm(ctx.mensagemLead))
 

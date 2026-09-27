@@ -119,6 +119,10 @@ d = decidir(
   ctx({ primeiraMensagemNossa: true, mensagemLead: 'Boa noite, quanto custa? Como funciona?' }),
 )
 ok('abertura: pedido EXPLÍCITO de preço e como funciona na 1ª mensagem continua funcionando', d.acao.tipo === 'responder_como_funciona', d.acao.tipo)
+d = decidir(ex({ intencoes: ['pergunta_preco'] }), ESTADO_INICIAL(3), config, ctx({ primeiraMensagemNossa: true, mensagemLead: 'Boa tarde, qual o investimento?' }))
+ok('abertura: "investimento" (sinônimo comum de preço) também libera a trava', d.acao.tipo === 'responder_preco', d.acao.tipo)
+d = decidir(ex({ intencoes: ['pergunta_como_funciona'] }), ESTADO_INICIAL(3), config, ctx({ primeiraMensagemNossa: true, mensagemLead: 'Qual é o processo de vocês?' }))
+ok('abertura: "qual é o processo" também libera a trava do como funciona', d.acao.tipo === 'responder_como_funciona', d.acao.tipo)
 d = decidir(
   ex({ intencoes: ['pergunta_como_funciona'] }),
   est(),
