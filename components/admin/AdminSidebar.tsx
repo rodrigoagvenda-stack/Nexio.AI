@@ -40,6 +40,7 @@ const navLinks = [
   { href: '/admin/novidades', label: 'Novidades', icon: Sparkles },
   { href: '/admin/logs', label: 'Logs', icon: Activity },
   { href: '/admin/qa-sdr', label: 'QA do SDR', icon: FlaskConical },
+  { href: '/admin/sdr-v3-teste', label: 'Teste ao vivo v3', icon: FlaskConical },
   { href: '/admin/configuracoes', label: 'Configurações', icon: Settings2 },
 ];
 
