@@ -2,6 +2,7 @@
  * Validação da CompanyConfig ao salvar (spec seção 7). Função pura.
  * Bloqueia (erros) o que quebraria o motor ou contradiz as regras da própria config; avisa o que só merece revisão.
  */
+import { contemProibida } from './validator'
 import { FATOS_AVISO_CHARS, FATOS_MAX_CHARS, PLACEHOLDERS_VALIDOS, type CompanyConfig } from './config-types'
 
 export interface ConfigValidation {
@@ -37,7 +38,7 @@ export function validateCompanyConfig(raw: unknown): ConfigValidation {
   const p = c.persona
   if (!p || !p.nome_agente?.trim() || !p.empresa?.trim() || !p.tom?.trim()) avisos.push('Persona incompleta: preencha nome do agente, empresa e tom.')
 
-  const proibidas = (c.palavras_proibidas ?? []).map(norm).filter(Boolean)
+  const proibidas = (c.palavras_proibidas ?? []).filter((w) => w?.trim())
   const podeInformarPreco = c.preco?.pode_informar === true
 
   // Todo texto que vai (ou pode ir) para o lead
@@ -98,6 +99,26 @@ export function validateCompanyConfig(raw: unknown): ConfigValidation {
     if (!preco.frase_depois_qualificacao?.trim()) erros.push('Preço: falta a frase para depois da qualificação.')
     add('Preço, antes da qualificação', preco.frases_antes_qualificacao)
     add('Preço, depois da qualificação', preco.frase_depois_qualificacao)
+    const pe = preco.por_escopo
+    if (pe) {
+      if (!preco.pode_informar) erros.push('Preço por escopo só funciona com "pode informar preço" ligado.')
+      if (!pe.campo?.trim()) erros.push('Preço por escopo: falta o campo que guarda o escopo.')
+      if (!pe.pergunta?.trim()) erros.push('Preço por escopo: falta a pergunta que descobre o escopo.')
+      if (!Array.isArray(pe.opcoes) || pe.opcoes.length === 0) erros.push('Preço por escopo: cadastre pelo menos uma opção.')
+      const valores = new Set<string>()
+      ;(pe.opcoes ?? []).forEach((o) => {
+        if (!o.valor?.trim() || !o.descricao?.trim() || asArray(o.texto).length === 0) erros.push(`Preço por escopo: a opção "${o.valor ?? ''}" precisa de valor, descrição e texto.`)
+        if (valores.has(o.valor)) erros.push(`Preço por escopo: opção repetida (${o.valor}).`)
+        valores.add(o.valor)
+        add(`Preço, escopo ${o.valor}`, o.texto)
+        if (!asArray(o.texto).some((t) => VALOR_RE.test(t))) avisos.push(`Preço, escopo ${o.valor}: o texto não tem nenhum valor em reais.`)
+      })
+      add('Preço, pergunta do escopo', pe.pergunta)
+    }
+  }
+  if (c.como_funciona) {
+    if (asArray(c.como_funciona.texto).length === 0 || asArray(c.como_funciona.texto).some((t) => !t.trim())) erros.push('Como funciona: texto vazio.')
+    add('Como funciona', c.como_funciona.texto)
   }
 
   // ── demais frases
@@ -140,7 +161,7 @@ export function validateCompanyConfig(raw: unknown): ConfigValidation {
     for (const m of texto.matchAll(/\{([^}]*)\}/g)) if (!phOk.has(m[1])) erros.push(`${label}: variável desconhecida {${m[1]}}.`)
     if (!podeInformarPreco && VALOR_RE.test(texto)) erros.push(`${label}: tem valor em reais, mas a empresa não pode informar preço.`)
     const t = norm(texto)
-    for (const w of proibidas) if (t.includes(w)) erros.push(`${label}: usa a palavra proibida "${w}".`)
+    for (const w of proibidas) if (contemProibida(t, w)) erros.push(`${label}: usa a palavra proibida "${w.replace(/^=/, '')}".`)
     const max = c.limites?.max_frases_por_mensagem
     if (max && !label.startsWith('Fato') && frases(texto) > max) avisos.push(`${label}: mais de ${max} frases em um bloco.`)
   }

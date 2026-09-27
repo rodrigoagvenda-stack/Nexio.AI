@@ -30,6 +30,18 @@ export interface ObjecaoConfig {
   prioridade: number
 }
 
+/**
+ * EXTENSÃO: preço decidido pelo que o lead precisa. O valor sai SEMPRE como texto fixo da config (nunca escrito pela IA).
+ * Sem o escopo conhecido, o agente pergunta antes de falar valor.
+ */
+export interface PrecoPorEscopo {
+  /** Campo de `dados` que guarda o escopo (o extrator só aceita um dos `valor` abaixo). */
+  campo: string
+  /** Pergunta que descobre o escopo. Uma pergunta só. */
+  pergunta: string
+  opcoes: { valor: string; /** como o extrator reconhece este escopo */ descricao: string; /** texto fixo do valor; cada item é um bloco */ texto: string | string[] }[]
+}
+
 export interface CompanyConfig {
   version: number
   persona: { nome_agente: string; empresa: string; tom: string; assinatura_humano: string }
@@ -40,7 +52,11 @@ export interface CompanyConfig {
     frases_antes_qualificacao: string[]
     frase_depois_qualificacao: string
     escalar_apos: number
+    /** EXTENSÃO: só vale com pode_informar true. */
+    por_escopo?: PrecoPorEscopo
   }
+  /** EXTENSÃO: resposta fixa para "como funciona?". Cada item é um bloco; a pergunta de escopo (preco.por_escopo) é acrescentada no fim quando o escopo ainda não é conhecido. */
+  como_funciona?: { texto: string | string[] }
   limites: {
     recusas_para_encerrar: number
     /** EXTENSÃO: máximo de frases por mensagem (regra do dono). */

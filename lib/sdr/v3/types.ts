@@ -7,6 +7,7 @@ export type Intencao =
   | 'pergunta_preco'
   | 'objecao'
   | 'pergunta_fato'
+  | 'pergunta_como_funciona'
   | 'quer_agendar'
   | 'escolheu_horario'
   | 'informou_email'
@@ -19,7 +20,7 @@ export type Intencao =
   | 'outro'
 
 export const INTENCOES: Intencao[] = [
-  'social', 'pede_espera', 'resposta_qualificacao', 'pergunta_preco', 'objecao', 'pergunta_fato', 'quer_agendar',
+  'social', 'pede_espera', 'resposta_qualificacao', 'pergunta_preco', 'objecao', 'pergunta_fato', 'pergunta_como_funciona', 'quer_agendar',
   'escolheu_horario', 'informou_email', 'pede_ligacao', 'pede_humano', 'pergunta_se_e_robo', 'recusa',
   'fora_do_escopo', 'pede_pagamento', 'outro',
 ]
@@ -60,6 +61,8 @@ export interface Contadores {
   horarios_ofertados: boolean
   ultimo_id_perguntado: string | null
   ligacao_oferecida: boolean
+  /** Já perguntamos o escopo (preço por escopo): a resposta a essa pergunta destrava o valor. */
+  escopo_perguntado?: boolean
 }
 
 export interface Estado {
@@ -82,6 +85,7 @@ export type AcaoTipo =
   | 'responder_identidade'
   | 'responder_fora_escopo'
   | 'responder_preco'
+  | 'responder_como_funciona'
   | 'responder_objecao'
   | 'objecao_repetida'
   | 'encerrar'

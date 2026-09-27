@@ -17,7 +17,8 @@ const SOCIAL_TIPOS = ['cumprimento', 'retribuicao_pedida', 'agradecimento', 'des
 const CAMPOS_FIXOS = ['nome', 'nome_completo', 'segmento', 'cidade', 'email', 'disponibilidade', 'cpf_cnpj']
 
 export function camposDeDados(config: CompanyConfig): string[] {
-  return [...new Set([...CAMPOS_FIXOS, ...config.qualificacao.perguntas.map((q) => q.campo)])]
+  const escopo = config.preco.por_escopo?.campo
+  return [...new Set([...CAMPOS_FIXOS, ...config.qualificacao.perguntas.map((q) => q.campo), ...(escopo ? [escopo] : [])])]
 }
 
 export function schemaExtracao(config: CompanyConfig) {
@@ -46,7 +47,9 @@ export function schemaExtracao(config: CompanyConfig) {
         type: 'object',
         additionalProperties: false,
         required: campos,
-        properties: Object.fromEntries(campos.map((c) => [c, { type: ['string', 'null'] }])),
+        properties: Object.fromEntries(
+          campos.map((c) => [c, c === config.preco.por_escopo?.campo ? { type: ['string', 'null'], enum: [...config.preco.por_escopo.opcoes.map((o) => o.valor), null] } : { type: ['string', 'null'] }]),
+        ),
       },
       horario_escolhido: { type: ['string', 'null'] },
       tom_do_lead: { type: 'string', enum: ['curto_informal', 'informal', 'formal'] },
@@ -63,6 +66,8 @@ function promptSistema(config: CompanyConfig, estado: Estado, agoraSp: string): 
   const perguntas = config.qualificacao.perguntas
     .map((q) => `- campo "${q.campo}": ${q.texto.replace(/\{[^}]*\}/g, '').trim()}`)
     .join('\n')
+  const pe = config.preco.por_escopo
+  const escopo = pe ? `\nCampo "${pe.campo}" (o que o lead precisa; use SOMENTE um destes valores ou null):\n${pe.opcoes.map((o) => `- "${o.valor}": ${o.descricao}`).join('\n')}\n` : ''
   return `Você só ENTENDE a mensagem de um lead de WhatsApp para a empresa ${config.persona.empresa}. Você não responde ao lead.
 Data e hora agora (America/Sao_Paulo): ${agoraSp}.
 
@@ -72,7 +77,8 @@ Devolva as intenções da MENSAGEM ATUAL (uma mensagem pode ter várias, ex.: "t
 - resposta_qualificacao: respondeu ou informou algo da lista de campos abaixo
 - pergunta_preco: quer saber valor, preço, quanto custa, orçamento
 - objecao: trouxe uma das objeções da lista (informe objecao_id só com um id da lista)
-- pergunta_fato: dúvida sobre a empresa, os planos, o processo (escreva a dúvida como consulta em pergunta_fato)
+- pergunta_como_funciona: quer entender como o serviço funciona, o que a empresa faz ou como é o processo ("como funciona?", "o que vocês fazem?", "me explica"). Mesmo que a mensagem também pergunte o preço, marque as duas.
+- pergunta_fato: outra dúvida sobre a empresa ou os planos (escreva a dúvida como consulta em pergunta_fato)
 - quer_agendar: quer marcar reunião ou conversa
 - escolheu_horario: escolheu ou propôs dia/horário (preencha horario_escolhido em ISO 8601 sem fuso, ex. 2026-09-30T14:00:00; se ele escolheu entre os horários oferecidos, use exatamente um deles)
 - informou_email: passou o e-mail
@@ -89,7 +95,7 @@ ${objecoes || '(nenhuma)'}
 
 Campos de qualificação e as perguntas que os preenchem:
 ${perguntas}
-
+${escopo}
 REGRAS
 - "dados" recebe SOMENTE o que o LEAD disse em qualquer mensagem do trecho abaixo. Nada inferido, nada que o agente tenha escrito, nada do nome de perfil do WhatsApp. Uma resposta curta ("sim", "não", "sou eu") vale para a pergunta que o agente acabou de fazer. Campo sem informação = null.
 - Para o campo "negocio": preencha com o que o lead disse do negócio (nome, ramo, cidade) em uma frase curta. Preencha também segmento e cidade quando ele disse.

@@ -1,13 +1,13 @@
 /**
  * SDR v3: validador (spec seção 6). Funções puras: rodam sobre todo texto que sai.
  * V1 uma pergunta, V2 pergunta já respondida, V3 frase repetida, V4 valor, V5 palavra proibida,
- * V6 fato fora da fonte (registro), V7 vício de IA (registro), V8 tamanho, V9 travessão, V10 agendamento sem evento.
+ * V6 fato fora da fonte (registro), V7 vício de IA (registro), V8 tamanho, V9 travessão, V10 agendamento sem evento, V11 dúvida do lead sem resposta.
  * Regras da config: terminologia e nomear o humano.
  */
 import type { CompanyConfig } from './config-types'
 import type { Acao, Estado } from './types'
 
-export type RegraId = 'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7' | 'V8' | 'V9' | 'V10' | 'TERMO' | 'HUMANO' | 'LITERAL'
+export type RegraId = 'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7' | 'V8' | 'V9' | 'V10' | 'V11' | 'TERMO' | 'HUMANO' | 'LITERAL'
 
 export interface Violacao {
   regra: RegraId
@@ -36,6 +36,20 @@ const ESPECIALISTA_RE = /\b(?:nosso|um|o)\s+especialista\b/i
 
 export const norm = (t: string) =>
   t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim()
+
+/** Palavra proibida no texto (já normalizado). Com "=" na frente vale só a palavra inteira ("=prime" não pega "primeiro"). */
+export function contemProibida(textoNorm: string, palavra: string): boolean {
+  const p = norm(palavra.replace(/^=/, ''))
+  if (!p) return false
+  if (!palavra.startsWith('=')) return textoNorm.includes(p)
+  let i = -1
+  while ((i = textoNorm.indexOf(p, i + 1)) !== -1) {
+    const antes = textoNorm[i - 1]
+    const depois = textoNorm[i + p.length]
+    if (!(antes && /[a-z0-9]/.test(antes)) && !(depois && /[a-z0-9]/.test(depois))) return true
+  }
+  return false
+}
 
 const tokens = (t: string) => norm(t).replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean)
 
@@ -91,10 +105,18 @@ export function validar(blocos: string[], v: ValidadorCtx): Violacao[] {
 
   // V4 valor em reais quando a empresa não pode informar preço
   if (!cfg.preco.pode_informar && v.acao.tipo !== 'gerar_cobranca' && VALOR_RE.test(texto)) add('V4', 'valor em reais na resposta')
+  // Com preço por escopo, só valem os valores escritos na config: qualquer outro R$ é inventado
+  if (cfg.preco.pode_informar && cfg.preco.por_escopo && v.acao.tipo !== 'gerar_cobranca') {
+    const permitidos = new Set(
+      cfg.preco.por_escopo.opcoes.flatMap((o) => [o.texto].flat()).flatMap((t) => t.match(/R\$\s?[\d.,]*\d/g) ?? []).map((m) => m.replace(/\s/g, '')),
+    )
+    const fora = (texto.match(/R\$\s?[\d.,]*\d/g) ?? []).map((m) => m.replace(/\s/g, '')).filter((m) => !permitidos.has(m))
+    if (fora.length > 0) add('V4', `valor fora da config: ${[...new Set(fora)].join(', ')}`)
+  }
 
   // V5 palavra proibida
   const nt = norm(texto)
-  for (const w of cfg.palavras_proibidas) if (norm(w) && nt.includes(norm(w))) add('V5', `palavra proibida "${w}"`)
+  for (const w of cfg.palavras_proibidas) if (contemProibida(nt, w)) add('V5', `palavra proibida "${w.replace(/^=/, '')}"`)
 
   // V6 número, prazo ou porcentagem fora da fonte; nome próprio fora da fonte (registro)
   const fonte = norm(
@@ -132,14 +154,22 @@ export function validar(blocos: string[], v: ValidadorCtx): Violacao[] {
   if (JUSTIFICATIVA_RE.test(texto)) add('V7', 'justificativa de por que está perguntando', bloqueiaV6V7 ? 'bloqueia' : 'registro')
 
   // V8 tamanho
-  if (blocos.length > 2) add('V8', `${blocos.length} blocos (máximo 2)`)
-  if (blocos.some((b) => b.length > 350)) add('V8', 'bloco com mais de 350 caracteres')
+  if (v.acao.conteudo?.modo !== 'literal') {
+    if (blocos.length > 2) add('V8', `${blocos.length} blocos (máximo 2)`)
+    if (blocos.some((b) => b.length > 350)) add('V8', 'bloco com mais de 350 caracteres')
+  }
 
   // V9 travessão
   if (/[—–]/.test(texto)) add('V9', 'travessão')
 
   // V10 agendamento afirmado sem evento criado neste turno
   if (!v.eventoConfirmadoNoTurno && AGENDAMENTO_RE.test(texto)) add('V10', 'afirma ou promete agendamento sem evento criado')
+
+  // V11 o lead perguntou algo e a resposta é só cumprimento mais pergunta: ninguém fica sem resposta
+  if (v.acao.tipo === 'responder_fato' && v.acao.fatos.length > 0) {
+    const conteudo = blocos.flatMap(sentencas).filter((sn) => !sn.includes('?'))
+    if (conteudo.reduce((n, sn) => n + tokens(sn).length, 0) < 3) add('V11', 'não respondeu a dúvida do lead')
+  }
 
   // Config: terminologia e nomear o humano
   for (const t of cfg.validador?.terminologia ?? []) {

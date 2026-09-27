@@ -155,16 +155,6 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
       prioridade: 6,
     },
     {
-      id: 'diferenca_planos',
-      titulo: 'Diferença entre Essencial e Prime',
-      gatilhos: ['qual a diferença do Essencial pro Prime?', 'o que muda de um plano pro outro?'],
-      modo: 'livre',
-      resposta: 'O Essencial monta a base do zero: Google Meu Negócio completo, site de uma página com SEO local e 30 dias de ativação com posts semanais. O Prime tem tudo isso e mais: site completo de até 15 páginas, SEO local avançado por cidade e otimização pra buscas por IA.',
-      proxima_acao: 'voltar_qualificacao',
-      conta_como_recusa: false,
-      prioridade: 6,
-    },
-    {
       id: 'como_funciona_analise',
       titulo: 'Como funciona a análise?',
       gatilhos: ['como funciona o diagnóstico?', 'como é essa reunião?', 'o que é essa análise?'],
@@ -200,7 +190,30 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
   ],
 
   preco: {
-    pode_informar: false,
+    pode_informar: true,
+    // O valor sai sempre destes textos fixos, pelo que o lead precisa. O plano Prime nunca é citado.
+    por_escopo: {
+      campo: 'escopo',
+      pergunta: 'Pra te passar o valor certinho: você precisa só da configuração do Google Meu Negócio ou precisa de um site também?',
+      opcoes: [
+        {
+          valor: 'gmn',
+          descricao: 'precisa só da configuração ou otimização do Google Meu Negócio, sem site',
+          texto: [
+            'Pro Google Meu Negócio sozinho, sem site, é o plano Start: de R$ 1.350 por R$ 1.199 à vista no Pix, ou 3x de R$ 399,67 no cartão, sem juros.',
+            'Inclui o diagnóstico do perfil, perfil criado ou corrigido do zero, categorias, descrição e serviços configurados, fotos reais, 4 posts do primeiro mês prontos e a verificação junto ao Google.',
+          ],
+        },
+        {
+          valor: 'site',
+          descricao: 'quer site (com ou sem o Google Meu Negócio, inclusive "os dois", "tudo" ou "site também")',
+          texto: [
+            'Com site, é o plano Essencial: R$ 2.200 à vista no Pix, ou 6x de R$ 397,03 no cartão (com juros, total R$ 2.382,16).',
+            'Inclui tudo do Google Meu Negócio, mais o site de uma página com SEO local, Analytics, Tag Manager e Search Console configurados, e 30 dias de ativação com posts semanais, script de pedido de avaliação e relatório de resultado.',
+          ],
+        },
+      ],
+    },
     frases_antes_qualificacao: [
       'Nosso especialista em Google, o Bruno, te mostra certinho na nossa conversa, já adaptado pro seu caso.',
       'Isso o Bruno explica direitinho na reunião, olhando o seu caso específico.',
@@ -208,6 +221,15 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
     ],
     frase_depois_qualificacao: 'Isso a gente fecha certinho na nossa conversa. Bora ver um horário?',
     escalar_apos: 2,
+  },
+
+  como_funciona: {
+    texto: [
+      '{nome}, deixa eu te explicar rapidinho.',
+      'A gente cuida da sua presença no Google. Primeiro olhamos como está o seu perfil hoje e por que ele não aparece. Depois criamos ou corrigimos o Google Meu Negócio do zero: categoria, descrição, serviços, fotos reais e a verificação junto ao Google.',
+      'É um pagamento único, sem mensalidade obrigatória.',
+      'Se você também precisa de um site, a gente faz com SEO local pra aparecer na sua cidade, e nos primeiros 30 dias ainda posta toda semana, deixa pronto um script pra você pedir avaliação dos clientes e te entrega um relatório de resultado.',
+    ],
   },
 
   limites: { recusas_para_encerrar: 2, max_frases_por_mensagem: 3 },
@@ -222,7 +244,7 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
 
   fora_escopo: { frase: 'A gente trabalha só com presença no Google e Google Ads, então isso não é com a gente.' },
 
-  palavras_proibidas: ['gratuito', 'gratuita', 'grátis', 'gratis', 'sem custo'],
+  palavras_proibidas: ['gratuito', 'gratuita', 'grátis', 'gratis', 'sem custo', '=prime'],
 
   agendamento: { ativo: true },
 
@@ -252,11 +274,11 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
         'Google Meu Negócio: diagnóstico do perfil atual, perfil criado ou corrigido do zero, categoria principal e até 3 secundárias, descrição, produtos, serviços e atributos configurados, fotos reais enviadas pela conta verificada do proprietário, calendário com 4 posts do primeiro mês prontos, verificação do perfil concluída junto ao Google. Site institucional: one page (uma página só), com SEO local. Mensuração: Google Analytics, Google Tag Manager e Search Console configurados. Ativação de 30 dias: posts semanais no Google, script de pedido de avaliação pronto e relatório de resultado no dia 30.',
     },
     {
-      id: 'plano_prime',
+      id: 'plano_start',
       so_quando_perguntado: true,
-      titulo: 'Plano Prime (para quem quer presença séria, pronta para crescer)',
+      titulo: 'Plano Start (só o Google Meu Negócio, sem site)',
       texto:
-        'Google Meu Negócio: o mesmo trabalho completo do Essencial. Site institucional completo: até 15 páginas (institucional e páginas de serviço detalhadas). SEO local avançado: páginas por cidade e por categoria, com URL dedicada para cada uma, sem uma página competir com a outra. GEO (otimização para buscas por IA): checklist de rastreabilidade, FAQ real na página, schema de negócio local e conteúdo de primeira mão. Mensuração: igual ao Essencial. Ativação de 30 dias: igual ao Essencial.',
+        'Google Meu Negócio: diagnóstico do perfil atual, perfil criado ou corrigido do zero, categoria principal e até 3 secundárias, descrição, produtos, serviços e atributos configurados, fotos reais enviadas pela conta verificada do proprietário, calendário com 4 posts do primeiro mês prontos, verificação do perfil concluída junto ao Google. Não inclui site nem a ativação de 30 dias.',
     },
     {
       id: 'cobranca',

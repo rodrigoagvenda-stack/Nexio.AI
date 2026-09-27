@@ -92,6 +92,8 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   for (const p of estado.perguntas_feitas) if (!p.respondida && campoDe(p.id) && filled(estado.dados, campoDe(p.id)!)) p.respondida = true
 
   const I = new Set(ex.intencoes)
+  if (I.has('pergunta_como_funciona') && !config.como_funciona) I.add('pergunta_fato')
+  const perguntaFato = ex.pergunta_fato ?? (I.has('pergunta_como_funciona') ? 'Como funciona o serviço da empresa?' : null)
   const reacaoSocial = I.has('social')
   if (reacaoSocial) estado.ultima_reacao_social_turno = turno
 
@@ -169,10 +171,36 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     return { estado, acao: comPergunta(base('responder_fora_escopo', { conteudo: { modo: 'literal', texto: config.fora_escopo.frase } })) }
   }
 
+  // 3b. preço por escopo e "como funciona": o valor e a explicação saem como texto fixo da config, nunca escritos pela IA
+  const pe = config.preco.pode_informar ? config.preco.por_escopo : undefined
+  const escopo = pe ? (estado.dados[pe.campo] ?? '').trim() : ''
+  const opcao = pe ? pe.opcoes.find((o) => o.valor === escopo) : undefined
+  const escopoMudouAgora = !!pe && !!ex.dados?.[pe.campo]?.trim() && ex.dados[pe.campo].trim() !== (entrada.dados[pe.campo] ?? '').trim()
+  const blocosDe = (t: string | string[]) => asArr(preencher2(t, estado.dados))
+
+  if (I.has('pergunta_como_funciona') && config.como_funciona) {
+    let blocos = blocosDe(config.como_funciona.texto)
+    if (pe && opcao && I.has('pergunta_preco')) blocos = [...blocos, ...blocosDe(opcao.texto)]
+    else if (pe && !opcao) {
+      blocos = [...blocos, preencher(pe.pergunta, estado.dados)]
+      estado.contadores.escopo_perguntado = true
+    }
+    const a = base('responder_como_funciona', { conteudo: { modo: 'literal', texto: blocos } })
+    return { estado, acao: pe && !opcao ? a : comPergunta(a) }
+  }
+
   // 4. preço
-  if (I.has('pergunta_preco')) {
+  if (I.has('pergunta_preco') || (pe && escopoMudouAgora && estado.contadores.escopo_perguntado)) {
+    if (pe && opcao) {
+      estado.pedidos_de_preco += 1
+      return { estado, acao: comPergunta(base('responder_preco', { conteudo: { modo: 'literal', texto: blocosDe(opcao.texto) } })) }
+    }
     estado.pedidos_de_preco += 1
     if (estado.pedidos_de_preco >= config.preco.escalar_apos) return escalar('lead insistiu em saber o valor')
+    if (pe) {
+      estado.contadores.escopo_perguntado = true
+      return { estado, acao: base('responder_preco', { conteudo: { modo: 'literal', texto: preencher(pe.pergunta, estado.dados) } }) }
+    }
     const antes = config.preco.frases_antes_qualificacao
     const frase = completa ? config.preco.frase_depois_qualificacao : antes[(estado.pedidos_de_preco - 1) % antes.length]
     return { estado, acao: comPergunta(base('responder_preco', { conteudo: { modo: 'literal', texto: frase } })) }
@@ -239,9 +267,9 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   }
 
   // 8. pergunta sobre fato (o RAG é consultado pelo turno; sem resultado e sem fatos na config vira escalar_duvida)
-  if (I.has('pergunta_fato') && ex.pergunta_fato) {
+  if (I.has('pergunta_fato') && perguntaFato) {
     const a = base('responder_fato', {
-      consulta_rag: ex.pergunta_fato,
+      consulta_rag: perguntaFato,
       fatos: (config.fatos ?? []).map((f) => ({ id: f.id, texto: f.texto })),
     })
     return { estado, acao: comPergunta(a) }
