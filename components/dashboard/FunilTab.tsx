@@ -10,6 +10,8 @@ interface FunilData {
   chegaram: number;
   responderam: number;
   agendadas: number;
+  /** reuniões marcadas cuja data já passou: base das taxas */
+  agendadas_vencidas?: number;
   realizadas: number;
   vendas_fechadas: number;
   no_show: number;
@@ -75,16 +77,16 @@ export function FunilTab({ range, prevRange, periodLabel }: { range: { from: Dat
 
   const d = data;
   const vs = `vs ${periodLabel === 'Hoje' ? 'ontem' : 'período anterior'}`;
-  const ag = d?.agendadas ?? 0, re = d?.realizadas ?? 0, ns = d?.no_show ?? 0, vf = d?.vendas_fechadas ?? 0, ch = d?.chegaram ?? 0;
+  const ag = d?.agendadas ?? 0, agv = d?.agendadas_vencidas ?? d?.agendadas ?? 0, re = d?.realizadas ?? 0, ns = d?.no_show ?? 0, vf = d?.vendas_fechadas ?? 0, ch = d?.chegaram ?? 0;
   const ratio = (a: number, b: number) => (b > 0 ? a / b : null);
   const rangeLabel = `${dayFmt(range.from)} a ${dayFmt(range.to)}`;
   const north = (r: number | null) => (r == null ? '-' : Number.isInteger(r) || r >= 10 ? String(Math.round(r)) : `${Math.floor(r)} a ${Math.ceil(r)}`);
 
   const rates = [
-    { label: 'Efetivação', v: pct(re, ag), note: `${re} de ${ag} agendadas aconteceram`, tone: 'green' as const },
-    { label: 'Não comparecimento', v: pct(ns, ag), note: `${ns} de ${ag} agendadas faltaram`, tone: 'amber' as const },
+    { label: 'Efetivação', v: pct(re, agv), note: `${re} de ${agv} agendadas aconteceram`, tone: 'green' as const },
+    { label: 'Não comparecimento', v: pct(ns, agv), note: `${ns} de ${agv} agendadas faltaram`, tone: 'amber' as const },
     { label: 'Fechamento sobre efetivadas', v: pct(vf, re), note: `${vf} de ${re} reuniões viraram venda`, tone: 'lime' as const, hi: true },
-    { label: 'Fechamento sobre agendadas', v: pct(vf, ag), note: `${vf} de ${ag}, contando quem faltou`, tone: 'green' as const },
+    { label: 'Fechamento sobre agendadas', v: pct(vf, agv), note: `${vf} de ${agv}, contando quem faltou`, tone: 'green' as const },
     { label: 'Conversa em agendamento', v: pct(ag, ch), note: `${ag} reuniões de ${ch} conversas`, tone: 'green' as const },
     { label: 'Conversa em venda', v: pct(vf, ch), note: `${vf} vendas de ${ch} conversas`, tone: 'green' as const },
   ];

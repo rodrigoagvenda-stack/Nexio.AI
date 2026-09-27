@@ -69,9 +69,16 @@ export async function GET(req: NextRequest) {
         .in('id', leadIds)
     : { data: [] as { id: number; call_de_venda: boolean | null; call_agendada_para: string | null; call_status: string | null; status: string | null; created_at: string | null; closed_at: string | null; project_value: number | null; motivo_perda: string | null }[] }
 
-  const agendadas = (leadsRows ?? []).filter(l =>
-    l.call_de_venda && l.call_agendada_para && l.call_agendada_para >= since && l.call_agendada_para <= until
-  ).length
+  // Reunião marcada hoje para a semana que vem também é "agendada" no período: quando o período inclui hoje, a data da
+  // reunião não tem teto (Rodrigo, 2026-09-26: 3 reuniões de 28 e 30/09 ficavam de fora do mês).
+  const nowIso = new Date().toISOString()
+  const periodoIncluiHoje = until >= nowIso
+  const agendadasLeads = (leadsRows ?? []).filter(l =>
+    l.call_de_venda && l.call_agendada_para && l.call_agendada_para >= since && (periodoIncluiHoje || l.call_agendada_para <= until)
+  )
+  const agendadas = agendadasLeads.length
+  // As taxas (efetivação, no-show...) só fazem sentido sobre reuniões que já deveriam ter acontecido.
+  const agendadasVencidas = agendadasLeads.filter(l => (l.call_agendada_para as string) <= nowIso && (l.call_agendada_para as string) <= until).length
   const realizadas = (leadsRows ?? []).filter(l =>
     l.call_status === 'realizada' && l.call_agendada_para && l.call_agendada_para >= since && l.call_agendada_para <= until
   ).length
@@ -111,7 +118,7 @@ export async function GET(req: NextRequest) {
   }
 
   const base = {
-    chegaram, responderam, agendadas, realizadas, vendas_fechadas: vendasFechadas,
+    chegaram, responderam, agendadas, agendadas_vencidas: agendadasVencidas, realizadas, vendas_fechadas: vendasFechadas,
     no_show: noShow, sem_resultado: semResultado, faturamento_cents: faturamentoCents, ticket_medio_cents: ticketMedioCents, velocidade, perdidos,
   }
 
