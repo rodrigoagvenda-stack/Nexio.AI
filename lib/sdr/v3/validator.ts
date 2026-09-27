@@ -165,10 +165,18 @@ export function validar(blocos: string[], v: ValidadorCtx): Violacao[] {
   // V10 agendamento afirmado sem evento criado neste turno
   if (!v.eventoConfirmadoNoTurno && AGENDAMENTO_RE.test(texto)) add('V10', 'afirma ou promete agendamento sem evento criado')
 
-  // V11 o lead perguntou algo e a resposta é só cumprimento mais pergunta: ninguém fica sem resposta
-  if (v.acao.tipo === 'responder_fato' && v.acao.fatos.length > 0) {
-    const conteudo = blocos.flatMap(sentencas).filter((sn) => !sn.includes('?'))
-    if (conteudo.reduce((n, sn) => n + tokens(sn).length, 0) < 3) add('V11', 'não respondeu a dúvida do lead')
+  // V11 o lead perguntou algo e a resposta não usa nenhum fato (só cumprimento, apresentação e pergunta): ninguém fica sem resposta
+  if (v.acao.tipo === 'responder_fato' && v.acao.fatos.length > 0 && !v.acao.fatos.some((f) => f.id === 'reuniao_existente')) {
+    const persona = new Set(tokens(`${cfg.persona.nome_agente} ${cfg.persona.empresa}`))
+    const fonte = new Set(v.acao.fatos.flatMap((f) => tokens(f.texto)).filter((t) => t.length >= 4))
+    const usados = new Set(
+      blocos
+        .flatMap(sentencas)
+        .filter((sn) => !sn.includes('?'))
+        .flatMap(tokens)
+        .filter((t) => t.length >= 4 && !persona.has(t) && fonte.has(t)),
+    )
+    if (usados.size < 2) add('V11', 'não respondeu a dúvida do lead com os fatos')
   }
 
   // Config: terminologia e nomear o humano

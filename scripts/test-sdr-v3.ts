@@ -125,8 +125,9 @@ ok('V4 valor inventado bloqueia (ex.: preço do que não está na config)', regr
 const acaoLit: any = { ...acaoBase, conteudo: { modo: 'literal', texto: ['a', 'b', 'c', 'd', 'e'] } }
 ok('V8 não corta texto fixo do dono (5 blocos literais)', !regras(['Um.', 'Dois.', 'Três.', 'Quatro.', 'Cinco?'], { ...vc(), acao: acaoLit }).includes('V8'))
 ok('V8 continua valendo para texto livre', regras(['Um.', 'Dois.', 'Três.']).includes('V8'))
-const acaoFato: any = { ...acaoBase, tipo: 'responder_fato', fatos: [{ id: 'rag', texto: 'x' }] }
+const acaoFato: any = { ...acaoBase, tipo: 'responder_fato', fatos: [{ id: 'rag', texto: 'O Grupo Venda tem mais de 7 anos de mercado e mais de 200 clientes atendidos em todo o Brasil. Cuida do Google Meu Negócio, site e Google Ads.' }] }
 ok('V11 pega resposta que ignora a dúvida (só cumprimento e pergunta)', regras(['Boa noite!', 'Pra te explicar certinho, qual o seu nome?'], { ...vc(), acao: acaoFato }).includes('V11:bloqueia'))
+ok('V11 pega cumprimento + apresentação sem responder (caso do lead que chega pelo anúncio)', regras(['Oi! Sou a Laura, atendente do Grupo Venda Marketing Digital.', 'Qual o seu nome?'], { ...vc(), acao: acaoFato }).includes('V11:bloqueia'))
 ok('V11 deixa passar resposta real', !regras(['Temos mais de 7 anos de mercado.', 'Qual o seu nome?'], { ...vc(), acao: acaoFato }).includes('V11'))
 const sujo = ['Legal — dentista!', 'Tem site? E anúncios?']
 const fix = corrigirMecanico(sujo, vc(), validar(sujo, vc()))

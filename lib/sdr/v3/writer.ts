@@ -37,6 +37,9 @@ function descreverAcao(a: Acao, soReacao: boolean): string {
       linhas.push(`Diga o mesmo que o conteúdo abaixo, com suas palavras, sem acrescentar nem tirar informação${blocos.length > 1 ? ' (mantenha os blocos separados)' : ''}:\n${blocos.map((b, i) => `[${i + 1}] ${b}`).join('\n')}`)
     }
   }
+  if (a.tipo === 'responder_fato' && a.consulta_rag) {
+    linhas.push(`O lead perguntou: "${a.consulta_rag}". Responda essa dúvida de verdade, em 1 a 2 frases com os fatos abaixo, ANTES de qualquer pergunta. Nunca responda só com cumprimento ou apresentação: ignorar a dúvida do lead é o pior erro.`)
+  }
   if (a.fatos.length > 0) {
     linhas.push(
       `Fatos disponíveis (use só o que responde à dúvida do lead; se eles não respondem, diga que o especialista responde melhor e chame-o pelo nome, sem inventar):\n${a.fatos.map((f) => `- ${f.texto}`).join('\n')}`,
