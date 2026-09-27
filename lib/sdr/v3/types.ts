@@ -63,6 +63,8 @@ export interface Contadores {
   ligacao_oferecida: boolean
   /** Já perguntamos o escopo (preço por escopo): a resposta a essa pergunta destrava o valor. */
   escopo_perguntado?: boolean
+  /** Já explicamos "como funciona" nesta conversa: nunca repete o texto fixo de novo, próxima vez vira pergunta_fato (RAG). */
+  como_funciona_explicado?: boolean
 }
 
 export interface Estado {

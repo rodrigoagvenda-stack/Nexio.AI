@@ -11,7 +11,7 @@ const ok = (nome: string, cond: boolean, extra = '') => {
   console.log(`${cond ? 'OK   ' : 'FALHA'} ${nome}${extra ? ' :: ' + extra : ''}`)
 }
 const ex = (p: Partial<Extracao>): Extracao => ({ intencoes: ['outro'], social: null, objecao_id: null, pergunta_fato: null, dados: {}, horario_escolhido: null, tom_do_lead: 'informal', confianca: 'alta', resposta_automatica: false, ...p })
-const ctx = (p: Partial<DecisorCtx> = {}): DecisorCtx => ({ temCalendario: true, cobrancaAtiva: false, primeiraMensagemNossa: false, pushName: null, contextoOutbound: null, origemAnuncio: null, reuniaoExistente: null, ...p })
+const ctx = (p: Partial<DecisorCtx> = {}): DecisorCtx => ({ temCalendario: true, cobrancaAtiva: false, primeiraMensagemNossa: false, pushName: null, contextoOutbound: null, origemAnuncio: null, reuniaoExistente: null, mensagemLead: '', ...p })
 const est = (p: Partial<Estado> = {}): Estado => ({ ...ESTADO_INICIAL(2), etapa: 'qualificando', ...p })
 
 // 1 abertura com pushName como palpite
@@ -95,6 +95,45 @@ ok('valor + como funciona com escopo conhecido: explica e já dá o valor, sem r
 d = decidir(ex({ intencoes: ['pergunta_preco'] }), est({ dados: { nome: 'Ana' }, pedidos_de_preco: 1, contadores: { ...ESTADO_INICIAL(3).contadores, escopo_perguntado: true } }), config, ctx())
 ok('insistiu no valor sem responder o escopo: chama o Bruno (não fica sem resposta)', d.acao.tipo === 'escalar')
 ok('escopo dito sem ninguém ter perguntado: só guarda, não solta valor', decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), est(), config, ctx()).acao.tipo !== 'responder_preco')
+// 7b2 trava da abertura: gancho de anúncio (infinitas variações) não pode disparar preço/como funciona,
+// mesmo que a IA classifique errado; só o texto LITERAL do lead libera isso na primeira mensagem.
+const abertura1 = ESTADO_INICIAL(3)
+d = decidir(
+  ex({ intencoes: ['social', 'pergunta_preco', 'pergunta_como_funciona'], social: { tipo: 'cumprimento', texto_do_lead: 'Oi' } }),
+  abertura1,
+  config,
+  ctx({ primeiraMensagemNossa: true, mensagemLead: 'Oi, vi o anúncio do GMB por R$1.125, quero saber mais.' }),
+)
+ok('abertura: gancho do anúncio classificado (errado) como preço/como funciona NÃO dispara nada disso', d.acao.tipo !== 'responder_como_funciona' && d.acao.tipo !== 'responder_preco', d.acao.tipo)
+d = decidir(
+  ex({ intencoes: ['pergunta_como_funciona'] }),
+  ESTADO_INICIAL(3),
+  config,
+  ctx({ primeiraMensagemNossa: true, mensagemLead: 'Oi! Vi o anúncio e quero saber por que meu negócio não aparece no Google' }),
+)
+ok('abertura: outra variação do gancho do anúncio também não dispara', d.acao.tipo !== 'responder_como_funciona', d.acao.tipo)
+d = decidir(
+  ex({ intencoes: ['pergunta_preco', 'pergunta_como_funciona'] }),
+  ESTADO_INICIAL(3),
+  config,
+  ctx({ primeiraMensagemNossa: true, mensagemLead: 'Boa noite, quanto custa? Como funciona?' }),
+)
+ok('abertura: pedido EXPLÍCITO de preço e como funciona na 1ª mensagem continua funcionando', d.acao.tipo === 'responder_como_funciona', d.acao.tipo)
+d = decidir(
+  ex({ intencoes: ['pergunta_como_funciona'] }),
+  est(),
+  config,
+  ctx({ mensagemLead: 'quero saber mais' }),
+)
+ok('fora da abertura: a IA classificando pergunta_como_funciona continua valendo normalmente', d.acao.tipo === 'responder_como_funciona', d.acao.tipo)
+
+// 7b3 já explicou "como funciona" uma vez: nunca repete o texto fixo de novo; nova dúvida vira pergunta_fato (RAG)
+const jaExplicado = est({ contadores: { ...ESTADO_INICIAL(3).contadores, como_funciona_explicado: true } })
+d = decidir(ex({ intencoes: ['pergunta_como_funciona', 'pergunta_fato'], pergunta_fato: 'Precisam de acesso?' }), jaExplicado, config, ctx())
+ok('já explicou: 2ª vez vira pergunta_fato de verdade, não repete o texto fixo', d.acao.tipo === 'responder_fato' && d.acao.consulta_rag === 'Precisam de acesso?', d.acao.tipo)
+d = decidir(ex({ intencoes: ['pergunta_como_funciona'] }), jaExplicado, config, ctx())
+ok('já explicou: pergunta_como_funciona genérica de novo também vira pergunta_fato (sem repetir o texto fixo)', d.acao.tipo === 'responder_fato', d.acao.tipo)
+
 const cfgSemComo: any = { ...config, como_funciona: undefined }
 d = decidir(ex({ intencoes: ['pergunta_como_funciona'] }), est(), cfgSemComo, ctx())
 ok('sem texto fixo de como funciona: cai na dúvida sobre fato (com RAG)', d.acao.tipo === 'responder_fato' && !!d.acao.consulta_rag)

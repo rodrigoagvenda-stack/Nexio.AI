@@ -15,6 +15,8 @@ export interface DecisorCtx {
   origemAnuncio: string | null
   /** Data formatada da reunião já agendada e válida, se houver. */
   reuniaoExistente: string | null
+  /** Texto literal da mensagem atual do lead (trava da abertura não pode depender só do que a IA classificou). */
+  mensagemLead: string
 }
 
 export interface Decisao {
@@ -92,7 +94,9 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   for (const p of estado.perguntas_feitas) if (!p.respondida && campoDe(p.id) && filled(estado.dados, campoDe(p.id)!)) p.respondida = true
 
   const I = new Set(ex.intencoes)
-  if (I.has('pergunta_como_funciona') && !config.como_funciona) I.add('pergunta_fato')
+  // Depois de já ter explicado "como funciona" uma vez nesta conversa, uma nova pergunta_como_funciona vira
+  // pergunta_fato de verdade (RAG): nunca repete o mesmo texto fixo de novo, e responde o que o lead pediu.
+  if (I.has('pergunta_como_funciona') && (!config.como_funciona || estado.contadores.como_funciona_explicado)) I.add('pergunta_fato')
   const perguntaFato = ex.pergunta_fato ?? (I.has('pergunta_como_funciona') ? 'Como funciona o serviço da empresa?' : null)
   const reacaoSocial = I.has('social')
   if (reacaoSocial) estado.ultima_reacao_social_turno = turno
@@ -110,6 +114,15 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
 
   const completa = qualificacaoCompleta(estado, config)
   const abertura = estado.etapa === 'abertura' && ctx.primeiraMensagemNossa
+
+  // Trava da abertura (em código, não em classificação da IA): a mensagem que trouxe o lead até aqui é o gancho
+  // do anúncio, e tem infinitas variações de texto. Na primeira mensagem da conversa, só libera falar preço ou
+  // explicar o serviço quando o texto LITERAL do lead pede isso, palavra por palavra: nunca por causa do que a IA
+  // achou que a intenção era. Depois da abertura, o classificador de intenção volta a valer normalmente.
+  const PRECO_EXPLICITO_RE = /quanto (custa|fica|sai|e|eh|e o valor)|qual (o |e o )?(valor|preco|orcamento)|tem desconto|valor (do|da|pra|para)/
+  const COMO_FUNCIONA_EXPLICITO_RE = /como funciona|como (e|eh) o processo|como (voces? |voce )?faz(em)?|o que voces? faz(em)?|me explica/
+  const pedeuPrecoDeVerdade = !abertura || PRECO_EXPLICITO_RE.test(norm(ctx.mensagemLead))
+  const pedeuComoFuncionaDeVerdade = !abertura || COMO_FUNCIONA_EXPLICITO_RE.test(norm(ctx.mensagemLead))
 
   const base = (tipo: Acao['tipo'], extra: Partial<Acao> = {}): Acao => ({
     tipo,
@@ -178,19 +191,20 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   const escopoMudouAgora = !!pe && !!ex.dados?.[pe.campo]?.trim() && ex.dados[pe.campo].trim() !== (entrada.dados[pe.campo] ?? '').trim()
   const blocosDe = (t: string | string[]) => asArr(preencher2(t, estado.dados))
 
-  if (I.has('pergunta_como_funciona') && config.como_funciona) {
+  if (I.has('pergunta_como_funciona') && config.como_funciona && pedeuComoFuncionaDeVerdade && !estado.contadores.como_funciona_explicado) {
     let blocos = blocosDe(config.como_funciona.texto)
     if (pe && opcao && I.has('pergunta_preco')) blocos = [...blocos, ...blocosDe(opcao.texto)]
     else if (pe && !opcao) {
       blocos = [...blocos, preencher(pe.pergunta, estado.dados)]
       estado.contadores.escopo_perguntado = true
     }
+    estado.contadores.como_funciona_explicado = true
     const a = base('responder_como_funciona', { conteudo: { modo: 'literal', texto: blocos } })
     return { estado, acao: pe && !opcao ? a : comPergunta(a) }
   }
 
   // 4. preço
-  if (I.has('pergunta_preco') || (pe && escopoMudouAgora && estado.contadores.escopo_perguntado)) {
+  if ((I.has('pergunta_preco') && pedeuPrecoDeVerdade) || (pe && escopoMudouAgora && estado.contadores.escopo_perguntado)) {
     if (pe && opcao) {
       estado.pedidos_de_preco += 1
       return { estado, acao: comPergunta(base('responder_preco', { conteudo: { modo: 'literal', texto: blocosDe(opcao.texto) } })) }
