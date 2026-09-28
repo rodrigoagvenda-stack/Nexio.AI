@@ -56,7 +56,11 @@ export async function GET() {
         const { decrypt } = await import('@/lib/crypto')
         token = decrypt(token)
       } catch {
-        return NextResponse.json({ status: 'disconnected', phone: null, qrcode: null, pairingCode: null, provider: 'uazapi', allowUazapi })
+        // NUNCA apagar aqui: essa rota é chamada a cada 3s pela tela de Atendimento (fetchWaStatus). Uma falha de
+        // decifragem (ENCRYPTION_KEY do servidor diferente da usada ao salvar) apagava a conexão em segundos,
+        // mesmo action manual no banco pra restaurar (28/09/2026, Grupo Venda ficou 2h sem atendimento).
+        console.error(`[SDR status] não foi possível decifrar o token da empresa ${userData.company_id}: conferir ENCRYPTION_KEY. Nada foi apagado.`)
+        return NextResponse.json({ status: 'disconnected', phone: null, qrcode: null, pairingCode: null, provider: 'uazapi', allowUazapi, warning: 'Falha ao ler a credencial salva.' })
       }
     }
 
@@ -66,17 +70,10 @@ export async function GET() {
     try {
       liveStatus = await client.getStatus()
     } catch (uazErr: any) {
-      const msg = uazErr.message ?? ''
-      // Instância foi deletada no servidor (inatividade, incidente, etc.)
-      if (msg.includes('401') || msg.includes('404') || msg.toLowerCase().includes('not found')) {
-        await service.from('sdr_configs').update({
-          uazapi_token: null,
-          uazapi_instance_url: null,
-          uazapi_instance_name: null,
-          instance_status: 'disconnected',
-          instance_phone: null,
-        }).eq('company_id', userData.company_id)
-      }
+      // NUNCA apagar aqui, pelo mesmo motivo: essa rota roda a cada 3s. Uma falha transitória da uazapi (instância
+      // reiniciando, rede) já bastava pra apagar token, URL e nome da instância pra sempre, sem intervenção nenhuma.
+      // Quem decide que a instância não existe mais de verdade é o /api/sdr/connect, ao tentar reconectar.
+      console.error(`[SDR status] getStatus falhou pra empresa ${userData.company_id} (nada foi apagado):`, uazErr?.message)
       return NextResponse.json({ status: 'disconnected', phone: null, qrcode: null, pairingCode: null, provider: 'uazapi', allowUazapi })
     }
 
