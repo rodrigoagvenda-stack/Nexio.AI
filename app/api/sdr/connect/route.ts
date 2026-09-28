@@ -86,14 +86,12 @@ export async function POST(request: NextRequest) {
         const { decrypt } = await import('@/lib/crypto')
         token = decrypt(config.uazapi_token)
       } catch {
-        await service.from('sdr_configs').update({
-          uazapi_token: null,
-          uazapi_instance_url: null,
-          uazapi_instance_name: null,
-          instance_status: 'disconnected',
-        }).eq('company_id', companyId)
+        // NUNCA apagar a conexão por falha de leitura: era isso que zerava token, URL e nome da instância da empresa
+        // quando a ENCRYPTION_KEY do servidor não batia com a usada ao salvar (28/09/2026, Grupo Venda ficou 2h sem
+        // atendimento). Falha de decifragem é problema de configuração do servidor, não de credencial inválida.
+        console.error(`[SDR connect] não foi possível decifrar o token da empresa ${companyId}: conferir ENCRYPTION_KEY. Nada foi apagado.`)
         return NextResponse.json({
-          error: 'Token legado inválido : foi resetado. Clique em conectar novamente.',
+          error: 'Não foi possível ler a credencial salva desta conexão (chave de criptografia do servidor diferente da usada ao salvar). Nada foi apagado: avise o suporte.',
         }, { status: 503 })
       }
     }
