@@ -106,7 +106,10 @@ export async function redigir(
   onUsage?: (c: OpenAI.Chat.ChatCompletion, agent: string) => void,
 ): Promise<RedatorResultado> {
   const hist = p.historico.slice(-6).map((m) => `${m.role === 'assistant' ? 'Você' : 'Lead'}: ${m.content}`).join('\n')
-  const evitar = p.frasesEnviadas.slice(-8)
+  // Alinhado com o que o validador (V3) de fato compara (até as últimas 30 frases, ver salvarEstado em
+  // state.ts): uma janela bem menor aqui fazia o redator achar uma frase seguro repetir, e o validador
+  // barrar do mesmo jeito — regeneração desperdiçada.
+  const evitar = p.frasesEnviadas.slice(-20)
   const user =
     `Últimas mensagens:\n${hist}\n` +
     (evitar.length ? `\nFrases que você já enviou nesta conversa (não repita):\n${evitar.map((f) => `- ${f}`).join('\n')}\n` : '') +

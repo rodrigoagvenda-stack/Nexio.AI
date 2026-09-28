@@ -55,6 +55,7 @@ export function contemProibida(textoNorm: string, palavra: string): boolean {
 }
 
 const tokens = (t: string) => norm(t).replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean)
+const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 function jaccard(a: string[], b: string[]): number {
   if (!a.length || !b.length) return 0
@@ -204,7 +205,9 @@ export function corrigirMecanico(blocos: string[], v: ValidadorCtx, violacoes: V
     const ex = t.excecao ? t.excecao.split('(')[0].trim() : null
     out = out.map((b) => {
       if (!norm(b).includes(norm(t.evitar))) return b
-      return ex && norm(b).includes(norm(ex)) ? b : b.replace(new RegExp(t.evitar, 'gi'), t.usar)
+      // achado 28/09/2026: t.evitar sem escape ia direto pro RegExp — termo com caractere especial
+      // (ponto, parênteses) quebrava ou casava errado.
+      return ex && norm(b).includes(norm(ex)) ? b : b.replace(new RegExp(escapeRegex(t.evitar), 'gi'), t.usar)
     })
   }
 
@@ -223,6 +226,27 @@ export function corrigirMecanico(blocos: string[], v: ValidadorCtx, violacoes: V
           .join(' '),
       )
       .filter(Boolean)
+  }
+
+  // V3 frase repetida: nunca tinha correção mecânica (achado original da auditoria de 27/09/2026) — se a
+  // regeneração ainda saísse repetida, ia do mesmo jeito. Remove a(s) frase(s) repetida(s), mas NUNCA mexe
+  // no bloco_fixo (dado literal do código, ex.: horários reais oferecidos: cortar isso deixaria a mensagem
+  // sem a informação de verdade). Se cortar tudo, mantém o texto original (melhor repetir que ficar mudo).
+  if (tem('V3')) {
+    const jaEnviadas = v.estado.frases_enviadas.map(tokens)
+    const blocoFixoNorm = v.acao.bloco_fixo ? norm(v.acao.bloco_fixo) : ''
+    const filtrado = out
+      .map((b) =>
+        sentencas(b)
+          .filter((s) => {
+            if (blocoFixoNorm && blocoFixoNorm.includes(norm(s))) return true
+            const ts = tokens(s)
+            return ts.length < 4 || !jaEnviadas.some((j) => jaccard(ts, j) >= 0.85)
+          })
+          .join(' '),
+      )
+      .filter(Boolean)
+    if (filtrado.length > 0) out = filtrado
   }
 
   if (tem('V8') && out.length > 2) out = [out[0], out[out.length - 1]]

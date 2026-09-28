@@ -103,6 +103,9 @@ export function validateCompanyConfig(raw: unknown): ConfigValidation {
     if (pe) {
       if (!preco.pode_informar) erros.push('Preço por escopo só funciona com "pode informar preço" ligado.')
       if (!pe.campo?.trim()) erros.push('Preço por escopo: falta o campo que guarda o escopo.')
+      else if (!perguntas.some((q) => q.campo === pe.campo)) {
+        erros.push(`Preço por escopo: o campo "${pe.campo}" não corresponde a nenhuma pergunta de qualificação cadastrada — o escopo nunca vai ser preenchido pelo fluxo normal.`)
+      }
       if (!pe.pergunta?.trim()) erros.push('Preço por escopo: falta a pergunta que descobre o escopo.')
       if (!Array.isArray(pe.opcoes) || pe.opcoes.length === 0) erros.push('Preço por escopo: cadastre pelo menos uma opção.')
       const valores = new Set<string>()

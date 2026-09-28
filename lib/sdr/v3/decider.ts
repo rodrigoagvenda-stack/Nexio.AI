@@ -68,6 +68,21 @@ export function proximaPergunta(estado: Estado, config: CompanyConfig, abertura:
   return null
 }
 
+/** A pergunta obrigatória "da vez" (a primeira ainda não preenchida) já foi feita 2x sem resposta reconhecível:
+ * proximaPergunta desiste dela pra sempre (ver acima), e sem isso a conversa nunca mais tenta, nunca escala,
+ * e completa() nunca fica true (achado real, lead Marcelo, 27/09/2026: escopo perguntado 2x, nenhuma resposta
+ * reconhecida, o motor foi pra "fale com o Bruno" sem nunca dar o preço nem avisar um humano). */
+export function perguntaObrigatoriaEmperrada(estado: Estado, config: CompanyConfig): { id: string } | null {
+  const proxima = [...config.qualificacao.perguntas]
+    .filter((q) => q.obrigatoria)
+    .sort((a, b) => a.ordem - b.ordem)
+    .find((q) => !filled(estado.dados, q.campo))
+  if (!proxima) return null
+  const feitas = estado.perguntas_feitas.filter((p) => p.id === proxima.id)
+  const ultima = feitas[feitas.length - 1]
+  return feitas.length >= 2 && ultima && !ultima.respondida ? { id: proxima.id } : null
+}
+
 const ORDEM_ETAPA: Etapa[] = ['abertura', 'qualificando', 'oferta_horario', 'confirmando', 'agendado']
 function etapaAvanca(atual: Etapa, alvo: Etapa): Etapa {
   if (atual === 'encerrado' || atual === 'escalado') return alvo
@@ -152,6 +167,9 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     if (q) {
       a.proxima_pergunta = { id: q.id, texto: q.texto }
       if (q.reformulada) a.contexto.push('Esta pergunta já foi feita antes e não foi respondida: reformule com outras palavras, sem cobrar.')
+    } else if (!a.handoff) {
+      const travada = perguntaObrigatoriaEmperrada(estado, config)
+      if (travada) a.handoff = { motivo: `pergunta obrigatória "${travada.id}" sem resposta reconhecível após 2 tentativas` }
     }
     return a
   }
@@ -230,7 +248,11 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   }
 
   // 5. objeção
-  if (I.has('objecao') && ex.objecao_id) {
+  if (I.has('objecao')) {
+    // Classificou como objeção mas não bateu com nenhum id configurado (extractor.ts só deixa objecao_id
+    // passar quando está na lista): sem isso, a regra inteira era pulada em silêncio e a objeção real do
+    // lead nunca recebia resposta nenhuma. Escala em vez de ignorar.
+    if (!ex.objecao_id) return escalar('objeção não reconhecida na lista configurada', true)
     const obj: ObjecaoConfig | undefined = config.objecoes.find((o) => o.id === ex.objecao_id)
     if (obj) {
       if (obj.conta_como_recusa) estado.recusas += 1
@@ -404,6 +426,9 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   if (q) {
     a.proxima_pergunta = { id: q.id, texto: q.texto }
     if (q.reformulada) a.contexto.push('Esta pergunta já foi feita antes e não foi respondida: reformule com outras palavras, sem cobrar.')
+  } else if (!abertura) {
+    const travada = perguntaObrigatoriaEmperrada(estado, config)
+    if (travada) a.handoff = { motivo: `pergunta obrigatória "${travada.id}" sem resposta reconhecível após 2 tentativas` }
   }
   if (abertura) {
     a.contexto.push(`Primeira mensagem da conversa: apresente-se pelo nome (${config.persona.nome_agente}) e pela empresa (${config.persona.empresa}).`)

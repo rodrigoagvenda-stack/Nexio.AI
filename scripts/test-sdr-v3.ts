@@ -93,6 +93,32 @@ ok('turno seguinte sem repetir a escolha: NÃO reoferece horários de novo (pede
 d = decidir(ex({ intencoes: ['outro'], dados: { email: 'cicero@teste.com', nome_completo: 'Cícero Silva' } }), comHorarioPendente, config, ctx())
 ok('turno seguinte com e-mail e nome completo já preenchidos: fecha o agendamento sem precisar repetir escolheu_horario', d.acao.tipo === 'agendar', d.acao.tipo)
 
+// 7f regressão real (lead Marcelo, 27/09): pergunta obrigatória (escopo) feita 2x sem resposta reconhecível
+// — o motor desistia de perguntar de novo e nunca mais tentava, nem avisava ninguém, ficando preso pra sempre.
+const escopoTravado = est({
+  dados: { negocio: 'Guincho', tem_perfil_google: 'sim', decisor: 'sim' },
+  perguntas_feitas: [
+    { id: 'escopo', turno: 4, respondida: false },
+    { id: 'escopo', turno: 6, respondida: false },
+  ],
+  turno: 6,
+})
+d = decidir(ex({ intencoes: ['pergunta_fato'], pergunta_fato: 'Você podia fazer uma análise?' }), escopoTravado, config, ctx())
+ok('pergunta obrigatória travada 2x: escala (handoff) mesmo respondendo a dúvida do turno', d.acao.tipo === 'responder_fato' && !!d.acao.handoff, JSON.stringify(d.acao.handoff))
+d = decidir(ex({ intencoes: ['social'], social: { tipo: 'cumprimento', texto_do_lead: 'oi' } }), escopoTravado, config, ctx())
+ok('pergunta obrigatória travada 2x, turno sem nada relevante: aguarda mas ainda assim escala', d.acao.tipo === 'aguardar' && !!d.acao.handoff, JSON.stringify(d.acao))
+const escopoUmaVez = est({
+  dados: { negocio: 'Guincho', tem_perfil_google: 'sim', decisor: 'sim' },
+  perguntas_feitas: [{ id: 'escopo', turno: 4, respondida: false }],
+  turno: 6,
+})
+d = decidir(ex({ intencoes: ['pergunta_fato'], pergunta_fato: 'Você podia fazer uma análise?' }), escopoUmaVez, config, ctx())
+ok('pergunta obrigatória feita só 1x ainda: NÃO escala (ainda tem tentativa)', !d.acao.handoff, JSON.stringify(d.acao.handoff))
+
+// 7g objeção classificada mas sem id reconhecido na lista configurada: antes era ignorada em silêncio
+d = decidir(ex({ intencoes: ['objecao'], objecao_id: null }), est(), config, ctx())
+ok('objeção sem id reconhecido: escala em vez de ignorar', d.acao.tipo === 'escalar_duvida', d.acao.tipo)
+
 d = decidir(ex({ intencoes: ['pede_pagamento'] }), est(), config, ctx())
 ok('pagamento sem cobrança ativa escala', d.acao.tipo === 'escalar')
 d = decidir(ex({ intencoes: ['pede_pagamento'] }), est({ dados: { nome: 'Ana' } }), config, ctx({ cobrancaAtiva: true }))
@@ -196,6 +222,8 @@ ok('V4 valor', regras(['O plano custa R$ 1.125.']).includes('V4:bloqueia'))
 ok('V5 palavra proibida', regras(['É gratuito pra você.']).includes('V5:bloqueia'))
 ok('V9 travessão', regras(['Certo — vamos lá.']).includes('V9'))
 ok('V10 promessa de agendamento sem evento', regras(['Vou agendar sua conversa agora.']).includes('V10:bloqueia'))
+const estadoComFrase = est({ frases_enviadas: ['tenho amanha as 9h30, 15h ou 17h.', 'qual fica melhor pra voce?'] })
+ok('V3 frase repetida é detectada', regras(['Tenho amanhã às 9h30, 15h ou 17h. Qual fica melhor pra você?'], vc(estadoComFrase)).includes('V3:bloqueia'))
 ok('V10 liberado com evento criado', !regras(['Ana, agendado! quinta às 14h.'], vc(est(), true)).includes('V10'))
 ok('TERMO diagnóstico', regras(['Nosso diagnóstico é rápido.']).includes('TERMO'))
 ok('TERMO exceção "diagnóstico do perfil"', !regras(['O diagnóstico do perfil faz parte do plano.']).includes('TERMO'))
@@ -220,6 +248,28 @@ ok('correção mecânica: 1 pergunta e sem travessão', fix.join(' ').match(/\?/
 const comSaudacao = ['Oi, tudo bem?', 'Eu sou a Laura, aqui do Grupo Venda Marketing Digital.', 'Qual o seu nome?']
 const fixSaudacao = corrigirMecanico(comSaudacao, vc(), validar(comSaudacao, vc()))
 ok('correção mecânica: saudação "tudo bem?" não apaga a pergunta de verdade', fixSaudacao.join(' ').includes('Qual o seu nome?'), JSON.stringify(fixSaudacao))
+
+// V3 sem correção mecânica era o gap original da auditoria (27/09): frase repetida ia do mesmo jeito.
+const estadoRepetido = est({ frases_enviadas: ['tenho amanha as 9h30, 15h ou 17h.', 'qual fica melhor pra voce?'] })
+const repetido = ['Entendi.', 'Tenho amanhã às 9h30, 15h ou 17h. Qual fica melhor pra você?']
+const fixRepetido = corrigirMecanico(repetido, vc(estadoRepetido), validar(repetido, vc(estadoRepetido)))
+ok('correção mecânica: V3 remove a frase repetida', !fixRepetido.some((b) => /9h30/.test(b)), JSON.stringify(fixRepetido))
+const acaoComBlocoFixo: any = { ...acaoBase, bloco_fixo: 'Tenho amanhã às 9h30, 15h ou 17h. Qual fica melhor pra você?' }
+const vcBloco = { ...vc(estadoRepetido), acao: acaoComBlocoFixo }
+const repetidoBlocoFixo = ['Tenho amanhã às 9h30, 15h ou 17h. Qual fica melhor pra você?']
+const fixBlocoFixo = corrigirMecanico(repetidoBlocoFixo, vcBloco, validar(repetidoBlocoFixo, vcBloco))
+ok('correção mecânica: V3 NUNCA corta o bloco_fixo (dado real, não invenção da IA)', fixBlocoFixo.some((b) => /9h30/.test(b)), JSON.stringify(fixBlocoFixo))
+
+// terminologia com caractere especial de regex não pode quebrar nem casar errado (achado 28/09/2026)
+const cfgTermoEspecial: any = { ...config, validador: { ...config.validador, terminologia: [{ evitar: 'R$ 1.000,00 (promo)', usar: 'valor combinado' }] } }
+const comTermoEspecial = ['O valor é R$ 1.000,00 (promo) pra você.']
+const fixTermoEspecial = corrigirMecanico(comTermoEspecial, { ...vc(), config: cfgTermoEspecial }, [])
+ok('correção mecânica: termo com caractere especial de regex não quebra', fixTermoEspecial.join(' ').includes('valor combinado'), JSON.stringify(fixTermoEspecial))
+
+// config-validate: campo do escopo tem que bater com uma pergunta de qualificação de verdade
+const cfgEscopoOrfao: any = { ...config, preco: { ...config.preco, por_escopo: { ...config.preco.por_escopo, campo: 'campo_que_nao_existe' } } }
+const vEscopoOrfao = validateCompanyConfig(cfgEscopoOrfao)
+ok('config-validate: acusa erro quando o campo do escopo não bate com nenhuma pergunta', vEscopoOrfao.erros.some((e) => e.includes('não corresponde a nenhuma pergunta')), vEscopoOrfao.erros.join(' | '))
 
 console.log(falhas === 0 ? '\nTODOS OK' : `\n${falhas} FALHA(S)`)
 process.exit(falhas === 0 ? 0 : 1)
