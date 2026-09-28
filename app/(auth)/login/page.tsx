@@ -23,7 +23,7 @@ function EyeToggle({ shown, onToggle }: { shown: boolean; onToggle: () => void }
       onClick={onToggle}
       aria-label={shown ? 'Ocultar senha' : 'Mostrar senha'}
       className="zl-link"
-      style={{ color: '#777', display: 'flex', flexShrink: 0 }}
+      style={{ color: '#8A948E', display: 'flex', flexShrink: 0 }}
     >
       {shown ? <EyeOff size={20} /> : <Eye size={20} />}
     </button>
@@ -281,7 +281,7 @@ export default function LoginPage() {
           <IconBadge>
             <svg width="34" height="34" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2" {...badgeStroke} /><path d="m22 7-10 6L2 7" {...badgeStroke} /></svg>
           </IconBadge>
-          <Heading title="Confira seu e-mail" sub={<>Enviamos um link para <span style={{ color: '#D4D4D4' }}>{signupEmail}</span>. Clique nele para ativar a conta e continuar.</>} gap={12} subLine={26} />
+          <Heading title="Confira seu e-mail" sub={<>Enviamos um link para <span style={{ color: '#3F4A44', fontWeight: 600 }}>{signupEmail}</span>. Clique nele para ativar a conta e continuar.</>} gap={12} subLine={26} />
           <HintCard resendLeft={resendLeft} onResend={handleResendConfirm}>Não chegou? Olhe a caixa de spam e a aba Promoções.</HintCard>
           <div><GreenLink icon="left" onClick={() => setView('signup')}>Usar outro e-mail</GreenLink></div>
         </Stack>
@@ -308,7 +308,7 @@ export default function LoginPage() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <FieldLabel htmlFor="signup-email">E-mail</FieldLabel>
-                <FieldBox trailing={emailOk ? <Check size={20} color="#96F63C" strokeWidth={2.4} style={{ flexShrink: 0 }} /> : undefined}>
+                <FieldBox trailing={emailOk ? <Check size={20} color="#0F7A3B" strokeWidth={2.4} style={{ flexShrink: 0 }} /> : undefined}>
                   <TextInput id="signup-email" type="email" autoComplete="email" required value={signupEmail} onChange={(e) => setSignupEmail(e.target.value)} disabled={loading} placeholder="seu@email.com" />
                 </FieldBox>
               </div>
@@ -319,12 +319,12 @@ export default function LoginPage() {
                 </FieldBox>
                 <div style={{ display: 'flex', gap: 6 }} aria-hidden="true">
                   {[0, 1, 2, 3].map((i) => (
-                    <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i < pw.bars ? '#96F63C' : '#262626', transition: 'background .2s' }} />
+                    <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i < pw.bars ? '#01573C' : '#E2E7E4', transition: 'background .2s' }} />
                   ))}
                 </div>
                 <div style={{ display: 'flex', gap: 20 }}>
                   {[{ ok: pw.len, label: '8 ou mais caracteres' }, { ok: pw.mix, label: 'Letras e números' }].map((r) => (
-                    <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 6, color: r.ok ? '#96F63C' : '#666', fontFamily: SYS, fontSize: 14, lineHeight: '18px', transition: 'color .2s' }}>
+                    <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 6, color: r.ok ? '#0F7A3B' : '#8A948E', fontFamily: SYS, fontSize: 14, lineHeight: '18px', transition: 'color .2s' }}>
                       <Check size={14} strokeWidth={3} style={{ flexShrink: 0, opacity: r.ok ? 1 : 0.35 }} />
                       {r.label}
                     </div>
@@ -355,7 +355,7 @@ export default function LoginPage() {
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
           {locked ? (
             <Banner tone="warn" title="Muitas tentativas">
-              Por segurança, o acesso ficou pausado. Tente de novo em <b style={{ color: '#F3E3B0' }}>{fmtClock(lockLeft)}</b>.
+              Por segurança, o acesso ficou pausado. Tente de novo em <b style={{ color: '#92400E' }}>{fmtClock(lockLeft)}</b>.
             </Banner>
           ) : loginError ? (
             <Banner tone="error" title="E-mail ou senha incorretos">

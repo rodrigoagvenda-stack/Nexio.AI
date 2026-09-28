@@ -10,6 +10,7 @@ import { ChecklistItem, GOALS, Goal, MAX_GOALS, PLANS, PlanIntent, buildChecklis
 // Onboarding em 4 passos: 1 Empresa, 2 Objetivo, 3 Plano, 4 Tudo certo.
 // Os passos 1 a 3 cabem na tela; ao clicar em "Continuar para o pagamento" a empresa é criada e a pessoa
 // vai pagar em Configuração > Plano. Depois do pagamento o painel a traz de volta aqui, no passo 4.
+// Tema claro por padrão, igual ao login (o dark fica a critério de escolha, depois de criar a conta).
 const SYS = 'system-ui, sans-serif';
 const TOTAL = 4;
 const SEGMENTS = ['Tecnologia', 'Saúde', 'Educação', 'Varejo', 'Imóveis', 'Serviços', 'Financeiro', 'Outro'];
@@ -23,17 +24,17 @@ const initialsOf = (name: string) =>
 
 function ProgressBar({ step }: { step: number }) {
   return (
-    <div style={{ height: 4, background: '#1C1C1C' }}>
-      <div style={{ height: '100%', width: `${(step / TOTAL) * 100}%`, background: '#96F63C', transition: 'width .4s ease' }} />
+    <div style={{ height: 4, background: '#E2E7E4' }}>
+      <div style={{ height: '100%', width: `${(step / TOTAL) * 100}%`, background: '#01573C', transition: 'width .4s ease' }} />
     </div>
   );
 }
 
 function Header({ step }: { step: number }) {
   return (
-    <header className="flex items-center justify-between px-6 lg:px-12" style={{ height: 72, borderBottom: '1px solid #1C1C1C' }}>
-      <ZaapliLogo variant="full" iconSize={28} theme="dark" />
-      <div style={{ color: '#A3A3A3', fontFamily: SYS, fontSize: 15, lineHeight: '18px' }}>Passo {step} de {TOTAL}</div>
+    <header className="flex items-center justify-between px-6 lg:px-12" style={{ height: 72, borderBottom: '1px solid #E2E7E4' }}>
+      <ZaapliLogo variant="full" iconSize={28} theme="light" />
+      <div style={{ color: '#5B6660', fontFamily: SYS, fontSize: 15, lineHeight: '18px' }}>Passo {step} de {TOTAL}</div>
     </header>
   );
 }
@@ -41,18 +42,18 @@ function Header({ step }: { step: number }) {
 function Heading({ title, sub }: { title: string; sub: string }) {
   return (
     <div className="flex flex-col" style={{ gap: 12 }}>
-      <h1 style={{ margin: 0, color: '#fff', fontFamily: SYS, fontSize: 40, fontWeight: 600, letterSpacing: '-0.02em', lineHeight: '46px' }}>{title}</h1>
-      <p style={{ margin: 0, color: '#A3A3A3', fontFamily: SYS, fontSize: 17, lineHeight: '26px' }}>{sub}</p>
+      <h1 style={{ margin: 0, color: '#0E1512', fontFamily: SYS, fontSize: 40, fontWeight: 600, letterSpacing: '-0.02em', lineHeight: '46px' }}>{title}</h1>
+      <p style={{ margin: 0, color: '#5B6660', fontFamily: SYS, fontSize: 17, lineHeight: '26px' }}>{sub}</p>
     </div>
   );
 }
 
 function SideLabel({ children }: { children: React.ReactNode }) {
-  return <div style={{ color: '#737373', fontFamily: SYS, fontSize: 12, fontWeight: 600, letterSpacing: '0.12em', lineHeight: '16px' }}>{children}</div>;
+  return <div style={{ color: '#8A948E', fontFamily: SYS, fontSize: 12, fontWeight: 600, letterSpacing: '0.12em', lineHeight: '16px' }}>{children}</div>;
 }
 
 function SideNote({ children }: { children: React.ReactNode }) {
-  return <div style={{ color: '#737373', fontFamily: SYS, fontSize: 14, lineHeight: '22px' }}>{children}</div>;
+  return <div style={{ color: '#8A948E', fontFamily: SYS, fontSize: 14, lineHeight: '22px' }}>{children}</div>;
 }
 
 function PrimaryBtn({ children, onClick, disabled, loading }: { children: React.ReactNode; onClick: () => void; disabled?: boolean; loading?: boolean }) {
@@ -77,7 +78,7 @@ function BackBtn({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       className="zl-btn"
-      style={{ display: 'flex', alignItems: 'center', gap: 8, height: 48, padding: '0 24px', borderRadius: 999, background: '#141414', border: '1px solid #262626', boxShadow: '0 3px 0 #050505', color: '#fff', fontFamily: SYS, fontSize: 16, fontWeight: 500, lineHeight: '20px', cursor: 'pointer' }}
+      style={{ display: 'flex', alignItems: 'center', gap: 8, height: 48, padding: '0 24px', borderRadius: 999, background: '#FFFFFF', border: '1px solid #E2E7E4', boxShadow: '0 3px 0 #E2E7E4', color: '#0E1512', fontFamily: SYS, fontSize: 16, fontWeight: 500, lineHeight: '20px', cursor: 'pointer' }}
     >
       <ChevronLeft size={16} strokeWidth={2} />
       Voltar
@@ -99,7 +100,7 @@ function GoalIcon({ id, color }: { id: Goal; color: string }) {
 
 function StepBadge({ n, done }: { n: number; done?: boolean }) {
   return (
-    <div style={{ width: 32, height: 32, borderRadius: 16, background: '#12301F', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#96F63C', fontFamily: SYS, fontSize: 14, fontWeight: 700 }}>
+    <div style={{ width: 32, height: 32, borderRadius: 16, background: '#E3F1EA', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#01573C', fontFamily: SYS, fontSize: 14, fontWeight: 700 }}>
       {done ? <Check size={16} strokeWidth={3} /> : n}
     </div>
   );
@@ -227,7 +228,7 @@ function OnboardingForm() {
   if (stage === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin" style={{ color: '#666' }} />
+        <Loader2 className="h-6 w-6 animate-spin" style={{ color: '#8A948E' }} />
       </div>
     );
   }
@@ -238,7 +239,7 @@ function OnboardingForm() {
   const firstPending = finalItems.findIndex((i) => !i.done);
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ fontFamily: SYS }}>
+    <div className="min-h-screen flex flex-col" style={{ fontFamily: SYS, background: '#F5F7F6' }}>
       <style>{AUTH_FIELD_CSS}</style>
       <div>
         <ProgressBar step={step} />
@@ -275,7 +276,7 @@ function OnboardingForm() {
                           role="radio"
                           aria-checked={on}
                           onClick={() => setSegment(on ? '' : s)}
-                          style={{ padding: '10px 18px', borderRadius: 999, fontSize: 15, lineHeight: '18px', fontWeight: on ? 600 : 400, color: on ? '#fff' : '#A3A3A3', background: on ? '#12301F' : 'transparent', border: `1px solid ${on ? '#01573C' : '#2A2A2A'}`, transition: 'all .15s' }}
+                          style={{ padding: '10px 18px', borderRadius: 999, fontSize: 15, lineHeight: '18px', fontWeight: on ? 600 : 400, color: on ? '#0E1512' : '#5B6660', background: on ? '#E6F1EB' : 'transparent', border: `1px solid ${on ? '#01573C' : '#E2E7E4'}`, transition: 'all .15s' }}
                         >
                           {s}
                         </button>
@@ -286,20 +287,20 @@ function OnboardingForm() {
 
                 <div className="flex flex-col" style={{ gap: 8 }}>
                   <div className="flex items-center" style={{ gap: 8 }}>
-                    <span style={{ color: '#D0D0D0', fontSize: 15, fontWeight: 500, lineHeight: '18px' }}>Logo</span>
-                    <span style={{ color: '#737373', fontSize: 13, lineHeight: '16px' }}>opcional</span>
+                    <span style={{ color: '#3F4A44', fontSize: 15, fontWeight: 500, lineHeight: '18px' }}>Logo</span>
+                    <span style={{ color: '#8A948E', fontSize: 13, lineHeight: '16px' }}>opcional</span>
                   </div>
                   <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadLogo(f); }} />
                   <button
                     type="button"
                     onClick={() => fileRef.current?.click()}
-                    className="flex items-center text-left hover:bg-white/[0.03] transition-colors"
-                    style={{ gap: 14, padding: '14px 18px', borderRadius: 14, border: '1.5px dashed #2F2F2F' }}
+                    className="flex items-center text-left hover:bg-black/[0.02] transition-colors"
+                    style={{ gap: 14, padding: '14px 18px', borderRadius: 14, border: '1.5px dashed #D5DDD9' }}
                   >
-                    <span className="flex items-center justify-center flex-shrink-0" style={{ width: 40, height: 40, borderRadius: 10, background: '#141414', overflow: 'hidden' }}>
-                      {logoUrl ? <img src={logoUrl} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : uploading ? <Loader2 className="h-4 w-4 animate-spin" style={{ color: '#A3A3A3' }} /> : <Upload size={18} color="#A3A3A3" strokeWidth={2} />}
+                    <span className="flex items-center justify-center flex-shrink-0" style={{ width: 40, height: 40, borderRadius: 10, background: '#F5F7F6', overflow: 'hidden' }}>
+                      {logoUrl ? <img src={logoUrl} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : uploading ? <Loader2 className="h-4 w-4 animate-spin" style={{ color: '#5B6660' }} /> : <Upload size={18} color="#5B6660" strokeWidth={2} />}
                     </span>
-                    <span style={{ color: '#A3A3A3', fontSize: 15, lineHeight: '18px' }}>{logoUrl ? 'Trocar imagem da logo' : 'Enviar imagem da logo'}</span>
+                    <span style={{ color: '#5B6660', fontSize: 15, lineHeight: '18px' }}>{logoUrl ? 'Trocar imagem da logo' : 'Enviar imagem da logo'}</span>
                   </button>
                 </div>
               </div>
@@ -339,20 +340,20 @@ function OnboardingForm() {
                       aria-pressed={on}
                       onClick={() => toggleGoal(g.id)}
                       className="flex flex-col text-left transition-colors"
-                      style={{ gap: 14, padding: 24, borderRadius: 18, background: on ? '#12301F' : '#101010', border: on ? '1.5px solid #01573C' : '1px solid #1C1C1C' }}
+                      style={{ gap: 14, padding: 24, borderRadius: 18, background: on ? '#E6F1EB' : '#FFFFFF', border: on ? '1.5px solid #01573C' : '1px solid #E2E7E4' }}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="flex items-center justify-center" style={{ width: 44, height: 44, borderRadius: 22, background: on ? '#0C1F14' : '#1A1A1A' }}>
-                          <GoalIcon id={g.id} color={on ? '#96F63C' : '#A3A3A3'} />
+                        <span className="flex items-center justify-center" style={{ width: 44, height: 44, borderRadius: 22, background: on ? '#D7ECE1' : '#F5F7F6' }}>
+                          <GoalIcon id={g.id} color={on ? '#01573C' : '#5B6660'} />
                         </span>
                         {on ? (
-                          <span className="flex items-center justify-center" style={{ width: 24, height: 24, borderRadius: 12, background: '#96F63C' }}><Check size={14} strokeWidth={3.2} color="#07261C" /></span>
+                          <span className="flex items-center justify-center" style={{ width: 24, height: 24, borderRadius: 12, background: '#01573C' }}><Check size={14} strokeWidth={3.2} color="#fff" /></span>
                         ) : (
-                          <span style={{ width: 24, height: 24, borderRadius: 12, border: '1.5px solid #333' }} />
+                          <span style={{ width: 24, height: 24, borderRadius: 12, border: '1.5px solid #D5DDD9' }} />
                         )}
                       </div>
-                      <div style={{ color: '#fff', fontSize: 19, fontWeight: 600, lineHeight: '26px' }}>{g.title}</div>
-                      <div style={{ color: on ? '#B8C9BE' : '#A3A3A3', fontSize: 15, lineHeight: '22px' }}>{g.desc}</div>
+                      <div style={{ color: '#0E1512', fontSize: 19, fontWeight: 600, lineHeight: '26px' }}>{g.title}</div>
+                      <div style={{ color: on ? '#3F4A44' : '#5B6660', fontSize: 15, lineHeight: '22px' }}>{g.desc}</div>
                     </button>
                   );
                 })}
@@ -365,13 +366,13 @@ function OnboardingForm() {
 
             <aside className="hidden lg:flex flex-col flex-shrink-0" style={{ width: 420, gap: 16, paddingTop: 6 }}>
               <SideLabel>SEUS PRIMEIROS PASSOS</SideLabel>
-              <div className="flex flex-col" style={{ gap: 14, padding: 22, borderRadius: 18, background: '#101010', border: '1px solid #1C1C1C', minHeight: 80 }}>
+              <div className="flex flex-col" style={{ gap: 14, padding: 22, borderRadius: 18, background: '#FFFFFF', border: '1px solid #E2E7E4', minHeight: 80 }}>
                 {previewItems.length === 0 ? (
-                  <div style={{ color: '#737373', fontSize: 15, lineHeight: '22px' }}>Marque um objetivo ao lado para ver a lista.</div>
+                  <div style={{ color: '#8A948E', fontSize: 15, lineHeight: '22px' }}>Marque um objetivo ao lado para ver a lista.</div>
                 ) : previewItems.map((it, i) => (
                   <div key={it.id} className="flex items-center" style={{ gap: 14 }}>
-                    <span className="flex items-center justify-center flex-shrink-0" style={{ width: 26, height: 26, borderRadius: 13, background: '#12301F', color: '#96F63C', fontSize: 13, fontWeight: 700 }}>{i + 1}</span>
-                    <span style={{ color: '#fff', fontSize: 16, lineHeight: '20px' }}>{it.title}</span>
+                    <span className="flex items-center justify-center flex-shrink-0" style={{ width: 26, height: 26, borderRadius: 13, background: '#E3F1EA', color: '#01573C', fontSize: 13, fontWeight: 700 }}>{i + 1}</span>
+                    <span style={{ color: '#0E1512', fontSize: 16, lineHeight: '20px' }}>{it.title}</span>
                   </div>
                 ))}
               </div>
@@ -395,29 +396,29 @@ function OnboardingForm() {
                     aria-checked={on}
                     onClick={() => setPlan(p.id)}
                     className="flex flex-col flex-1 text-left transition-colors"
-                    style={{ gap: 20, padding: 28, borderRadius: 20, background: on ? '#12301F' : '#101010', border: on ? '1.5px solid #01573C' : '1px solid #1C1C1C' }}
+                    style={{ gap: 20, padding: 28, borderRadius: 20, background: on ? '#E6F1EB' : '#FFFFFF', border: on ? '1.5px solid #01573C' : '1px solid #E2E7E4' }}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center" style={{ gap: 10 }}>
-                        <span style={{ color: '#A3A3A3', fontSize: 13, fontWeight: 600, letterSpacing: '0.1em', lineHeight: '16px' }}>{p.name}</span>
-                        {p.popular && <span style={{ background: '#12301F', color: '#96F63C', borderRadius: 999, padding: '3px 9px', fontSize: 11, fontWeight: 700, lineHeight: '14px' }}>Mais popular</span>}
+                        <span style={{ color: '#5B6660', fontSize: 13, fontWeight: 600, letterSpacing: '0.1em', lineHeight: '16px' }}>{p.name}</span>
+                        {p.popular && <span style={{ background: '#E3F1EA', color: '#01573C', borderRadius: 999, padding: '3px 9px', fontSize: 11, fontWeight: 700, lineHeight: '14px' }}>Mais popular</span>}
                       </div>
                       {on ? (
-                        <span className="flex items-center justify-center" style={{ width: 22, height: 22, borderRadius: 11, background: '#96F63C' }}><Check size={13} strokeWidth={3.2} color="#07261C" /></span>
+                        <span className="flex items-center justify-center" style={{ width: 22, height: 22, borderRadius: 11, background: '#01573C' }}><Check size={13} strokeWidth={3.2} color="#fff" /></span>
                       ) : (
-                        <span style={{ width: 22, height: 22, borderRadius: 11, border: '2px solid #333' }} />
+                        <span style={{ width: 22, height: 22, borderRadius: 11, border: '2px solid #D5DDD9' }} />
                       )}
                     </div>
                     <div className="flex items-baseline" style={{ gap: 6 }}>
-                      <span style={{ color: '#A3A3A3', fontSize: 16, lineHeight: '20px' }}>R$</span>
-                      <span style={{ color: '#fff', fontSize: 48, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: '58px' }}>{p.price}</span>
-                      <span style={{ color: '#A3A3A3', fontSize: 16, lineHeight: '20px' }}>/mês</span>
+                      <span style={{ color: '#5B6660', fontSize: 16, lineHeight: '20px' }}>R$</span>
+                      <span style={{ color: '#0E1512', fontSize: 48, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: '58px' }}>{p.price}</span>
+                      <span style={{ color: '#5B6660', fontSize: 16, lineHeight: '20px' }}>/mês</span>
                     </div>
                     <div className="flex flex-col" style={{ gap: 12 }}>
                       {p.features.map((f) => (
                         <div key={f} className="flex items-center" style={{ gap: 10 }}>
-                          <Check size={16} strokeWidth={2.6} color="#96F63C" style={{ flexShrink: 0 }} />
-                          <span style={{ color: '#E5E5E5', fontSize: 15, lineHeight: '18px' }}>{f}</span>
+                          <Check size={16} strokeWidth={2.6} color="#01573C" style={{ flexShrink: 0 }} />
+                          <span style={{ color: '#3F4A44', fontSize: 15, lineHeight: '18px' }}>{f}</span>
                         </div>
                       ))}
                     </div>
@@ -436,13 +437,13 @@ function OnboardingForm() {
         {step === 4 && (
           <div className="flex flex-col w-full lg:w-[760px] lg:flex-shrink-0" style={{ gap: 32 }}>
             <div className="flex flex-col" style={{ gap: 14 }}>
-              <span className="inline-flex items-center self-start" style={{ gap: 8, padding: '6px 14px', borderRadius: 999, background: '#12301F', color: '#96F63C', fontSize: 14, fontWeight: 600, lineHeight: '18px' }}>
+              <span className="inline-flex items-center self-start" style={{ gap: 8, padding: '6px 14px', borderRadius: 999, background: '#E3F1EA', color: '#01573C', fontSize: 14, fontWeight: 600, lineHeight: '18px' }}>
                 <Check size={14} strokeWidth={3} /> Conta criada
               </span>
-              <h1 style={{ margin: 0, color: '#fff', fontSize: 40, fontWeight: 600, letterSpacing: '-0.02em', lineHeight: '46px' }}>
+              <h1 style={{ margin: 0, color: '#0E1512', fontSize: 40, fontWeight: 600, letterSpacing: '-0.02em', lineHeight: '46px' }}>
                 {finalName ? `Tudo certo, ${finalName}` : 'Tudo certo'}
               </h1>
-              <p style={{ margin: 0, color: '#A3A3A3', fontSize: 17, lineHeight: '26px' }}>
+              <p style={{ margin: 0, color: '#5B6660', fontSize: 17, lineHeight: '26px' }}>
                 {finalItems.length === 0
                   ? 'Sua conta está pronta. Explore o painel no seu ritmo.'
                   : `${finalItems.length === 1 ? 'Um passo' : `${finalItems.length === 2 ? 'Dois' : 'Três'} passos`} para começar a atender. Faça na ordem que quiser: a lista fica no seu painel até terminar.`}
@@ -450,15 +451,15 @@ function OnboardingForm() {
             </div>
 
             {finalItems.length > 0 && (
-              <div className="flex flex-col" style={{ borderRadius: 20, background: '#101010', border: '1px solid #1C1C1C' }}>
+              <div className="flex flex-col" style={{ borderRadius: 20, background: '#FFFFFF', border: '1px solid #E2E7E4' }}>
                 {finalItems.map((it, i) => {
                   const primary = i === firstPending;
                   return (
-                    <div key={it.id} className="flex items-center" style={{ gap: 18, padding: '22px 28px', borderBottom: i < finalItems.length - 1 ? '1px solid #1C1C1C' : 0 }}>
+                    <div key={it.id} className="flex items-center" style={{ gap: 18, padding: '22px 28px', borderBottom: i < finalItems.length - 1 ? '1px solid #E2E7E4' : 0 }}>
                       <StepBadge n={i + 1} done={it.done} />
                       <div className="flex flex-1 min-w-0 flex-col" style={{ gap: 3 }}>
-                        <div style={{ color: '#fff', fontSize: 18, fontWeight: 600, lineHeight: '22px' }}>{it.title}</div>
-                        <div style={{ color: '#A3A3A3', fontSize: 15, lineHeight: '18px' }}>{it.hint}</div>
+                        <div style={{ color: '#0E1512', fontSize: 18, fontWeight: 600, lineHeight: '22px' }}>{it.title}</div>
+                        <div style={{ color: '#5B6660', fontSize: 15, lineHeight: '18px' }}>{it.hint}</div>
                       </div>
                       {!it.done && (
                         <button
@@ -468,7 +469,7 @@ function OnboardingForm() {
                           className="zl-btn flex-shrink-0"
                           style={primary
                             ? { height: 42, padding: '0 22px', borderRadius: 999, background: '#01573C', boxShadow: '0 3px 0 #013825', color: '#fff', fontSize: 15, fontWeight: 600, lineHeight: '18px' }
-                            : { height: 42, padding: '0 22px', borderRadius: 999, background: '#141414', border: '1px solid #262626', boxShadow: '0 3px 0 #050505', color: '#fff', fontSize: 15, fontWeight: 500, lineHeight: '18px' }}
+                            : { height: 42, padding: '0 22px', borderRadius: 999, background: '#FFFFFF', border: '1px solid #E2E7E4', boxShadow: '0 3px 0 #E2E7E4', color: '#0E1512', fontSize: 15, fontWeight: 500, lineHeight: '18px' }}
                         >
                           Começar
                         </button>
@@ -480,7 +481,7 @@ function OnboardingForm() {
             )}
 
             <div className="flex items-center justify-between">
-              <button type="button" disabled={busy} onClick={() => void finish('/dashboard')} className="zl-link" style={{ color: '#96F63C', fontSize: 15, fontWeight: 600, lineHeight: '18px' }}>
+              <button type="button" disabled={busy} onClick={() => void finish('/dashboard')} className="zl-link" style={{ color: '#01573C', fontSize: 15, fontWeight: 600, lineHeight: '18px' }}>
                 Fazer isso depois
               </button>
               <PrimaryBtn onClick={() => void finish('/dashboard')} loading={busy}>Ir para o painel</PrimaryBtn>
@@ -490,8 +491,8 @@ function OnboardingForm() {
       </main>
 
       {error && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center" role="alert" style={{ gap: 10, padding: '12px 18px', borderRadius: 12, background: '#2B1414', border: '1px solid #5A2323', color: '#FCA5A5', fontSize: 15 }}>
-          <AlertCircle size={18} color="#F87171" /> {error}
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center" role="alert" style={{ gap: 10, padding: '12px 18px', borderRadius: 12, background: '#FDE2E2', border: '1px solid #F6C6C6', color: '#991B1B', fontSize: 15 }}>
+          <AlertCircle size={18} color="#DC2626" /> {error}
         </div>
       )}
     </div>

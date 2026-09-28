@@ -6,16 +6,17 @@ import { ZaapliLogo } from '@/components/brand/ZaapliLogo';
 import { AuthSlides } from './AuthSlides';
 
 // Peças da tela de login/cadastro/recuperação/2FA, com as medidas do layout do Paper.
+// Tema claro por padrão (o mesmo do site e do produto): quem quiser escuro escolhe depois de criar a conta.
 const SYS = 'system-ui, sans-serif';
 
 /** CSS dos campos (foco, erro, autofill) e dos botões. Usado pelo login e pelo onboarding. */
 export const AUTH_FIELD_CSS = `
         .zl-field { transition: border-color .15s, box-shadow .15s; }
-        .zl-field:focus-within { border-color: #01573C !important; box-shadow: 0 0 0 .5px #01573C, 0 0 0 4px #01573C40; }
-        .zl-field.zl-err, .zl-field.zl-err:focus-within { border-color: #E5484D !important; box-shadow: 0 0 0 .5px #E5484D, 0 0 0 4px #E5484D24; }
-        .zl-field input { background: transparent; border: 0; outline: 0; color: #fff; font: 17px/22px ${SYS}; width: 100%; min-width: 0; height: 100%; padding: 0; }
-        .zl-field input::placeholder { color: #5A5A5A; }
-        .zl-field input:-webkit-autofill { -webkit-text-fill-color: #fff; -webkit-box-shadow: 0 0 0 1000px #141414 inset; caret-color: #fff; }
+        .zl-field:focus-within { border-color: #01573C !important; box-shadow: 0 0 0 .5px #01573C, 0 0 0 4px #01573C1F; }
+        .zl-field.zl-err, .zl-field.zl-err:focus-within { border-color: #E5484D !important; box-shadow: 0 0 0 .5px #E5484D, 0 0 0 4px #E5484D1A; }
+        .zl-field input { background: transparent; border: 0; outline: 0; color: #0E1512; font: 17px/22px ${SYS}; width: 100%; min-width: 0; height: 100%; padding: 0; }
+        .zl-field input::placeholder { color: #8A948E; }
+        .zl-field input:-webkit-autofill { -webkit-text-fill-color: #0E1512; -webkit-box-shadow: 0 0 0 1000px #FFFFFF inset; caret-color: #0E1512; }
         .zl-btn { transition: transform .08s, opacity .15s; }
         .zl-btn:not(:disabled):active { transform: translateY(2px); }
         .zl-link { background: none; border: 0; padding: 0; cursor: pointer; }
@@ -36,17 +37,17 @@ export function GoogleIcon() {
 /** Estrutura da página: slides à esquerda, painel do formulário à direita. */
 export function AuthShell({ children, footer }: { children: ReactNode; footer: ReactNode }) {
   return (
-    <div className="flex min-h-svh" style={{ background: '#0C0C0C' }}>
+    <div className="flex min-h-svh" style={{ background: '#F5F7F6' }}>
       <style>{AUTH_FIELD_CSS}</style>
 
       <AuthSlides />
 
       <div
         className="flex flex-col w-full xl:w-[640px] xl:flex-shrink-0"
-        style={{ background: '#0C0C0C', borderLeft: '1px solid #1A1A1A' }}
+        style={{ background: '#FFFFFF', borderLeft: '1px solid #E2E7E4' }}
       >
         <div className="flex justify-center pt-10 xl:hidden">
-          <ZaapliLogo variant="full" iconSize={30} theme="dark" />
+          <ZaapliLogo variant="full" iconSize={30} theme="light" />
         </div>
         <div className="flex flex-1 items-center justify-center px-6 sm:px-16 xl:px-24 py-10">
           <div className="w-full max-w-[448px] xl:max-w-none">{children}</div>
@@ -60,16 +61,16 @@ export function AuthShell({ children, footer }: { children: ReactNode; footer: R
 }
 
 export function FooterText({ children, dim }: { children: ReactNode; dim?: boolean }) {
-  return <div style={{ color: dim ? '#444' : '#5A5A5A', lineHeight: dim ? '16px' : '20px' }}>{children}</div>;
+  return <div style={{ color: dim ? '#B7C2BC' : '#8A948E', lineHeight: dim ? '16px' : '20px' }}>{children}</div>;
 }
 
 export function LegalLinks({ verb }: { verb: string }) {
   return (
     <FooterText>
       {verb} você concorda com os{' '}
-      <a href="/termos" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-white transition-colors">Termos de Uso</a>
+      <a href="/termos" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-[#0E1512] transition-colors">Termos de Uso</a>
       {' '}e a{' '}
-      <a href="/privacidade" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-white transition-colors">Política de Privacidade</a>
+      <a href="/privacidade" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-[#0E1512] transition-colors">Política de Privacidade</a>
     </FooterText>
   );
 }
@@ -85,15 +86,15 @@ export function Stack({ gap = 28, children }: { gap?: number; children: ReactNod
 export function Heading({ title, sub, gap = 8, subLine = 22 }: { title: string; sub: ReactNode; gap?: number; subLine?: number }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap }}>
-      <h1 style={{ margin: 0, color: '#fff', fontFamily: SYS, fontSize: 36, fontWeight: 600, letterSpacing: '-0.02em', lineHeight: '44px' }}>{title}</h1>
-      <p style={{ margin: 0, color: subLine === 26 ? '#A3A3A3' : '#8A8A8A', fontFamily: SYS, fontSize: 17, lineHeight: `${subLine}px` }}>{sub}</p>
+      <h1 style={{ margin: 0, color: '#0E1512', fontFamily: SYS, fontSize: 36, fontWeight: 600, letterSpacing: '-0.02em', lineHeight: '44px' }}>{title}</h1>
+      <p style={{ margin: 0, color: '#5B6660', fontFamily: SYS, fontSize: 17, lineHeight: `${subLine}px` }}>{sub}</p>
     </div>
   );
 }
 
 export function Tabs({ value, onChange }: { value: 'login' | 'signup'; onChange: (v: 'login' | 'signup') => void }) {
   return (
-    <div role="tablist" style={{ display: 'flex', padding: 5, background: '#141414', borderRadius: 999 }}>
+    <div role="tablist" style={{ display: 'flex', padding: 5, background: '#EEF2F0', borderRadius: 999 }}>
       {(['login', 'signup'] as const).map((t) => (
         <button
           key={t}
@@ -103,7 +104,7 @@ export function Tabs({ value, onChange }: { value: 'login' | 'signup'; onChange:
           onClick={() => onChange(t)}
           style={{
             flex: 1, height: 44, border: 0, borderRadius: 999, cursor: 'pointer', fontFamily: SYS, fontSize: 15, fontWeight: 600,
-            background: value === t ? '#0F3D2B' : 'transparent', color: value === t ? '#fff' : '#777', transition: 'background .15s, color .15s',
+            background: value === t ? '#01573C' : 'transparent', color: value === t ? '#fff' : '#5B6660', transition: 'background .15s, color .15s',
           }}
         >
           {t === 'login' ? 'Entrar' : 'Criar conta'}
@@ -120,7 +121,7 @@ export function GoogleButton({ label, loading, onClick }: { label: string; loadi
       onClick={onClick}
       disabled={loading}
       className="zl-btn"
-      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, height: 52, width: '100%', background: '#141414', border: '1px solid #262626', borderRadius: 999, boxShadow: '0 3px 0 #1A1A1A', color: '#E5E5E5', fontFamily: SYS, fontSize: 16, fontWeight: 600, cursor: 'pointer' }}
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, height: 52, width: '100%', background: '#FFFFFF', border: '1px solid #E2E7E4', borderRadius: 999, boxShadow: '0 3px 0 #E2E7E4', color: '#0E1512', fontFamily: SYS, fontSize: 16, fontWeight: 600, cursor: 'pointer' }}
     >
       {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <GoogleIcon />}
       {label}
@@ -131,9 +132,9 @@ export function GoogleButton({ label, loading, onClick }: { label: string; loadi
 export function OrDivider({ text }: { text: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-      <div style={{ flex: 1, height: 1, background: '#1F1F1F' }} />
-      <span style={{ color: '#666', fontFamily: SYS, fontSize: 14, lineHeight: '18px' }}>{text}</span>
-      <div style={{ flex: 1, height: 1, background: '#1F1F1F' }} />
+      <div style={{ flex: 1, height: 1, background: '#E2E7E4' }} />
+      <span style={{ color: '#8A948E', fontFamily: SYS, fontSize: 14, lineHeight: '18px' }}>{text}</span>
+      <div style={{ flex: 1, height: 1, background: '#E2E7E4' }} />
     </div>
   );
 }
@@ -141,7 +142,7 @@ export function OrDivider({ text }: { text: string }) {
 export function FieldLabel({ htmlFor, children, right }: { htmlFor?: string; children: ReactNode; right?: ReactNode }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-      <label htmlFor={htmlFor} style={{ color: '#D0D0D0', fontFamily: SYS, fontSize: 15, fontWeight: 500, lineHeight: '18px' }}>{children}</label>
+      <label htmlFor={htmlFor} style={{ color: '#3F4A44', fontFamily: SYS, fontSize: 15, fontWeight: 500, lineHeight: '18px' }}>{children}</label>
       {right}
     </div>
   );
@@ -152,7 +153,7 @@ export function FieldBox({ error, trailing, height = 56, children }: { error?: b
   return (
     <div
       className={`zl-field${error ? ' zl-err' : ''}`}
-      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, height, padding: '0 18px', boxSizing: 'border-box', background: '#141414', border: '1px solid #2A2A2A', borderRadius: 14 }}
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, height, padding: '0 18px', boxSizing: 'border-box', background: '#FFFFFF', border: '1px solid #E2E7E4', borderRadius: 14 }}
     >
       {children}
       {trailing}
@@ -174,8 +175,8 @@ export function PrimaryButton({ children, loading, disabled, type = 'submit', on
       className="zl-btn"
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, height: 56, width: '100%', flexShrink: 0, borderRadius: 999, fontFamily: SYS, fontSize: 17, fontWeight: 700, cursor: off ? 'not-allowed' : 'pointer',
-        background: off ? '#1A1A1A' : '#01573C', color: off ? '#5A5A5A' : '#fff',
-        border: off ? '1px solid #262626' : '0', boxShadow: off ? 'none' : '0 3px 0 #07261C',
+        background: off ? '#EEF2F0' : '#01573C', color: off ? '#B7C2BC' : '#fff',
+        border: off ? '1px solid #E2E7E4' : '0', boxShadow: off ? 'none' : '0 3px 0 #013825',
       }}
     >
       {loading && <Loader2 className="h-5 w-5 animate-spin" />}
@@ -190,7 +191,7 @@ export function GhostButton({ children, onClick }: { children: ReactNode; onClic
       type="button"
       onClick={onClick}
       className="zl-btn"
-      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 56, width: '100%', flexShrink: 0, background: '#141414', border: '1px solid #262626', borderRadius: 999, boxShadow: '0 3px 0 #050505', color: '#fff', fontFamily: SYS, fontSize: 17, fontWeight: 600, cursor: 'pointer' }}
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 56, width: '100%', flexShrink: 0, background: '#FFFFFF', border: '1px solid #E2E7E4', borderRadius: 999, boxShadow: '0 3px 0 #E2E7E4', color: '#0E1512', fontFamily: SYS, fontSize: 17, fontWeight: 600, cursor: 'pointer' }}
     >
       {children}
     </button>
@@ -200,11 +201,11 @@ export function GhostButton({ children, onClick }: { children: ReactNode; onClic
 export function GreenLink({ children, onClick, size = 15, icon }: { children: ReactNode; onClick: () => void; size?: number; icon?: 'left' | 'right' }) {
   const chevron = (d: string) => (
     <svg width="16" height="16" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
-      <path d={d} fill="none" stroke="#96F63C" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={d} fill="none" stroke="#01573C" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
   return (
-    <button type="button" onClick={onClick} className="zl-link" style={{ display: 'inline-flex', alignItems: 'center', gap: icon ? 6 : 0, color: '#96F63C', fontFamily: SYS, fontSize: size, fontWeight: 600, lineHeight: '18px' }}>
+    <button type="button" onClick={onClick} className="zl-link" style={{ display: 'inline-flex', alignItems: 'center', gap: icon ? 6 : 0, color: '#01573C', fontFamily: SYS, fontSize: size, fontWeight: 600, lineHeight: '18px' }}>
       {icon === 'left' && chevron('m15 18-6-6 6-6')}
       {children}
       {icon === 'right' && chevron('m9 18 6-6-6-6')}
@@ -214,8 +215,8 @@ export function GreenLink({ children, onClick, size = 15, icon }: { children: Re
 
 export function Banner({ tone, title, children }: { tone: 'error' | 'warn'; title: string; children: ReactNode }) {
   const c = tone === 'error'
-    ? { bg: '#2B1414', border: '#5A2323', icon: '#F87171', title: '#FCA5A5', text: '#D99494' }
-    : { bg: '#2A2410', border: '#4A3F16', icon: '#E9C46A', title: '#F3E3B0', text: '#C9B77A' };
+    ? { bg: '#FDE2E2', border: '#F6C6C6', icon: '#DC2626', title: '#B91C1C', text: '#991B1B' }
+    : { bg: '#FFF1E5', border: '#F0D9B8', icon: '#B45309', title: '#92400E', text: '#92580A' };
   const Icon = tone === 'error' ? AlertCircle : Clock;
   return (
     <div role="alert" style={{ display: 'flex', alignItems: 'flex-start', gap: tone === 'error' ? 12 : 14, padding: tone === 'error' ? '14px 16px' : '16px 18px', background: c.bg, border: `1px solid ${c.border}`, borderRadius: 12 }}>
@@ -230,21 +231,21 @@ export function Banner({ tone, title, children }: { tone: 'error' | 'warn'; titl
 
 export function IconBadge({ children }: { children: ReactNode }) {
   return (
-    <div style={{ width: 72, height: 72, borderRadius: 36, background: '#12301F', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+    <div style={{ width: 72, height: 72, borderRadius: 36, background: '#E3F1EA', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
       {children}
     </div>
   );
 }
 
-export const badgeStroke = { fill: 'none', stroke: '#96F63C', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
+export const badgeStroke = { fill: 'none', stroke: '#01573C', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
 
 export function HintCard({ children, resendLeft, onResend }: { children: ReactNode; resendLeft: number; onResend: () => void }) {
   const ready = resendLeft <= 0;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 20, background: '#101010', border: '1px solid #1C1C1C', borderRadius: 16 }}>
-      <div style={{ color: '#D4D4D4', fontFamily: SYS, fontSize: 15, lineHeight: '22px' }}>{children}</div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 20, background: '#F5F7F6', border: '1px solid #E2E7E4', borderRadius: 16 }}>
+      <div style={{ color: '#3F4A44', fontFamily: SYS, fontSize: 15, lineHeight: '22px' }}>{children}</div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ color: '#737373', fontFamily: SYS, fontSize: 15, lineHeight: '18px' }}>
+        <span style={{ color: '#8A948E', fontFamily: SYS, fontSize: 15, lineHeight: '18px' }}>
           {ready ? 'Já pode reenviar' : `Reenviar disponível em ${fmtClock(resendLeft)}`}
         </span>
         <button
@@ -252,7 +253,7 @@ export function HintCard({ children, resendLeft, onResend }: { children: ReactNo
           onClick={onResend}
           disabled={!ready}
           className="zl-link"
-          style={{ color: ready ? '#96F63C' : '#4A4A4A', fontFamily: SYS, fontSize: 15, fontWeight: 600, lineHeight: '18px', cursor: ready ? 'pointer' : 'default' }}
+          style={{ color: ready ? '#01573C' : '#B7C2BC', fontFamily: SYS, fontSize: 15, fontWeight: 600, lineHeight: '18px', cursor: ready ? 'pointer' : 'default' }}
         >
           Reenviar e-mail
         </button>
