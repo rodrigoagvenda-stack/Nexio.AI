@@ -120,8 +120,26 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
 
   const estadoAntes = clone(estadoIn)
 
+  // A automação (follow, remarketing, promoção, anti no-show) roda por fora do v3: o estado dele não sabe que ela
+  // falou. Se a última coisa que NÓS mandamos foi uma automação, a mensagem do lead é resposta a ela.
+  const { data: ultimaSaida } = await supabase
+    .from('mensagens_do_whatsapp')
+    .select('source, texto_da_mensagem, metadados')
+    .eq('id_da_conversacao', ctx.conversationId)
+    .eq('direcao', 'outbound')
+    .order('carimbo_de_data_e_hora', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const origemAutomacao = typeof ultimaSaida?.source === 'string' && /^(remarketing|antinoshow|follow:)/.test(ultimaSaida.source) ? ultimaSaida.source : null
+  const contextoAutomacao = origemAutomacao
+    ? {
+        origem: origemAutomacao,
+        conteudo: String((ultimaSaida?.metadados as { transcricao?: string } | null)?.transcricao ?? ultimaSaida?.texto_da_mensagem ?? ''),
+      }
+    : null
+
   // [1] Extrator
-  const extracao = await extrair(openai, { config, estado: estadoIn, historico: historico.slice(novo ? -30 : -8), mensagemAtual }, deps.onUsage)
+  const extracao = await extrair(openai, { config, estado: estadoIn, historico: historico.slice(novo ? -30 : -8), mensagemAtual, contextoAutomacao }, deps.onUsage)
 
   // Efeitos de CRM do que o lead disse (nome, segmento) e do disparo outbound (respondeu, score, bot)
   if (extracao.dados.nome && !estadoIn.dados.nome) {
@@ -149,6 +167,7 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
     origemAnuncio,
     reuniaoExistente,
     temReuniaoAtiva: agendada,
+    respondendoAutomacao: !!origemAutomacao,
     mensagemLead: mensagemAtual,
   }
   const decisao = decidir(extracao, estadoIn, config, dctx)

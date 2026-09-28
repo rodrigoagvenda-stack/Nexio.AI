@@ -20,6 +20,10 @@ export interface DecisorCtx {
    * cancelar: achado real, lead Rodrigo Evangelista/63104, 28/09/2026 — pediu pra cancelar minutos depois
    * do horário marcado já ter passado, e reuniaoExistente (null nesse caso) bloqueava a regra de cancelar. */
   temReuniaoAtiva: boolean
+  /** A última mensagem nossa antes desta resposta do lead foi uma automação (follow-up, remarketing, promoção,
+   * anti no-show). O estado do v3 não sabe disso (a automação roda por fora dele), então sem este sinal o SDR
+   * assume "conversa de qualificação normal" e ignora que o lead está respondendo a um follow. */
+  respondendoAutomacao?: boolean
   /** Texto literal da mensagem atual do lead (trava da abertura não pode depender só do que a IA classificou). */
   mensagemLead: string
 }
@@ -194,7 +198,10 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   })
 
   // Agradecimento depois de encerrar/agendar: uma resposta e pronto
-  if (soAgradecimento && (estado.etapa === 'encerrado' || estado.etapa === 'agendado') && config.agradecimento_fim?.frase) {
+  // Também quando o lead só agradece em resposta a uma automação nossa (follow, remarketing, promoção): achado real
+  // (lead Mike/63473, 28/09) — respondeu "Tá okay obrigado" ao áudio final do follow ("vou parar de te procurar"),
+  // o estado do v3 ainda estava em "qualificando" e o SDR voltou a perguntar nome/ramo/cidade da empresa.
+  if (soAgradecimento && (estado.etapa === 'encerrado' || estado.etapa === 'agendado' || ctx.respondendoAutomacao) && config.agradecimento_fim?.frase) {
     return { estado, acao: base('agradecimento_fim', { conteudo: { modo: 'literal', texto: config.agradecimento_fim.frase }, etapa_depois: estado.etapa }) }
   }
 
@@ -219,6 +226,14 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   if (ctx.temCalendario && ctx.temReuniaoAtiva && I.has('cancela_reuniao') && !ex.horario_escolhido) {
     estado.etapa = 'qualificando'
     return { estado, acao: base('cancelar_reuniao', { etapa_depois: 'qualificando' }) }
+  }
+
+  // 2c. recusa em resposta a uma automação nossa (follow-up, remarketing, promoção, lembrete): encerra na hora,
+  // com educação e sem insistir (etapa "encerrado" já move o lead pra Perdido no CRM). Sem isso o SDR entrava em
+  // "objeção repetida"/pergunta de qualificação como se fosse o início de uma conversa, sem saber o que o follow
+  // tinha dito. Só quando é recusa pura: se o lead também pergunta algo ou quer agendar, segue o fluxo normal.
+  if (ctx.respondendoAutomacao && I.has('recusa') && !I.has('pergunta_preco') && !I.has('pergunta_fato') && !I.has('pergunta_como_funciona') && !I.has('quer_agendar') && !I.has('escolheu_horario')) {
+    return encerrar(config.encerramento_recusas?.frase ?? config.escala.frase)
   }
 
   // 3. fora do escopo

@@ -59,7 +59,14 @@ export function schemaExtracao(config: CompanyConfig) {
   }
 }
 
-function promptSistema(config: CompanyConfig, estado: Estado, agoraSp: string): string {
+export interface ContextoAutomacao {
+  /** source gravado na mensagem: remarketing, antinoshow ou follow:<tipo>. */
+  origem: string
+  /** Texto (ou transcrição do áudio) que a automação mandou. */
+  conteudo: string
+}
+
+function promptSistema(config: CompanyConfig, estado: Estado, agoraSp: string, automacao: ContextoAutomacao | null): string {
   const objecoes = config.objecoes
     .map((o) => `- ${o.id}: ${o.titulo}. Exemplos: ${o.gatilhos.map((g) => `"${g}"`).join('; ')}`)
     .join('\n')
@@ -108,14 +115,19 @@ REGRAS
 - tom_do_lead: curto_informal (poucas palavras, abreviações), informal, ou formal.
 - confianca: baixa quando você não tem certeza do que o lead quis dizer.
 - resposta_automatica: true se parece resposta automática de empresa (menu, horário de atendimento, "somos uma empresa que...").
-- Se o agente ofereceu horários, os oferecidos foram: ${estado.dados._slots ? estado.dados._slots : 'nenhum'}.`
+- Se o agente ofereceu horários, os oferecidos foram: ${estado.dados._slots ? estado.dados._slots : 'nenhum'}.${
+    automacao
+      ? `
+- CONTEXTO IMPORTANTE: a última mensagem que NÓS mandamos foi uma automação (${automacao.origem}: follow-up, remarketing, promoção ou lembrete de reunião), não uma pergunta do agente. Ela dizia: "${automacao.conteudo.slice(0, 900)}". A mensagem atual do lead é a resposta a ISSO. Se o lead recusa, diz que não quer, não tem interesse, ou responde com "ok"/"tá bom"/"obrigado" de forma que encerra o assunto sem demonstrar interesse (principalmente quando a automação avisava que ia parar de chamar ou pedia pra avisar se não tivesse interesse), marque recusa. Se ele demonstra interesse ou pergunta algo, classifique normalmente.`
+      : ''
+  }`
 }
 
 const fmtHist = (h: MsgHist[]) => h.map((m) => `${m.role === 'assistant' ? 'Agente' : 'Lead'}: ${m.content}`).join('\n')
 
 export async function extrair(
   openai: OpenAI,
-  p: { config: CompanyConfig; estado: Estado; historico: MsgHist[]; mensagemAtual: string },
+  p: { config: CompanyConfig; estado: Estado; historico: MsgHist[]; mensagemAtual: string; contextoAutomacao?: ContextoAutomacao | null },
   onUsage?: (c: OpenAI.Chat.ChatCompletion, agent: string) => void,
 ): Promise<Extracao> {
   const agoraSp = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
@@ -125,7 +137,7 @@ export async function extrair(
     max_tokens: 700,
     response_format: { type: 'json_schema', json_schema: { name: 'extracao', strict: true, schema: schemaExtracao(p.config) as any } },
     messages: [
-      { role: 'system', content: promptSistema(p.config, p.estado, agoraSp) },
+      { role: 'system', content: promptSistema(p.config, p.estado, agoraSp, p.contextoAutomacao ?? null) },
       { role: 'user', content: `TRECHO DA CONVERSA:\n${fmtHist(p.historico)}\n\nMENSAGEM ATUAL DO LEAD (é a que você classifica):\n${p.mensagemAtual}` },
     ],
   })

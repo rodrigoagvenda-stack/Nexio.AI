@@ -46,6 +46,7 @@ async function turno(
     contextoOutbound: null,
     origemAnuncio: null,
     reuniaoExistente: null,
+    temReuniaoAtiva: !!ctxParcial.reuniaoExistente,
     mensagemLead: mensagemAtual,
     ...ctxParcial,
   }

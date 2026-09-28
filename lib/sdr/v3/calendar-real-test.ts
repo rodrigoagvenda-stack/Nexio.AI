@@ -49,6 +49,7 @@ async function turnoComCalendario(
     contextoOutbound: null,
     origemAnuncio: null,
     reuniaoExistente: null,
+    temReuniaoAtiva: !!ctxParcial.reuniaoExistente,
     mensagemLead: mensagemAtual,
     ...ctxParcial,
   }

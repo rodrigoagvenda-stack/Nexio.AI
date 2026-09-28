@@ -92,6 +92,20 @@ ok('pede pra cancelar sem ter reunião marcada: não dispara a ação de cancela
 // das 09:30). reuniaoExistente só conta horário futuro (null aqui), mas o evento real ainda existe: tem que cancelar.
 d = decidir(ex({ intencoes: ['cancela_reuniao'] }), est(), config, ctx({ reuniaoExistente: null, temReuniaoAtiva: true }))
 ok('pede pra cancelar depois do horário já ter passado (evento ainda existe): cancela de verdade', d.acao.tipo === 'cancelar_reuniao', d.acao.tipo)
+
+// regressão real (lead Mike/63473, 28/09): respondeu "Tá okay obrigado" ao áudio final do follow ("vou parar de te
+// procurar") e o SDR, sem saber que era resposta a uma automação, voltou a perguntar nome/ramo/cidade da empresa.
+const emQualificacao = est({ dados: { nome: 'Mike' }, perguntas_feitas: [{ id: 'negocio', turno: 2, respondida: false }], turno: 2 })
+d = decidir(ex({ intencoes: ['social'], social: { tipo: 'agradecimento', texto_do_lead: 'Tá okay obrigado' } }), emQualificacao, config, ctx({ respondendoAutomacao: true }))
+ok('agradece em resposta a uma automação (follow): só fecha educado, não volta a perguntar qualificação', d.acao.tipo === 'agradecimento_fim' && !d.acao.proxima_pergunta, d.acao.tipo)
+d = decidir(ex({ intencoes: ['social'], social: { tipo: 'agradecimento', texto_do_lead: 'Tá okay obrigado' } }), emQualificacao, config, ctx({ respondendoAutomacao: false }))
+ok('agradece SEM ser resposta a automação, conversa normal de qualificação: comportamento de antes (segue perguntando)', d.acao.tipo === 'perguntar', d.acao.tipo)
+d = decidir(ex({ intencoes: ['recusa'] }), emQualificacao, config, ctx({ respondendoAutomacao: true }))
+ok('recusa em resposta a automação (follow/remarketing/promoção): encerra na hora e vira Perdido, sem objeção repetida', d.acao.tipo === 'encerrar' && d.estado.etapa === 'encerrado', d.acao.tipo)
+d = decidir(ex({ intencoes: ['recusa', 'pergunta_preco'] }), emQualificacao, config, ctx({ respondendoAutomacao: true }))
+ok('recusa junto com pergunta de preço em resposta a automação: NÃO encerra (ele ainda quer saber algo)', d.acao.tipo !== 'encerrar', d.acao.tipo)
+d = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { negocio: 'Barbearia em Campinas' } }), emQualificacao, config, ctx({ respondendoAutomacao: true }))
+ok('responde de verdade (interesse) a uma automação: segue o fluxo normal, não encerra', d.acao.tipo !== 'encerrar' && d.acao.tipo !== 'agradecimento_fim', d.acao.tipo)
 d = decidir(ex({ intencoes: ['escolheu_horario', 'informou_email'], horario_escolhido: '2026-10-01T14:00:00', dados: { email: 'a@b.com', nome_completo: 'Ana Souza' } }), completo, config, ctx())
 ok('horário + e-mail + nome completo: agendar', d.acao.tipo === 'agendar')
 d = decidir(ex({ intencoes: ['escolheu_horario'], horario_escolhido: '2026-10-01T14:00:00' }), completo, config, ctx())
