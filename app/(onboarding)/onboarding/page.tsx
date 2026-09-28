@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertCircle, Check, ChevronLeft, ChevronRight, Loader2, Upload } from 'lucide-react';
 import { ZaapliLogo } from '@/components/brand/ZaapliLogo';
 import { AUTH_FIELD_CSS, FieldBox, FieldLabel, TextInput } from '@/components/auth/auth-ui';
@@ -107,8 +107,13 @@ function StepBadge({ n, done }: { n: number; done?: boolean }) {
 
 /* ───────── página ───────── */
 
-export default function OnboardingPage() {
+// Plano escolhido no site (zaapply.com.br) vem pela URL: ?plano=start|growth. Só pré-marca o cartão no
+// passo 3, a pessoa ainda confirma — evita escolher de novo algo que já decidiu antes de entrar.
+const PLANO_URL_PARA_INTENT: Record<string, PlanIntent> = { start: 'starter', starter: 'starter', growth: 'pro', pro: 'pro' };
+
+function OnboardingForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [stage, setStage] = useState<Stage>('loading');
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
@@ -121,7 +126,16 @@ export default function OnboardingPage() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [plan, setPlan] = useState<PlanIntent | null>(null);
+  const [plan, setPlan] = useState<PlanIntent | null>(() => {
+    const daUrl = PLANO_URL_PARA_INTENT[searchParams.get('plano') ?? ''];
+    if (daUrl) return daUrl;
+    // Fallback: veio do link de confirmação de e-mail, sem o parâmetro (ver login/page.tsx).
+    try {
+      return PLANO_URL_PARA_INTENT[localStorage.getItem('zaapply_plano_intent') ?? ''] ?? null;
+    } catch {
+      return null;
+    }
+  });
 
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [finalName, setFinalName] = useState('');
@@ -189,6 +203,7 @@ export default function OnboardingPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Não foi possível criar a conta.');
+      try { localStorage.removeItem('zaapply_plano_intent'); } catch {}
       // tela cheia: o painel decide o que mostrar depois do pagamento
       window.location.assign(data.next ?? '/dashboard');
     } catch (e: any) {
@@ -480,5 +495,13 @@ export default function OnboardingPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={null}>
+      <OnboardingForm />
+    </Suspense>
   );
 }

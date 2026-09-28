@@ -54,9 +54,16 @@ export default function LoginPage() {
   const [resendLeft, setResendLeft] = useState(0);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  // /signup redireciona para cá com ?tab=signup
+  // /signup redireciona para cá com ?tab=signup, e o plano escolhido no site (zaapply.com.br) vem junto em
+  // ?plano=start|growth. Salva no localStorage porque o cadastro passa por confirmação de e-mail: a pessoa
+  // clica o link do e-mail depois, numa aba nova, sem esse parâmetro na URL. O onboarding lê daqui.
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get('tab') === 'signup') setView('signup');
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tab') === 'signup') setView('signup');
+    const plano = params.get('plano');
+    if (plano === 'start' || plano === 'starter' || plano === 'growth' || plano === 'pro') {
+      try { localStorage.setItem('zaapply_plano_intent', plano); } catch {}
+    }
   }, []);
 
   // Trava de tentativas: contagem regressiva quando o servidor pede para esperar

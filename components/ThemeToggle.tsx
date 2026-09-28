@@ -4,12 +4,13 @@ import { Moon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  // Conta nova nasce no claro. O sistema (prefers-color-scheme) nunca decide sozinho; escuro só quando a pessoa
+  // escolhe pelo toggle, e a escolha fica salva em localStorage (pedido do Rodrigo, 28/09/2026).
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
     const saved = localStorage.getItem('theme') as 'light' | 'dark' | null;
-    const system = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    const initial = saved || system;
+    const initial = saved ?? 'light';
     setTheme(initial);
     document.documentElement.classList.toggle('dark', initial === 'dark');
   }, []);

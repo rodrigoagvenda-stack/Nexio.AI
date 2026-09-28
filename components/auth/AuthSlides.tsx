@@ -55,62 +55,81 @@ function BotIcon({ size, color, antenna = true }: { size: number; color: string;
   );
 }
 
+function TypingDots({ d }: { d: number }) {
+  return (
+    <div className="zl-typing" style={{ display: 'flex', justifyContent: 'flex-end', ['--d' as string]: `${d}s` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#E6F1EB', border: '1px solid #BFD9CB', padding: '11px 14px', borderRadius: '14px 14px 4px 14px' }}>
+        {[0, 0.15, 0.3].map((t) => (
+          <span key={t} className="zl-dot" style={{ width: 6, height: 6, borderRadius: 999, background: '#01573C99', ['--dd' as string]: `${t}s` }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ChatMock() {
   return (
-    <div style={{ alignSelf: 'flex-end', width: 852, background: '#0C0C0C', border: '1px solid #1A1A1A', borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px', borderBottom: '1px solid #1A1A1A' }}>
-        <div style={{ width: 42, height: 42, borderRadius: 999, background: '#01573C2E', color: '#34B270', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: INTER, fontSize: 14, fontWeight: 700, flexShrink: 0 }}>MC</div>
+    <div style={{ alignSelf: 'flex-end', width: 852, background: '#FFFFFF', border: '1px solid #E2E7E4', borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 60px rgba(14,21,18,0.14)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px', borderBottom: '1px solid #E2E7E4' }}>
+        <div style={{ width: 42, height: 42, borderRadius: 999, background: '#E3F1EA', color: '#01573C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: INTER, fontSize: 14, fontWeight: 700, flexShrink: 0 }}>MC</div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ color: '#FAFAFA', fontFamily: INTER, fontSize: 16, fontWeight: 600, lineHeight: '20px' }}>Marina Costa</div>
+          <div style={{ color: '#0E1512', fontFamily: INTER, fontSize: 16, fontWeight: 600, lineHeight: '20px' }}>Marina Costa</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ background: '#34B2701F', color: '#34B270', borderRadius: 6, height: 20, padding: '0 8px', display: 'flex', alignItems: 'center', fontFamily: INTER, fontSize: 11, fontWeight: 600 }}>Interessado</span>
-            <span style={{ background: '#F973161F', color: '#FB923C', borderRadius: 6, height: 20, padding: '0 8px', display: 'flex', alignItems: 'center', fontFamily: INTER, fontSize: 11, fontWeight: 600 }}>Quente</span>
-            <span style={{ color: '#5C5C5C', fontFamily: INTER, fontSize: 12 }}>Sem valor</span>
-            <span style={{ color: '#5C5C5C', fontFamily: INTER, fontSize: 12 }}>Entrou hoje</span>
+            <span style={{ background: '#E3F1EA', color: '#0F7A3B', borderRadius: 6, height: 20, padding: '0 8px', display: 'flex', alignItems: 'center', fontFamily: INTER, fontSize: 11, fontWeight: 600 }}>Interessado</span>
+            <span style={{ background: '#FFF1E5', color: '#B45309', borderRadius: 6, height: 20, padding: '0 8px', display: 'flex', alignItems: 'center', fontFamily: INTER, fontSize: 11, fontWeight: 600 }}>Quente</span>
+            <span style={{ color: '#8A948E', fontFamily: INTER, fontSize: 12 }}>Sem valor</span>
+            <span style={{ color: '#8A948E', fontFamily: INTER, fontSize: 12 }}>Entrou hoje</span>
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-          <div style={{ color: '#5C5C5C', fontFamily: INTER, fontSize: 11, lineHeight: '14px' }}>Quem responde nesta conversa</div>
-          <div style={{ display: 'flex', alignItems: 'center', padding: 3, background: '#141414', border: '1px solid #1A1A1A', borderRadius: 999 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, height: 28, padding: '0 14px', borderRadius: 999, background: '#0F3D2B', color: '#fff', fontFamily: INTER, fontSize: 12, fontWeight: 600 }}>
-              <BotIcon size={14} color="#FFFFFF" />
+          <div style={{ color: '#8A948E', fontFamily: INTER, fontSize: 11, lineHeight: '14px' }}>Quem responde nesta conversa</div>
+          <div style={{ display: 'flex', alignItems: 'center', padding: 3, background: '#EEF2F0', border: '1px solid #E2E7E4', borderRadius: 999 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, height: 28, padding: '0 14px', borderRadius: 999, background: '#E6F1EB', color: '#01573C', fontFamily: INTER, fontSize: 12, fontWeight: 600 }}>
+              <BotIcon size={14} color="#01573C" />
               SDR
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, height: 28, padding: '0 14px', borderRadius: 999, color: '#999', fontFamily: INTER, fontSize: 12, fontWeight: 500 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, height: 28, padding: '0 14px', borderRadius: 999, color: '#5B6660', fontFamily: INTER, fontSize: 12, fontWeight: 500 }}>
               <svg width="14" height="14" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
-                <circle cx="12" cy="8" r="4" stroke="#999999" {...stroke} />
-                <path d="M4 21c0-4 4-6 8-6s8 2 8 6" stroke="#999999" {...stroke} />
+                <circle cx="12" cy="8" r="4" stroke="#5B6660" {...stroke} />
+                <path d="M4 21c0-4 4-6 8-6s8 2 8 6" stroke="#5B6660" {...stroke} />
               </svg>
               Você
             </div>
           </div>
         </div>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '20px 24px', background: '#0C0C0C' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '20px 24px', background: '#F5F7F6' }}>
         <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <span style={{ background: '#141414', color: '#999', borderRadius: 999, height: 22, padding: '0 12px', display: 'flex', alignItems: 'center', fontFamily: INTER, fontSize: 11 }}>Hoje</span>
+          <span style={{ background: '#EEF2F0', color: '#5B6660', borderRadius: 999, height: 22, padding: '0 12px', display: 'flex', alignItems: 'center', fontFamily: INTER, fontSize: 11 }}>Hoje</span>
         </div>
-        {CHAT.map((m, i) =>
-          m.from === 'lead' ? (
-            <div key={i} className="zl-in" style={{ display: 'flex', ['--d' as string]: `${0.5 + i * 1.1}s` }}>
-              <div style={{ maxWidth: '62%', display: 'flex', alignItems: 'flex-end', gap: 10, background: '#1A1A1A', padding: '10px 14px', borderRadius: '14px 14px 14px 4px' }}>
-                <span style={{ color: '#EDEDED', fontFamily: INTER, fontSize: 13.5, lineHeight: '19.5px' }}>{m.text}</span>
-                <span style={{ color: '#999', fontFamily: INTER, fontSize: 10.5, lineHeight: '14px' }}>{m.time}</span>
-              </div>
-            </div>
-          ) : (
-            <div key={i} className="zl-in" style={{ display: 'flex', justifyContent: 'flex-end', ['--d' as string]: `${0.5 + i * 1.1}s` }}>
-              <div style={{ maxWidth: '62%', display: 'flex', flexDirection: 'column', gap: 4, background: '#01573C52', border: '1px solid #01573C80', padding: '10px 14px', borderRadius: '14px 14px 4px 14px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <BotIcon size={11} color="#96F63C" antenna={false} />
-                  <span style={{ color: '#96F63C', fontFamily: INTER, fontSize: 11, fontWeight: 600, lineHeight: '14px' }}>SDR</span>
+        {CHAT.map((m, i) => {
+          const d = 0.5 + i * 1.1;
+          const showTyping = i === CHAT.length - 1;
+          return (
+            <div key={i} style={{ display: 'contents' }}>
+              {showTyping && <TypingDots d={d - 0.5} />}
+              {m.from === 'lead' ? (
+                <div className="zl-in" style={{ display: 'flex', ['--d' as string]: `${d}s` }}>
+                  <div style={{ maxWidth: '62%', display: 'flex', alignItems: 'flex-end', gap: 10, background: '#FFFFFF', border: '1px solid #E2E7E4', padding: '10px 14px', borderRadius: '14px 14px 14px 4px' }}>
+                    <span style={{ color: '#0E1512', fontFamily: INTER, fontSize: 13.5, lineHeight: '19.5px' }}>{m.text}</span>
+                    <span style={{ color: '#8A948E', fontFamily: INTER, fontSize: 10.5, lineHeight: '14px' }}>{m.time}</span>
+                  </div>
                 </div>
-                <span style={{ color: '#EDEDED', fontFamily: INTER, fontSize: 13.5, lineHeight: '19.5px' }}>{m.text}</span>
-                <span style={{ alignSelf: 'flex-end', color: '#7A9A8A', fontFamily: INTER, fontSize: 10.5, lineHeight: '14px' }}>{m.time}</span>
-              </div>
+              ) : (
+                <div className="zl-in" style={{ display: 'flex', justifyContent: 'flex-end', ['--d' as string]: `${d}s` }}>
+                  <div style={{ maxWidth: '62%', display: 'flex', flexDirection: 'column', gap: 4, background: '#E6F1EB', border: '1px solid #BFD9CB', padding: '10px 14px', borderRadius: '14px 14px 4px 14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <BotIcon size={11} color="#01573C" antenna={false} />
+                      <span style={{ color: '#01573C', fontFamily: INTER, fontSize: 11, fontWeight: 600, lineHeight: '14px' }}>SDR</span>
+                    </div>
+                    <span style={{ color: '#0E1512', fontFamily: INTER, fontSize: 13.5, lineHeight: '19.5px' }}>{m.text}</span>
+                    <span style={{ alignSelf: 'flex-end', color: '#5B6660', fontFamily: INTER, fontSize: 10.5, lineHeight: '14px' }}>{m.time}</span>
+                  </div>
+                </div>
+              )}
             </div>
-          ),
-        )}
+          );
+        })}
       </div>
     </div>
   );
@@ -122,22 +141,22 @@ const NODE_BASE = { position: 'absolute', boxSizing: 'border-box' } as const;
 
 function Handle({ left, on }: { left: number; on?: boolean }) {
   return (
-    <div style={{ ...NODE_BASE, left, top: 127, width: 12, height: 12, borderRadius: 999, border: on ? '2px solid #0B0B0B' : '2px solid #7A7A7A', background: on ? '#96F63C' : '#0B0B0B' }} />
+    <div style={{ ...NODE_BASE, left, top: 127, width: 12, height: 12, borderRadius: 999, border: on ? '2px solid #01573C' : '2px solid #B7C2BC', background: on ? '#96F63C' : '#FFFFFF' }} />
   );
 }
 
 function Link({ left }: { left: number }) {
-  return <div style={{ ...NODE_BASE, left, top: 133, width: 112, height: 2, background: '#3A3A3A' }} />;
+  return <div style={{ ...NODE_BASE, left, top: 133, width: 112, height: 2, background: '#D5DDD9' }} />;
 }
 
 function DelayPill({ left, label }: { left: number; label: string }) {
   return (
-    <div style={{ ...NODE_BASE, left, top: 121, width: 80, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, background: '#141414', border: '1px solid #2E2E2E', borderRadius: 999 }}>
+    <div style={{ ...NODE_BASE, left, top: 121, width: 80, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, background: '#FFFFFF', border: '1px solid #E2E7E4', borderRadius: 999, boxShadow: '0 2px 6px rgba(14,21,18,0.06)' }}>
       <svg width="12" height="12" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
-        <circle cx="12" cy="12" r="9" fill="none" stroke="#A3A3A3" strokeWidth="2.2" strokeLinecap="round" />
-        <path d="M12 7v5l3 2" fill="none" stroke="#A3A3A3" strokeWidth="2.2" strokeLinecap="round" />
+        <circle cx="12" cy="12" r="9" fill="none" stroke="#5B6660" strokeWidth="2.2" strokeLinecap="round" />
+        <path d="M12 7v5l3 2" fill="none" stroke="#5B6660" strokeWidth="2.2" strokeLinecap="round" />
       </svg>
-      <span style={{ color: '#D0D0D0', fontFamily: SYS, fontSize: 12, fontWeight: 500 }}>{label}</span>
+      <span style={{ color: '#3F4A44', fontFamily: SYS, fontSize: 12, fontWeight: 500 }}>{label}</span>
     </div>
   );
 }
@@ -150,23 +169,23 @@ const MSGS = [
 
 function CanvasMock() {
   return (
-    <div style={{ position: 'relative', width: 1160, height: 236, flexShrink: 0 }}>
-      <div className="zl-in" style={{ ...NODE_BASE, left: 364, top: 0, width: 104, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'space-around', padding: '0 10px', background: '#1A1A1A', border: '1px solid #2E2E2E', borderRadius: 999, ['--d' as string]: '1.9s' }}>
-        <svg width="16" height="16" viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z" fill="#FAFAFA" /></svg>
+    <div style={{ position: 'relative', width: 1160, height: 260, flexShrink: 0 }}>
+      <div className="zl-in" style={{ ...NODE_BASE, left: 364, top: 0, width: 104, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'space-around', padding: '0 10px', background: '#FFFFFF', border: '1px solid #E2E7E4', borderRadius: 999, boxShadow: '0 2px 8px rgba(14,21,18,0.06)', ['--d' as string]: '1.9s' }}>
+        <svg width="16" height="16" viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z" fill="#0E1512" /></svg>
         <svg width="16" height="16" viewBox="0 0 24 24">
-          <rect x="9" y="9" width="11" height="11" rx="2" stroke="#FAFAFA" {...stroke} />
-          <path d="M5 15V6a2 2 0 0 1 2-2h9" stroke="#FAFAFA" {...stroke} />
+          <rect x="9" y="9" width="11" height="11" rx="2" stroke="#0E1512" {...stroke} />
+          <path d="M5 15V6a2 2 0 0 1 2-2h9" stroke="#0E1512" {...stroke} />
         </svg>
-        <svg width="16" height="16" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" stroke="#F87171" {...stroke} /></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" stroke="#EF4444" {...stroke} /></svg>
       </div>
 
-      <div className="zl-in" style={{ ...NODE_BASE, left: 0, top: 92, width: 200, height: 84, display: 'flex', alignItems: 'center', gap: 12, padding: '0 16px', background: '#141414', border: '1.5px solid #2E2E2E', borderRadius: 16, ['--d' as string]: '0.3s' }}>
-        <div style={{ width: 44, height: 44, borderRadius: 12, background: '#F5B54424', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <svg width="22" height="22" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z" stroke="#F5B544" {...stroke} /></svg>
+      <div className="zl-in" style={{ ...NODE_BASE, left: 0, top: 92, width: 200, height: 84, display: 'flex', alignItems: 'center', gap: 12, padding: '0 16px', background: '#FFFFFF', border: '1.5px solid #E2E7E4', borderRadius: 16, boxShadow: '0 6px 16px rgba(14,21,18,0.08)', ['--d' as string]: '0.3s' }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: '#FFF1E5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <svg width="22" height="22" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z" stroke="#B45309" {...stroke} /></svg>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <span style={{ color: '#8A8A8A', fontFamily: SYS, fontSize: 12, lineHeight: '16px' }}>Gatilho</span>
-          <span style={{ color: '#FAFAFA', fontFamily: SYS, fontSize: 14, fontWeight: 600, lineHeight: '18px' }}>Etiqueta Follow up</span>
+          <span style={{ color: '#8A948E', fontFamily: SYS, fontSize: 12, lineHeight: '16px' }}>Gatilho</span>
+          <span style={{ color: '#0E1512', fontFamily: SYS, fontSize: 14, fontWeight: 600, lineHeight: '18px' }}>Etiqueta Follow up</span>
         </div>
       </div>
 
@@ -175,6 +194,7 @@ function CanvasMock() {
         const linkLeft = i === 0 ? 200 : m.left - 112;
         const delayLabel = ['Agora', '2 dias', '3 dias'][i];
         const pillLeft = i === 0 ? 216 : m.left - 96;
+        const doneD = 1.3 + i * 0.5;
         return (
           <div key={m.left}>
             <div className="zl-in" style={{ ['--d' as string]: `${0.7 + i * 0.5}s` }}>
@@ -187,30 +207,37 @@ function CanvasMock() {
               className="zl-in"
               style={{
                 ...NODE_BASE, left: m.left, top: 50, width: 208, height: 168, padding: 16, display: 'flex', flexDirection: 'column', gap: 12,
-                background: '#141414', borderRadius: 16,
-                border: m.active ? '1.5px solid #96F63C' : '1.5px solid #2E2E2E',
-                boxShadow: m.active ? '0 0 0 4px #96F63C1A' : undefined,
+                background: '#FFFFFF', borderRadius: 16,
+                border: m.active ? '1.5px solid #01573C' : '1.5px solid #E2E7E4',
+                boxShadow: m.active ? '0 0 0 4px rgba(1,87,60,0.12), 0 6px 16px rgba(14,21,18,0.08)' : '0 6px 16px rgba(14,21,18,0.06)',
                 ['--d' as string]: `${0.9 + i * 0.5}s`,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 34, height: 34, borderRadius: 10, background: '#96F63C24', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  {m.audio ? (
-                    <svg width="18" height="18" viewBox="0 0 24 24">
-                      <rect x="9" y="2" width="6" height="12" rx="3" stroke="#96F63C" {...stroke} />
-                      <path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4" stroke="#96F63C" {...stroke} />
-                    </svg>
-                  ) : (
-                    <svg width="18" height="18" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="#96F63C" {...stroke} /></svg>
-                  )}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 10, background: '#E3F1EA', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {m.audio ? (
+                      <svg width="18" height="18" viewBox="0 0 24 24">
+                        <rect x="9" y="2" width="6" height="12" rx="3" stroke="#01573C" {...stroke} />
+                        <path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4" stroke="#01573C" {...stroke} />
+                      </svg>
+                    ) : (
+                      <svg width="18" height="18" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="#01573C" {...stroke} /></svg>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span style={{ color: '#0E1512', fontFamily: SYS, fontSize: 14, fontWeight: 600, lineHeight: '18px' }}>{m.title}</span>
+                    <span style={{ color: '#8A948E', fontFamily: SYS, fontSize: 12, lineHeight: '16px' }}>{m.sub}</span>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <span style={{ color: '#FAFAFA', fontFamily: SYS, fontSize: 14, fontWeight: 600, lineHeight: '18px' }}>{m.title}</span>
-                  <span style={{ color: '#8A8A8A', fontFamily: SYS, fontSize: 12, lineHeight: '16px' }}>{m.sub}</span>
-                </div>
+                {i === 0 && (
+                  <span className="zl-in" style={{ ['--d' as string]: `${doneD}s`, width: 20, height: 20, borderRadius: 999, background: '#01573C', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </span>
+                )}
               </div>
-              <div style={{ flex: 1, background: '#1E1E1E', borderRadius: 10, padding: '10px 12px' }}>
-                <span style={{ color: '#E4E4E4', fontFamily: SYS, fontSize: 13, lineHeight: '19px' }}>{m.body}</span>
+              <div style={{ flex: 1, background: '#F5F7F6', borderRadius: 10, padding: '10px 12px' }}>
+                <span style={{ color: '#3F4A44', fontFamily: SYS, fontSize: 13, lineHeight: '19px' }}>{m.body}</span>
               </div>
             </div>
           </div>
@@ -227,9 +254,9 @@ type Meta = { text: string; live?: boolean };
 type KCard = { i: string; name: string; tags?: Tag[]; value: string; meta: Meta };
 
 const TAG_STYLE: Record<Tag, { bg: string; fg: string }> = {
-  Quente: { bg: '#F973161F', fg: '#FB923C' },
-  Alta: { bg: '#EF44441F', fg: '#F87171' },
-  Média: { bg: '#FFFFFF14', fg: '#D8D8D8' },
+  Quente: { bg: '#FFF1E5', fg: '#B45309' },
+  Alta: { bg: '#FDE2E2', fg: '#DC2626' },
+  Média: { bg: '#EEF2F0', fg: '#5B6660' },
 };
 
 const COLUMNS: { name: string; color: string; count: number; total: string; cards: KCard[] }[] = [
@@ -260,22 +287,22 @@ function KanbanMock() {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
       {COLUMNS.map((c, ci) => (
-        <div key={c.name} className="zl-in" style={{ width: 216, flexShrink: 0, boxSizing: 'border-box', background: '#101010', border: '1px solid #1A1A1A', borderRadius: 10, padding: 10, display: 'flex', flexDirection: 'column', gap: 8, ['--d' as string]: `${0.3 + ci * 0.25}s` }}>
+        <div key={c.name} className="zl-in" style={{ width: 216, flexShrink: 0, boxSizing: 'border-box', background: '#F5F7F6', border: '1px solid #E2E7E4', borderRadius: 10, padding: 10, display: 'flex', flexDirection: 'column', gap: 8, ['--d' as string]: `${0.3 + ci * 0.25}s` }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '2px 2px 6px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ width: 8, height: 8, borderRadius: 999, background: c.color, flexShrink: 0 }} />
-                <span style={{ color: '#FAFAFA', fontFamily: INTER, fontSize: 13, fontWeight: 600, lineHeight: '16px' }}>{c.name}</span>
+                <span style={{ color: '#0E1512', fontFamily: INTER, fontSize: 13, fontWeight: 600, lineHeight: '16px' }}>{c.name}</span>
               </div>
-              <span style={{ background: '#1A1A1A', color: '#D8D8D8', borderRadius: 999, height: 20, padding: '0 8px', display: 'flex', alignItems: 'center', fontFamily: INTER, fontSize: 11, fontWeight: 600 }}>{c.count}</span>
+              <span style={{ background: '#EEF2F0', color: '#3F4A44', borderRadius: 999, height: 20, padding: '0 8px', display: 'flex', alignItems: 'center', fontFamily: INTER, fontSize: 11, fontWeight: 600 }}>{c.count}</span>
             </div>
-            <span style={{ paddingLeft: 16, color: '#999', fontFamily: INTER, fontSize: 12, lineHeight: '16px' }}>{c.total}</span>
+            <span style={{ paddingLeft: 16, color: '#8A948E', fontFamily: INTER, fontSize: 12, lineHeight: '16px' }}>{c.total}</span>
           </div>
           {c.cards.map((k) => (
-            <div key={k.name} style={{ background: '#141414', border: '1px solid #1A1A1A', borderRadius: 8, padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div key={k.name} style={{ background: '#FFFFFF', border: '1px solid #E2E7E4', borderRadius: 8, padding: 12, display: 'flex', flexDirection: 'column', gap: 10, boxShadow: '0 1px 3px rgba(14,21,18,0.05)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 28, height: 28, borderRadius: 999, background: '#01573C2E', color: '#34B270', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: INTER, fontSize: 11, fontWeight: 700 }}>{k.i}</span>
-                <span style={{ color: '#FAFAFA', fontFamily: INTER, fontSize: 13, fontWeight: 600, lineHeight: '16px' }}>{k.name}</span>
+                <span style={{ width: 28, height: 28, borderRadius: 999, background: '#E3F1EA', color: '#01573C', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: INTER, fontSize: 11, fontWeight: 700 }}>{k.i}</span>
+                <span style={{ color: '#0E1512', fontFamily: INTER, fontSize: 13, fontWeight: 600, lineHeight: '16px' }}>{k.name}</span>
               </div>
               {k.tags && (
                 <div style={{ display: 'flex', gap: 6 }}>
@@ -285,10 +312,10 @@ function KanbanMock() {
                 </div>
               )}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ color: '#D8D8D8', fontFamily: INTER, fontSize: 12, fontWeight: 600, lineHeight: '16px' }}>{k.value}</span>
+                <span style={{ color: '#3F4A44', fontFamily: INTER, fontSize: 12, fontWeight: 600, lineHeight: '16px' }}>{k.value}</span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: 999, background: k.meta.live ? '#34B270' : '#5C5C5C', flexShrink: 0 }} />
-                  <span style={{ color: k.meta.live ? '#34D399' : '#999', fontFamily: INTER, fontSize: 11, lineHeight: '14px' }}>{k.meta.text}</span>
+                  <span style={{ width: 6, height: 6, borderRadius: 999, background: k.meta.live ? '#16A34A' : '#B7C2BC', flexShrink: 0 }} />
+                  <span style={{ color: k.meta.live ? '#0F7A3B' : '#8A948E', fontFamily: INTER, fontSize: 11, lineHeight: '14px' }}>{k.meta.text}</span>
                 </span>
               </div>
             </div>
@@ -323,10 +350,14 @@ export function AuthSlides() {
       style={{ background: 'linear-gradient(180deg, #0E0E0E 0%, #121212 100%)' }}
     >
       <style>{`
-        .zl-in { opacity: 0; }
+        .zl-in, .zl-typing { opacity: 0; }
         .zl-on .zl-in { animation: zl-in .55s ease-out forwards; animation-delay: var(--d, 0s); }
+        .zl-on .zl-typing { animation: zl-typing .5s ease-in-out forwards; animation-delay: var(--d, 0s); }
+        .zl-on .zl-dot { animation: zl-dot-bounce 1s ease-in-out infinite; animation-delay: var(--dd, 0s); }
         @keyframes zl-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-        @media (prefers-reduced-motion: reduce) { .zl-in { opacity: 1 !important; animation: none !important; } }
+        @keyframes zl-typing { 0% { opacity: 0; transform: translateY(4px); } 25%, 75% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+        @keyframes zl-dot-bounce { 0%, 100% { transform: translateY(0); opacity: .5; } 50% { transform: translateY(-3px); opacity: 1; } }
+        @media (prefers-reduced-motion: reduce) { .zl-in { opacity: 1 !important; animation: none !important; } .zl-typing { display: none !important; } }
       `}</style>
       {fit && (
         <div
