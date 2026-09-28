@@ -13,8 +13,13 @@ export interface DecisorCtx {
   pushName: string | null
   contextoOutbound: string | null
   origemAnuncio: string | null
-  /** Data formatada da reunião já agendada e válida, se houver. */
+  /** Data formatada da reunião já agendada e válida (com horário no futuro), se houver. */
   reuniaoExistente: string | null
+  /** true quando existe evento real e não cancelado no Calendar, mesmo que o horário já tenha passado
+   * (diferente de reuniaoExistente, que só conta reunião com horário no futuro). Usado só pra permitir
+   * cancelar: achado real, lead Rodrigo Evangelista/63104, 28/09/2026 — pediu pra cancelar minutos depois
+   * do horário marcado já ter passado, e reuniaoExistente (null nesse caso) bloqueava a regra de cancelar. */
+  temReuniaoAtiva: boolean
   /** Texto literal da mensagem atual do lead (trava da abertura não pode depender só do que a IA classificou). */
   mensagemLead: string
 }
@@ -211,7 +216,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // também como "recusa", caiu na regra de objeção repetida e a conversa encerrou sem cancelar nada de
   // verdade — o evento ficou órfão no Calendar real do Bruno). Se o lead já deu um horário novo na mesma
   // mensagem, não é cancelamento puro, é remarcação: a regra 9 cuida disso (cancela o antigo, cria o novo).
-  if (ctx.temCalendario && ctx.reuniaoExistente && I.has('cancela_reuniao') && !ex.horario_escolhido) {
+  if (ctx.temCalendario && ctx.temReuniaoAtiva && I.has('cancela_reuniao') && !ex.horario_escolhido) {
     estado.etapa = 'qualificando'
     return { estado, acao: base('cancelar_reuniao', { etapa_depois: 'qualificando' }) }
   }

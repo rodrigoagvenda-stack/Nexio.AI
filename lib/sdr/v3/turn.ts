@@ -148,6 +148,7 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
     contextoOutbound,
     origemAnuncio,
     reuniaoExistente,
+    temReuniaoAtiva: agendada,
     mensagemLead: mensagemAtual,
   }
   const decisao = decidir(extracao, estadoIn, config, dctx)

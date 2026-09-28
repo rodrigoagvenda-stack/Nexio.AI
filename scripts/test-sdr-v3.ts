@@ -11,7 +11,7 @@ const ok = (nome: string, cond: boolean, extra = '') => {
   console.log(`${cond ? 'OK   ' : 'FALHA'} ${nome}${extra ? ' :: ' + extra : ''}`)
 }
 const ex = (p: Partial<Extracao>): Extracao => ({ intencoes: ['outro'], social: null, objecao_id: null, pergunta_fato: null, dados: {}, horario_escolhido: null, tom_do_lead: 'informal', confianca: 'alta', resposta_automatica: false, ...p })
-const ctx = (p: Partial<DecisorCtx> = {}): DecisorCtx => ({ temCalendario: true, cobrancaAtiva: false, primeiraMensagemNossa: false, pushName: null, contextoOutbound: null, origemAnuncio: null, reuniaoExistente: null, mensagemLead: '', ...p })
+const ctx = (p: Partial<DecisorCtx> = {}): DecisorCtx => ({ temCalendario: true, cobrancaAtiva: false, primeiraMensagemNossa: false, pushName: null, contextoOutbound: null, origemAnuncio: null, reuniaoExistente: null, temReuniaoAtiva: false, mensagemLead: '', ...p })
 const est = (p: Partial<Estado> = {}): Estado => ({ ...ESTADO_INICIAL(2), etapa: 'qualificando', ...p })
 const txt = (a: any) => [a.conteudo?.texto ?? ''].flat().join('\n')
 
@@ -80,14 +80,18 @@ ok('reunião já marcada + pede ligação, empresa sem esse fato configurado: co
 
 // regressão real (lead Rodrigo Evangelista/63104, 28/09): "quero cancelar" era tratado como pede_remarcar
 // (só oferecia novo horário) e, insistindo, como "recusa" — a conversa encerrava sem cancelar o evento real.
-d = decidir(ex({ intencoes: ['cancela_reuniao'] }), est(), config, ctx({ reuniaoExistente: 'quinta-feira, 01/10, às 14h' }))
+d = decidir(ex({ intencoes: ['cancela_reuniao'] }), est(), config, ctx({ reuniaoExistente: 'quinta-feira, 01/10, às 14h', temReuniaoAtiva: true }))
 ok('reunião já marcada + pede pra cancelar: cancela de verdade (não oferece horário, não trata como objeção)', d.acao.tipo === 'cancelar_reuniao', d.acao.tipo)
-d = decidir(ex({ intencoes: ['cancela_reuniao', 'recusa'] }), est(), config, ctx({ reuniaoExistente: 'quinta-feira, 01/10, às 14h' }))
+d = decidir(ex({ intencoes: ['cancela_reuniao', 'recusa'] }), est(), config, ctx({ reuniaoExistente: 'quinta-feira, 01/10, às 14h', temReuniaoAtiva: true }))
 ok('cancelamento vem junto com "recusa" (lead insistindo): cancela mesmo assim, recusa não sequestra o turno', d.acao.tipo === 'cancelar_reuniao', d.acao.tipo)
-d = decidir(ex({ intencoes: ['cancela_reuniao', 'escolheu_horario'], horario_escolhido: '2026-10-03T10:00:00' }), est(), config, ctx({ reuniaoExistente: 'quinta-feira, 01/10, às 14h' }))
+d = decidir(ex({ intencoes: ['cancela_reuniao', 'escolheu_horario'], horario_escolhido: '2026-10-03T10:00:00' }), est(), config, ctx({ reuniaoExistente: 'quinta-feira, 01/10, às 14h', temReuniaoAtiva: true }))
 ok('cancela e já escolhe novo horário na mesma mensagem: é remarcação, não cancelamento puro', d.acao.tipo !== 'cancelar_reuniao', d.acao.tipo)
-d = decidir(ex({ intencoes: ['cancela_reuniao'] }), est(), config, ctx({ reuniaoExistente: null }))
+d = decidir(ex({ intencoes: ['cancela_reuniao'] }), est(), config, ctx({ reuniaoExistente: null, temReuniaoAtiva: false }))
 ok('pede pra cancelar sem ter reunião marcada: não dispara a ação de cancelar (nada pra cancelar)', d.acao.tipo !== 'cancelar_reuniao', d.acao.tipo)
+// Bug real (28/09, segunda causa): lead pediu pra cancelar DEPOIS do horário marcado já ter passado (09:46, reunião
+// das 09:30). reuniaoExistente só conta horário futuro (null aqui), mas o evento real ainda existe: tem que cancelar.
+d = decidir(ex({ intencoes: ['cancela_reuniao'] }), est(), config, ctx({ reuniaoExistente: null, temReuniaoAtiva: true }))
+ok('pede pra cancelar depois do horário já ter passado (evento ainda existe): cancela de verdade', d.acao.tipo === 'cancelar_reuniao', d.acao.tipo)
 d = decidir(ex({ intencoes: ['escolheu_horario', 'informou_email'], horario_escolhido: '2026-10-01T14:00:00', dados: { email: 'a@b.com', nome_completo: 'Ana Souza' } }), completo, config, ctx())
 ok('horário + e-mail + nome completo: agendar', d.acao.tipo === 'agendar')
 d = decidir(ex({ intencoes: ['escolheu_horario'], horario_escolhido: '2026-10-01T14:00:00' }), completo, config, ctx())
