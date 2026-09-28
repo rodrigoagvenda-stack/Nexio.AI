@@ -186,6 +186,28 @@
     background: var(--scrollbar-thumb-hover);
   }
 
+  /* Rolagem lateral do funil do CRM: sempre visível e com contraste. Sem isto ela some por causa do "Hide scrollbar
+     globally" acima (que zera todas as barras do sistema) e o funil parece travado, sem como ver as etapas do lado. */
+  .kanban-scroll {
+    overflow-x: scroll;
+    scrollbar-width: auto;
+    scrollbar-color: #2e8b62 hsl(var(--muted));
+  }
+  .kanban-scroll::-webkit-scrollbar {
+    height: 12px;
+  }
+  .kanban-scroll::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+    border-radius: 6px;
+  }
+  .kanban-scroll::-webkit-scrollbar-thumb {
+    background: #2e8b62;
+    border-radius: 6px;
+  }
+  .kanban-scroll::-webkit-scrollbar-thumb:hover {
+    background: #3aa377;
+  }
+
   /* Background pattern do chat estilo WhatsApp */
   .chat-background {
     position: relative;

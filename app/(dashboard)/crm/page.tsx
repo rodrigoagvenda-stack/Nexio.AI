@@ -36,7 +36,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, Pencil, Trash2, Search, Flame, Phone, DollarSign, Building2, Download, Filter, Megaphone, UserPlus, MessageCircle, Star, FileText, CheckCircle2, XCircle, Repeat2, LayoutList, LayoutGrid, GitBranch, Clock, CheckCheck, MoreHorizontal, ChevronDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Flame, Phone, DollarSign, Building2, Download, Filter, Megaphone, UserPlus, MessageCircle, Star, FileText, CheckCircle2, XCircle, Repeat2, LayoutList, LayoutGrid, GitBranch, Clock, CheckCheck, MoreHorizontal, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from '@/components/ui/use-toast';
 import { Lead } from '@/types/database.types';
@@ -1392,9 +1392,19 @@ export default function CRMPage() {
             <div className="hidden flex-col gap-4 md:flex">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="text-[13px] font-semibold tracking-[0.12em] text-muted-foreground">FUNIL DE VENDA</h2>
-                <p className="text-[13px] text-muted-foreground">{stageLeadCount} leads nas 7 etapas. Etiquetas aparecem no card, o lead não sai da etapa.</p>
+                <div className="flex items-center gap-3">
+                  <p className="text-[13px] text-muted-foreground">{stageLeadCount} leads nas 7 etapas. Etiquetas aparecem no card, o lead não sai da etapa.</p>
+                  <div className="flex items-center gap-1">
+                    <button type="button" aria-label="Etapas anteriores" onClick={() => boardRef.current?.scrollBy({ left: -640, behavior: 'smooth' })} className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground">
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <button type="button" aria-label="Próximas etapas" onClick={() => boardRef.current?.scrollBy({ left: 640, behavior: 'smooth' })} className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground">
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div ref={boardRef} className="overflow-x-auto overflow-y-hidden pb-2" style={{ height: boardH }}>
+              <div ref={boardRef} className="kanban-scroll overflow-y-hidden pb-2" style={{ height: boardH }}>
                 <div className="grid h-full items-stretch gap-4" style={{ gridAutoFlow: 'column', gridAutoColumns: '300px' }}>
                   {boardStages.map((stage) => {
                     const stageLeads = leadsByStage.map.get(stage) ?? [];

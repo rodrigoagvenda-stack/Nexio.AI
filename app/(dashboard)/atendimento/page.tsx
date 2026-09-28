@@ -1305,7 +1305,9 @@ export default function AtendimentoPage() {
   const leadFalouPorUltimo = (conv: Conversation) => !!(conv.ultima_mensagem_inbound_at
     && conv.hora_da_ultima_mensagem
     && new Date(conv.hora_da_ultima_mensagem).getTime() <= new Date(conv.ultima_mensagem_inbound_at).getTime() + 1000);
-  const leadAtivo = (conv: Conversation) => !['Fechado', 'Perdido'].includes(conv.lead?.status ?? '');
+  // Só "Perdido" sai das filas de ação. "Fechado" é cliente: manda contrato, documento, dúvida de pós-venda e
+  // precisa aparecer em "Sua vez"/"Aguardando" como qualquer conversa (antes sumia dessas abas e só existia em "Todas").
+  const leadAtivo = (conv: Conversation) => conv.lead?.status !== 'Perdido';
   // "Sua vez": o SDR parou (humano assumiu ou precisa assumir), o lead falou por último e ainda está no funil
   const isSuaVez = (conv: Conversation) => !!conv.agente_pausado && leadFalouPorUltimo(conv) && leadAtivo(conv);
 
@@ -1790,7 +1792,7 @@ export default function AtendimentoPage() {
               </DropdownMenu>
             </div>
             {/* Abas por ação: o que fazer agora */}
-            <div className="flex items-center gap-0.5 overflow-x-auto rounded-full bg-muted p-1" role="tablist" aria-label="Conversas por ação">
+            <div className="flex flex-wrap items-center gap-0.5 rounded-2xl bg-muted p-1" role="tablist" aria-label="Conversas por ação">
               {(['sua_vez', 'aguardando', 'sem_dono', 'todas'] as const).map((t) => {
                 const labels = { sua_vez: 'Sua vez', aguardando: 'Aguardando', sem_dono: 'Sem dono', todas: 'Todas' } as const;
                 const on = convTab === t;
