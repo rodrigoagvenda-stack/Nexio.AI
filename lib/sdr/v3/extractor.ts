@@ -85,7 +85,8 @@ Devolva as intenções da MENSAGEM ATUAL (uma mensagem pode ter várias, ex.: "t
 - escolheu_horario: escolheu ou propôs dia/horário (preencha horario_escolhido em ISO 8601 sem fuso, ex. 2026-09-30T14:00:00; se ele escolheu entre os horários oferecidos, use exatamente um deles)
 - informou_email: passou o e-mail
 - pede_ligacao: quer que liguem ou prefere ligação
-- pede_remarcar: já tem reunião marcada e pede pra mudar de dia/horário ou cancelar ("não vou poder", "pode remarcar?", "quero cancelar", "vou faltar", "preciso adiar")
+- pede_remarcar: já tem reunião marcada e pede pra MUDAR pra outro dia/horário, sem dizer explicitamente "cancelar" ("não vou poder nesse horário", "pode remarcar?", "vou faltar, tem outro horário?", "preciso adiar")
+- cancela_reuniao: já tem reunião marcada e pede EXPLICITAMENTE pra cancelar, sem quere remarcar agora ("quero cancelar", "cancela minha reunião", "não quero mais", "pode cancelar, depois eu remarco"). Diferente de pede_remarcar: aqui o lead não quer ver outros horários agora, só cancelar. Se ele disser "cancela" mas também já der um novo dia/horário na mesma mensagem, marque as duas: cancela_reuniao E escolheu_horario.
 - pede_humano: quer falar com uma pessoa, atendente ou o responsável
 - pergunta_se_e_robo: pergunta se é robô, IA, bot ou pessoa
 - recusa: disse que não quer, não tem interesse, para de mandar mensagem

@@ -13,6 +13,7 @@ export type Intencao =
   | 'informou_email'
   | 'pede_ligacao'
   | 'pede_remarcar'
+  | 'cancela_reuniao'
   | 'pede_humano'
   | 'pergunta_se_e_robo'
   | 'recusa'
@@ -22,7 +23,7 @@ export type Intencao =
 
 export const INTENCOES: Intencao[] = [
   'social', 'pede_espera', 'resposta_qualificacao', 'pergunta_preco', 'objecao', 'pergunta_fato', 'pergunta_como_funciona', 'quer_agendar',
-  'escolheu_horario', 'informou_email', 'pede_ligacao', 'pede_remarcar', 'pede_humano', 'pergunta_se_e_robo', 'recusa',
+  'escolheu_horario', 'informou_email', 'pede_ligacao', 'pede_remarcar', 'cancela_reuniao', 'pede_humano', 'pergunta_se_e_robo', 'recusa',
   'fora_do_escopo', 'pede_pagamento', 'outro',
 ]
 
@@ -98,6 +99,7 @@ export type AcaoTipo =
   | 'pedir_dados_agendamento'
   | 'confirmar_horario'
   | 'agendar'
+  | 'cancelar_reuniao'
   | 'aguardar'
   | 'gerar_cobranca'
   | 'agradecimento_fim'

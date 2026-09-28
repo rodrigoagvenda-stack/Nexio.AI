@@ -206,6 +206,16 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     }
   }
 
+  // 2b. cancelar reunião de verdade (evento real no Calendar): prioridade alta, ANTES de recusa/objeção
+  // (achado real, lead Rodrigo Evangelista/63104, 28/09/2026: "quero cancelar" repetido foi classificado
+  // também como "recusa", caiu na regra de objeção repetida e a conversa encerrou sem cancelar nada de
+  // verdade — o evento ficou órfão no Calendar real do Bruno). Se o lead já deu um horário novo na mesma
+  // mensagem, não é cancelamento puro, é remarcação: a regra 9 cuida disso (cancela o antigo, cria o novo).
+  if (ctx.temCalendario && ctx.reuniaoExistente && I.has('cancela_reuniao') && !ex.horario_escolhido) {
+    estado.etapa = 'qualificando'
+    return { estado, acao: base('cancelar_reuniao', { etapa_depois: 'qualificando' }) }
+  }
+
   // 3. fora do escopo
   if (I.has('fora_do_escopo')) {
     return { estado, acao: comPergunta(base('responder_fora_escopo', { conteudo: { modo: 'literal', texto: config.fora_escopo.frase } })) }

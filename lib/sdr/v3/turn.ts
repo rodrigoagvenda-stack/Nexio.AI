@@ -7,7 +7,7 @@ import type OpenAI from 'openai'
 import type { createServiceClient } from '@/lib/supabase/server'
 import { formatDateTimeBR } from '@/lib/google-calendar'
 import { writeV3TurnLog } from '../turn-log'
-import { agendarReuniao, ofertarHorarios, type AgendaCtx } from './agenda'
+import { agendarReuniao, cancelarReuniao, ofertarHorarios, type AgendaCtx } from './agenda'
 import { gerarCobranca } from './cobranca'
 import { firstName, decidir, type DecisorCtx } from './decider'
 import { extrair, type MsgHist } from './extractor'
@@ -215,6 +215,21 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
       if (!(await ofertar('Esse horário não está mais disponível. '))) virarEscalar('horário indisponível e sem outros livres')
     } else {
       virarEscalar(`erro ao agendar: ${r.detalhe}`)
+    }
+  }
+  if (acao.tipo === 'cancelar_reuniao') {
+    if (!lead?.calendar_event_id) {
+      // Já não tem evento de verdade pra cancelar (banco desatualizado ou já cancelado antes): não erra,
+      // só confirma o que já é fato.
+      acao.bloco_fixo = 'Já está cancelado por aqui. Se quiser marcar de novo depois, é só me chamar.'
+    } else {
+      const r = await cancelarReuniao(agendaCtx!, supabase, lead.calendar_event_id)
+      if (r.ok) {
+        acao.bloco_fixo = 'Cancelado! Quando quiser remarcar, é só me chamar por aqui.'
+        await salvarEstado(supabase, ctx.companyId, conv, estado).catch(() => {})
+      } else {
+        virarEscalar(`erro ao cancelar: ${r.detalhe}`)
+      }
     }
   }
   if (acao.tipo === 'gerar_cobranca') {

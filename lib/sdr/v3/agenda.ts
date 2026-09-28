@@ -145,3 +145,23 @@ export async function agendarReuniao(
     return { ok: false, motivo: 'erro', detalhe: err?.message ?? 'erro' }
   }
 }
+
+export type ResultadoCancelamento = { ok: true } | { ok: false; detalhe: string }
+
+/** Cancela de verdade (evento real no Calendar, não só a conversa): mesma ação do "Deletar_gcal" do motor
+ * antigo. O v3 nunca teve isso (achado real, lead Rodrigo Evangelista/63104, 28/09/2026: pediu pra cancelar
+ * 3 vezes, o motor tratou como objeção de venda e encerrou a conversa sem cancelar nada — o evento ficou
+ * órfão no Calendar real do Bruno). */
+export async function cancelarReuniao(ctx: AgendaCtx, supabase: Supabase, eventId: string): Promise<ResultadoCancelamento> {
+  try {
+    await cancelEvent(ctx.calendarId, eventId, ctx.companyId)
+    await supabase
+      .from('leads')
+      .update({ call_de_venda: false, call_status: 'cancelada', calendar_event_id: null, meet_url: null, call_agendada_para: null })
+      .eq('id', ctx.leadId)
+    return { ok: true }
+  } catch (err: any) {
+    console.error(`[SDR v3:${ctx.companyId}] cancelarReuniao erro:`, err?.message)
+    return { ok: false, detalhe: err?.message ?? 'erro' }
+  }
+}

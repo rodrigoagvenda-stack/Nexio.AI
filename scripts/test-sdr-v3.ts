@@ -77,6 +77,17 @@ ok('reunião já marcada + pede ligação: responde com o fato da empresa (Bruno
 const cfgSemFatoLigacao: any = { ...config, ligacao: { ...config.ligacao, reuniao_e_ligacao: undefined } }
 d = decidir(ex({ intencoes: ['pede_ligacao'] }), est(), cfgSemFatoLigacao, ctx({ reuniaoExistente: 'quinta-feira, 01/10, às 14h' }))
 ok('reunião já marcada + pede ligação, empresa sem esse fato configurado: confirma a reunião (nunca inventa como funciona)', d.acao.tipo === 'responder_fato' && d.acao.fatos.some((f) => f.id === 'reuniao_existente'), d.acao.tipo)
+
+// regressão real (lead Rodrigo Evangelista/63104, 28/09): "quero cancelar" era tratado como pede_remarcar
+// (só oferecia novo horário) e, insistindo, como "recusa" — a conversa encerrava sem cancelar o evento real.
+d = decidir(ex({ intencoes: ['cancela_reuniao'] }), est(), config, ctx({ reuniaoExistente: 'quinta-feira, 01/10, às 14h' }))
+ok('reunião já marcada + pede pra cancelar: cancela de verdade (não oferece horário, não trata como objeção)', d.acao.tipo === 'cancelar_reuniao', d.acao.tipo)
+d = decidir(ex({ intencoes: ['cancela_reuniao', 'recusa'] }), est(), config, ctx({ reuniaoExistente: 'quinta-feira, 01/10, às 14h' }))
+ok('cancelamento vem junto com "recusa" (lead insistindo): cancela mesmo assim, recusa não sequestra o turno', d.acao.tipo === 'cancelar_reuniao', d.acao.tipo)
+d = decidir(ex({ intencoes: ['cancela_reuniao', 'escolheu_horario'], horario_escolhido: '2026-10-03T10:00:00' }), est(), config, ctx({ reuniaoExistente: 'quinta-feira, 01/10, às 14h' }))
+ok('cancela e já escolhe novo horário na mesma mensagem: é remarcação, não cancelamento puro', d.acao.tipo !== 'cancelar_reuniao', d.acao.tipo)
+d = decidir(ex({ intencoes: ['cancela_reuniao'] }), est(), config, ctx({ reuniaoExistente: null }))
+ok('pede pra cancelar sem ter reunião marcada: não dispara a ação de cancelar (nada pra cancelar)', d.acao.tipo !== 'cancelar_reuniao', d.acao.tipo)
 d = decidir(ex({ intencoes: ['escolheu_horario', 'informou_email'], horario_escolhido: '2026-10-01T14:00:00', dados: { email: 'a@b.com', nome_completo: 'Ana Souza' } }), completo, config, ctx())
 ok('horário + e-mail + nome completo: agendar', d.acao.tipo === 'agendar')
 d = decidir(ex({ intencoes: ['escolheu_horario'], horario_escolhido: '2026-10-01T14:00:00' }), completo, config, ctx())
