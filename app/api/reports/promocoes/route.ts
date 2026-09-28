@@ -15,8 +15,9 @@ export async function GET(req: NextRequest) {
   const since = url.searchParams.get('since')
   const until = url.searchParams.get('until')
   const wanted = url.searchParams.get('sequence_id')
-  const from = since ? new Date(`${since}T00:00:00`) : new Date(Date.now() - 30 * 86_400_000)
-  const to = until ? new Date(`${until}T23:59:59.999`) : new Date()
+  // Dia inteiro no horário de Brasília (sem o -03:00 o servidor em UTC deslocava a janela em 3h)
+  const from = since ? new Date(`${since}T00:00:00-03:00`) : new Date(Date.now() - 30 * 86_400_000)
+  const to = until ? new Date(`${until}T23:59:59.999-03:00`) : new Date()
 
   const supabase = createServiceClient()
   const { data: seqs } = await supabase

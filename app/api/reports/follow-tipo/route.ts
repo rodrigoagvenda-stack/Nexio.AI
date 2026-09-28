@@ -4,9 +4,10 @@ import { requireAuth } from '@/lib/auth/require-auth'
 
 export const dynamic = 'force-dynamic'
 
-// Disparos de Anti noshow / Remarketing no período, lidos de follow_executions (o que o canvas grava).
+// Disparos de Anti noshow / Follow-up / Remarketing no período, lidos de follow_executions (o que o canvas grava).
 // Por passo: quantos foram enviados. No total: leads alcançados, mensagens e quantos responderam depois do primeiro disparo.
-const TIPOS = ['anti_noshow', 'remarketing']
+// "follow_geral" é o tipo da sequência de Follow-up no banco (follow_sequences.tipo).
+const TIPOS = ['anti_noshow', 'remarketing', 'follow_geral']
 
 const fmtMin = (m: number) => {
   const a = Math.abs(m)
@@ -23,8 +24,9 @@ export async function GET(req: NextRequest) {
   if (!TIPOS.includes(tipo)) return NextResponse.json({ error: 'tipo inválido' }, { status: 400 })
   const since = url.searchParams.get('since')
   const until = url.searchParams.get('until')
-  const from = since ? new Date(`${since}T00:00:00`) : new Date(Date.now() - 30 * 86_400_000)
-  const to = until ? new Date(`${until}T23:59:59.999`) : new Date()
+  // Dia inteiro no horário de Brasília (sem o -03:00 o servidor em UTC deslocava a janela em 3h: disparo das 21h às 24h sumia de "Hoje")
+  const from = since ? new Date(`${since}T00:00:00-03:00`) : new Date(Date.now() - 30 * 86_400_000)
+  const to = until ? new Date(`${until}T23:59:59.999-03:00`) : new Date()
 
   const supabase = createServiceClient()
   const { data: seqs } = await supabase.from('follow_sequences').select('id').eq('company_id', context.companyId).eq('tipo', tipo)
@@ -73,7 +75,7 @@ export async function GET(req: NextRequest) {
     }
     responded = replied.size
     // Voltaram ao funil: respondeu e hoje está numa etapa ativa do CRM
-    if (tipo === 'remarketing' && replied.size > 0) {
+    if ((tipo === 'remarketing' || tipo === 'follow_geral') && replied.size > 0) {
       const { data: st } = await supabase.from('leads').select('id, status').eq('company_id', context.companyId).in('id', Array.from(replied))
       returned = (st ?? []).filter((l) => ['Em contato', 'Interessado', 'Proposta enviada', 'Fechado'].includes(l.status as string)).length
     }

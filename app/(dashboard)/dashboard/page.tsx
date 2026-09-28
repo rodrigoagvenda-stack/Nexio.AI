@@ -20,6 +20,7 @@ import { AdRanking } from '@/components/dashboard/AdRanking';
 import { useFeatures } from '@/components/layout/FeaturesProvider';
 import { FirstStepsCard } from '@/components/onboarding/FirstStepsCard';
 import { FunilTab } from '@/components/dashboard/FunilTab';
+import { useLiveTick } from '@/lib/hooks/useLiveTick';
 
 interface DateRange {
   from: Date | undefined;
@@ -117,12 +118,11 @@ export default function DashboardPage() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [viewTab, setViewTab] = useState<'geral' | 'funil'>('geral');
 
+  // Atualiza sozinho a cada 30s (aba visível) e ao voltar pra aba: antes os números só mudavam com F5.
+  const tick = useLiveTick(30_000);
   useEffect(() => {
     fetchData();
-    const onVisible = () => { if (!document.hidden) fetchData(); };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
-  }, []);
+  }, [tick]);
 
   async function fetchData() {
     try {
@@ -139,7 +139,8 @@ export default function DashboardPage() {
         supabase.from('leads')
           .select('id, status, project_value, created_at, closed_at, outbound_responded, outbound_meeting, outbound_followups')
           .eq('company_id', companyId)
-          .order('created_at', { ascending: true }),
+          // Mais recentes primeiro: o Supabase devolve no máximo 1000 linhas, e cortando os MAIS NOVOS o período atual sumia
+          .order('created_at', { ascending: false }),
         supabase.from('follow_logs').select('momento').eq('company_id', companyId),
         supabase.from('companies').select('name').eq('id', companyId).maybeSingle(),
       ]);
@@ -494,6 +495,7 @@ export default function DashboardPage() {
             antiNoshowCounts={antiNoshowCounts}
             remarketingCount={remarketingCount}
             showAntiNoshow={!!features.anti_noshow}
+            showFollowUp={!!features.follow_up}
             showRemarketing={!!features.remarketing}
             since={currentRange?.from}
             until={currentRange?.to}

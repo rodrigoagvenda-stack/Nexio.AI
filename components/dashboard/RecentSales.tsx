@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/utils/format';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useLiveTick } from '@/lib/hooks/useLiveTick';
 
 interface ClosedLead {
   id: string;
@@ -23,6 +24,8 @@ export function RecentSales({ since, until }: { since?: Date; until?: Date }) {
   const router = useRouter();
   const [leads, setLeads] = useState<ClosedLead[]>([]);
   const [loading, setLoading] = useState(true);
+  // Atualiza sozinho (30s, aba visível): venda fechada aparece sem F5.
+  const tick = useLiveTick(30_000);
 
   useEffect(() => {
     (async () => {
@@ -46,7 +49,7 @@ export function RecentSales({ since, until }: { since?: Date; until?: Date }) {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [tick]);
 
   const inRange = leads.filter((l) => {
     if (!since || !until) return true;

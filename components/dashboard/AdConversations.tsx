@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { MessageCircle, ArrowRight, Loader2, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ymd } from '@/lib/utils/ymd';
+import { useLiveTick } from '@/lib/hooks/useLiveTick';
 
 interface Stage { key: string; label: string; count: number }
 interface Depth { total: number; lead_2: number; lead_3: number; lead_5: number; lead_10: number }
@@ -35,13 +36,17 @@ function Connector({ label }: { label: string }) {
 export function AdConversations({ since, until }: { since?: Date; until?: Date }) {
   const [data, setData] = useState<Resp | null>(null);
   const [loading, setLoading] = useState(true);
+  // Atualiza sozinho (60s, aba visível). O spinner só aparece quando muda o período, não a cada atualização.
+  const tick = useLiveTick(60_000);
+  const lastKey = useRef('');
 
   useEffect(() => {
     if (!since || !until) return;
-    setLoading(true);
+    const key = `${ymd(since)}|${ymd(until)}`;
+    if (lastKey.current !== key) { lastKey.current = key; setData(null); setLoading(true); }
     const q = new URLSearchParams({ since: ymd(since), until: ymd(until) });
-    fetch(`/api/reports/message-funnel?${q}`).then((r) => (r.ok ? r.json() : null)).then(setData).catch(() => setData(null)).finally(() => setLoading(false));
-  }, [since, until]);
+    fetch(`/api/reports/message-funnel?${q}`).then((r) => (r.ok ? r.json() : null)).then((d) => { if (d) setData(d); }).catch(() => {}).finally(() => setLoading(false));
+  }, [since, until, tick]);
 
   const stages = data?.stages ?? [];
   const get = (k: string) => stages.find((s) => s.key === k);

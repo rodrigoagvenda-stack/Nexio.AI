@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { BarChart2, Info, Loader2 } from 'lucide-react';
 import { ymd } from '@/lib/utils/ymd';
+import { useLiveTick } from '@/lib/hooks/useLiveTick';
 
 interface Ad { ad_id: string; ad_name: string | null; campaign_name: string | null; spend_cents: number; conversations: number; customers: number }
 
@@ -13,16 +14,20 @@ export function AdRanking({ since, until }: { since?: Date; until?: Date }) {
   const [ads, setAds] = useState<Ad[] | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // Atualiza sozinho (60s, aba visível). O spinner só aparece quando muda o período, não a cada atualização.
+  const tick = useLiveTick(60_000);
+  const lastKey = useRef('');
 
   useEffect(() => {
     if (!since || !until) return;
-    setLoading(true);
+    const key = `${ymd(since)}|${ymd(until)}`;
+    if (lastKey.current !== key) { lastKey.current = key; setAds(null); setLoading(true); }
     fetch(`/api/reports/cac?since=${ymd(since)}&until=${ymd(until)}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { setAds(d?.ads ?? []); setNote(d?.note ?? null); })
-      .catch(() => setAds([]))
+      .then((d) => { if (d) { setAds(d.ads ?? []); setNote(d.note ?? null); } else if (lastKey.current === key) setAds((cur) => cur ?? []); })
+      .catch(() => setAds((cur) => cur ?? []))
       .finally(() => setLoading(false));
-  }, [since, until]);
+  }, [since, until, tick]);
 
   const withConv = (ads ?? []).filter((a) => a.conversations > 0).sort((a, b) => b.conversations - a.conversations).slice(0, 6);
   const max = Math.max(1, ...withConv.map((a) => a.conversations));

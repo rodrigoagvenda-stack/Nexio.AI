@@ -60,33 +60,47 @@ export async function GET(req: NextRequest) {
     ? filtered.filter(c => outboundByPhone.get(c.numero_de_telefone) === true).length
     : filtered.filter(c => (c.mensagens_recebidas ?? 0) >= 2).length
 
-  // Reuniões : leads ligados a essas conversas, agendadas dentro do período
+  // Reuniões, vendas e faturamento contam pela DATA em que acontecem, sobre TODOS os leads da origem escolhida, e não só
+  // os das conversas criadas no período. Antes era só esse recorte de "conversas novas": com o filtro "Hoje", reunião e
+  // venda de um lead que chegou dias atrás não entravam e o painel zerava com reunião marcada e feita no dia (Rodrigo,
+  // 2026-09-28). Também deixava o CAC torto: gasto de mídia do período dividido por vendas só das conversas novas.
+  type LeadEvento = { id: number; whatsapp: string | null; call_de_venda: boolean | null; call_agendada_para: string | null; call_status: string | null; status: string | null; created_at: string | null; closed_at: string | null; project_value: number | null; motivo_perda: string | null }
+  const cols = 'id, whatsapp, call_de_venda, call_agendada_para, call_status, status, created_at, closed_at, project_value, motivo_perda'
+  const [{ data: outboundTodas }, { data: porReuniao }, { data: porVenda }] = await Promise.all([
+    supabase.from('outbound_campaigns').select('whatsapp').eq('company_id', companyId).limit(50000),
+    supabase.from('leads').select(cols).eq('company_id', companyId).gte('call_agendada_para', since).limit(20000),
+    supabase.from('leads').select(cols).eq('company_id', companyId).eq('status', 'Fechado').gte('closed_at', since).lte('closed_at', until).limit(20000),
+  ])
+  const digits = (s: string | null | undefined) => String(s ?? '').replace(/\D/g, '')
+  const telefonesOutbound = new Set((outboundTodas ?? []).map(o => digits(o.whatsapp as string)))
+  const porId = new Map<number, LeadEvento>()
+  for (const l of [...((porReuniao ?? []) as LeadEvento[]), ...((porVenda ?? []) as LeadEvento[])]) porId.set(l.id, l)
+  const eventLeads = [...porId.values()].filter(l => (origem === 'outbound') === telefonesOutbound.has(digits(l.whatsapp)))
+
+  // Perdidos continuam sendo dos leads que chegaram no período (não existe data em que o lead foi perdido).
   const leadIds = Array.from(new Set(filtered.map(c => c.id_do_lead).filter((id): id is number => id != null)))
   const { data: leadsRows } = leadIds.length
-    ? await supabase
-        .from('leads')
-        .select('id, call_de_venda, call_agendada_para, call_status, status, created_at, closed_at, project_value, motivo_perda')
-        .in('id', leadIds)
-    : { data: [] as { id: number; call_de_venda: boolean | null; call_agendada_para: string | null; call_status: string | null; status: string | null; created_at: string | null; closed_at: string | null; project_value: number | null; motivo_perda: string | null }[] }
+    ? await supabase.from('leads').select('id, status, motivo_perda').in('id', leadIds)
+    : { data: [] as { id: number; status: string | null; motivo_perda: string | null }[] }
 
   // Reunião marcada hoje para a semana que vem também é "agendada" no período: quando o período inclui hoje, a data da
-  // reunião não tem teto (Rodrigo, 2026-09-26: 3 reuniões de 28 e 30/09 ficavam de fora do mês).
+  // reunião não tem teto (Rodrigo, 2026-09-26: 3 reuniões de 28 e 30/09 ficavam de fora do mês). Cancelada não conta.
   const nowIso = new Date().toISOString()
   const periodoIncluiHoje = until >= nowIso
-  const agendadasLeads = (leadsRows ?? []).filter(l =>
-    l.call_de_venda && l.call_agendada_para && l.call_agendada_para >= since && (periodoIncluiHoje || l.call_agendada_para <= until)
+  const agendadasLeads = eventLeads.filter(l =>
+    l.call_de_venda && l.call_status !== 'cancelada' && l.call_agendada_para && l.call_agendada_para >= since && (periodoIncluiHoje || l.call_agendada_para <= until)
   )
   const agendadas = agendadasLeads.length
   // As taxas (efetivação, no-show...) só fazem sentido sobre reuniões que já deveriam ter acontecido.
   const agendadasVencidas = agendadasLeads.filter(l => (l.call_agendada_para as string) <= nowIso && (l.call_agendada_para as string) <= until).length
-  const realizadas = (leadsRows ?? []).filter(l =>
+  const realizadas = eventLeads.filter(l =>
     l.call_status === 'realizada' && l.call_agendada_para && l.call_agendada_para >= since && l.call_agendada_para <= until
   ).length
 
-  const vendasFechadas = (leadsRows ?? []).filter(l => l.status === 'Fechado' && !!l.closed_at && (l.closed_at as string) >= since && (l.closed_at as string) <= until).length
+  const vendasFechadas = eventLeads.filter(l => l.status === 'Fechado' && !!l.closed_at && (l.closed_at as string) >= since && (l.closed_at as string) <= until).length
 
   const inRange = (iso: string | null | undefined) => !!iso && iso >= since && iso <= until
-  const leadsAll = leadsRows ?? []
+  const leadsAll = eventLeads
   const noShow = leadsAll.filter(l => l.call_status === 'no_show' && inRange(l.call_agendada_para)).length
   // Agendada que já passou da data e ninguém marcou o que aconteceu: as taxas dependem disso
   const semResultado = leadsAll.filter(l => l.call_status === 'agendada' && l.call_agendada_para && l.call_agendada_para < new Date().toISOString() && inRange(l.call_agendada_para)).length
@@ -108,7 +122,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Perdidos e por que (motivo_perda só existe quando alguém preenche)
-  const perdidosLeads = leadsAll.filter(l => l.status === 'Perdido')
+  const perdidosLeads = (leadsRows ?? []).filter(l => l.status === 'Perdido')
   const motivos = new Map<string, number>()
   perdidosLeads.forEach(l => { const m = (l.motivo_perda ?? '').trim(); if (m) motivos.set(m, (motivos.get(m) ?? 0) + 1) })
   const perdidos = {

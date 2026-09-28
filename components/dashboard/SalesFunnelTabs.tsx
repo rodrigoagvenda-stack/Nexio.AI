@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { Bell, ArrowRight, ChevronDown, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ymd } from '@/lib/utils/ymd';
+import { useLiveTick } from '@/lib/hooks/useLiveTick';
 import Link from 'next/link';
 
 // Kept for the dashboard page call site. The card now reads its own numbers from /api/reports/dashboard-funil.
@@ -14,19 +15,24 @@ interface SalesFunnelTabsProps {
   antiNoshowCounts?: Record<string, number>;
   remarketingCount?: number;
   showAntiNoshow?: boolean;
+  showFollowUp?: boolean;
   showRemarketing?: boolean;
   since?: Date;
   until?: Date;
 }
 
-type TabValue = 'vendas' | 'noshow' | 'remarketing' | 'promocoes';
+type TabValue = 'vendas' | 'noshow' | 'followup' | 'remarketing' | 'promocoes';
 
 const TAB_LABELS: Record<TabValue, string> = {
   vendas: 'Funil de vendas',
   noshow: 'Anti noshow',
+  followup: 'Follow-up',
   remarketing: 'Remarketing',
   promocoes: 'Promoções',
 };
+
+// Tipo da sequência no banco (follow_sequences.tipo) de cada aba que lê de /api/reports/follow-tipo
+const TIPO_DA_ABA: Partial<Record<TabValue, string>> = { noshow: 'anti_noshow', followup: 'follow_geral', remarketing: 'remarketing' };
 
 interface PromoData {
   sequences: { id: string; nome: string }[];
@@ -186,7 +192,45 @@ function RemarketingPanel({ d, since, until }: { d: FollowTipo; since?: Date; un
   );
 }
 
-export function SalesFunnelTabs({ showAntiNoshow = true, showRemarketing = true, since, until }: SalesFunnelTabsProps) {
+function FollowupPanel({ d, since, until }: { d: FollowTipo; since?: Date; until?: Date }) {
+  const max = Math.max(1, d.leads);
+  const returned = d.returned ?? 0;
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-sm text-muted-foreground">Leads que receberam follow-up de {dmy(since)} a {dmy(until)} e o que aconteceu depois.</p>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <div className={PANEL}>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-1"><span className={CAP}>RESULTADO DO FOLLOW-UP</span><span className="text-sm text-foreground/85">Quem recebeu e quem respondeu</span></div>
+            <div className="flex flex-col items-end"><span className="text-[40px] font-semibold leading-[44px] tracking-tight text-foreground">{pct(d.responded, d.leads)}%</span><span className="text-[13px] text-muted-foreground">responderam</span></div>
+          </div>
+          <div className="flex flex-col gap-3">
+            <Row label="Receberam" n={d.leads} max={max} bar={BAR} />
+            <Chip>{pct(d.responded, d.leads)}% responderam depois</Chip>
+            <Row label="Responderam" n={d.responded} max={max} bar={BAR} />
+            <Chip warn>{pct(returned, d.responded)}% seguiram no funil</Chip>
+            <Row label="Seguiram no funil" n={returned} max={max} bar={BAR_HI} />
+          </div>
+        </div>
+        <div className="flex flex-col gap-4">
+          <StatCard cap="MENSAGENS ENVIADAS" value={d.messages} text={d.messages === d.leads ? `Uma mensagem para cada um dos ${d.leads} leads` : `${d.messages} mensagens para ${d.leads} leads`} />
+          {d.steps.length > 0 && (
+            <div className={PANEL}>
+              <span className={CAP}>POR PASSO DA SEQUÊNCIA</span>
+              <div className="flex flex-col gap-2">
+                {d.steps.map((s) => (
+                  <div key={s.label} className="flex items-center justify-between text-sm"><span className="text-foreground/85">{s.label}</span><span className="font-semibold text-foreground">{s.sent}</span></div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function SalesFunnelTabs({ showAntiNoshow = true, showFollowUp = true, showRemarketing = true, since, until }: SalesFunnelTabsProps) {
   const [activeTab, setActiveTab] = useState<TabValue>('vendas');
   const [view, setView] = useState<'conversao' | 'agora'>('conversao');
   const [promo, setPromo] = useState<PromoData | null>(null);
@@ -198,35 +242,42 @@ export function SalesFunnelTabs({ showAntiNoshow = true, showRemarketing = true,
   const [followLoading, setFollowLoading] = useState(false);
 
   const range = since && until ? new URLSearchParams({ since: ymd(since), until: ymd(until) }) : null;
+  // Atualiza sozinho (30s, aba visível): funil, no-show, follow-up, remarketing e promoção refletem o que aconteceu agora.
+  // Só troca os números: o esqueleto de "carregando" só aparece na primeira carga (ver `&& !dash` etc. abaixo).
+  const tick = useLiveTick(30_000);
+
+  // Trocou o período: descarta os números do período anterior (a atualização automática não pode mostrar dado de outro dia)
+  useEffect(() => { setDash(null); setFollow({}); setPromo(null); }, [since, until]);
 
   useEffect(() => {
     if (activeTab !== 'promocoes' || !range) return;
     setPromoLoading(true);
     const q = new URLSearchParams(range);
     if (promoId) q.set('sequence_id', promoId);
-    fetch(`/api/reports/promocoes?${q}`).then((r) => (r.ok ? r.json() : null)).then(setPromo).catch(() => setPromo(null)).finally(() => setPromoLoading(false));
+    fetch(`/api/reports/promocoes?${q}`).then((r) => (r.ok ? r.json() : null)).then((d) => { if (d) setPromo(d); }).catch(() => {}).finally(() => setPromoLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, since, until, promoId]);
+  }, [activeTab, since, until, promoId, tick]);
 
   useEffect(() => {
     if ((activeTab !== 'vendas' && activeTab !== 'noshow') || !range) return;
     setDashLoading(true);
-    fetch(`/api/reports/dashboard-funil?${range}`).then((r) => (r.ok ? r.json() : null)).then(setDash).catch(() => setDash(null)).finally(() => setDashLoading(false));
+    fetch(`/api/reports/dashboard-funil?${range}`).then((r) => (r.ok ? r.json() : null)).then((d) => { if (d) setDash(d); }).catch(() => {}).finally(() => setDashLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, since, until]);
+  }, [activeTab, since, until, tick]);
 
   useEffect(() => {
-    if ((activeTab !== 'noshow' && activeTab !== 'remarketing') || !range) return;
-    const tipo = activeTab === 'noshow' ? 'anti_noshow' : 'remarketing';
+    const tipo = TIPO_DA_ABA[activeTab];
+    if (!tipo || !range) return;
     setFollowLoading(true);
     const q = new URLSearchParams(range);
     q.set('tipo', tipo);
-    fetch(`/api/reports/follow-tipo?${q}`).then((r) => (r.ok ? r.json() : null)).then((d) => setFollow((f) => ({ ...f, [tipo]: d }))).catch(() => setFollow((f) => ({ ...f, [tipo]: null }))).finally(() => setFollowLoading(false));
+    fetch(`/api/reports/follow-tipo?${q}`).then((r) => (r.ok ? r.json() : null)).then((d) => { if (d) setFollow((f) => ({ ...f, [tipo]: d })); }).catch(() => {}).finally(() => setFollowLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, since, until]);
+  }, [activeTab, since, until, tick]);
 
   const visibleTabs = (Object.keys(TAB_LABELS) as TabValue[]).filter((t) => {
     if (t === 'noshow' && !showAntiNoshow) return false;
+    if (t === 'followup' && !showFollowUp) return false;
     if (t === 'remarketing' && !showRemarketing) return false;
     return true;
   });
@@ -278,6 +329,15 @@ export function SalesFunnelTabs({ showAntiNoshow = true, showRemarketing = true,
                 return <EmptyState message="Nenhuma reunião agendada no período" detail="Configure sequências de Anti noshow em Automações para reduzir faltas." href="/configuracoes/follow" cta="Configurar automação" />;
               }
               return <NoshowPanel d={dash.noshow} follow={f} since={since} until={until} />;
+            })()}
+
+            {activeTab === 'followup' && (() => {
+              const f = follow['follow_geral'] ?? null;
+              if (followLoading && !f) return skeleton;
+              if (!f || !f.configured || f.messages === 0) {
+                return <EmptyState message="Nenhum follow-up enviado no período" detail="Configure sequências de Follow-up em Automações para retomar leads que pararam de responder." href="/configuracoes/follow" cta="Configurar follow-up" />;
+              }
+              return <FollowupPanel d={f} since={since} until={until} />;
             })()}
 
             {activeTab === 'remarketing' && (() => {

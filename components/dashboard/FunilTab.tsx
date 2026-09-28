@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useLiveTick } from '@/lib/hooks/useLiveTick';
 
 interface FunilData {
   chegaram: number;
@@ -37,18 +38,23 @@ const dayFmt = (d: Date) => d.toLocaleDateString('pt-BR', { day: '2-digit', mont
 function useFunil(origem: 'inbound' | 'outbound', range: { from: Date; to: Date } | null) {
   const [data, setData] = useState<FunilData | null>(null);
   const [loading, setLoading] = useState(false);
+  // Atualiza sozinho (30s, aba visível): o funil e o custo precisam refletir reunião, venda e gasto do momento.
+  const tick = useLiveTick(30_000);
+  const key = `${origem}|${range?.from.getTime()}|${range?.to.getTime()}`;
+  const lastKey = useRef('');
   useEffect(() => {
     if (!range) { setData(null); return; }
     let cancelled = false;
-    setLoading(true);
+    // Só mostra "carregando" quando a consulta mudou (origem/período); a atualização automática troca os números sem piscar.
+    if (lastKey.current !== key) { lastKey.current = key; setData(null); setLoading(true); }
     const params = new URLSearchParams({ origem, since: range.from.toISOString(), until: range.to.toISOString() });
     fetch(`/api/reports/funil?${params}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((json) => { if (!cancelled) setData(json); })
-      .catch(() => { if (!cancelled) setData(null); })
+      .then((json) => { if (!cancelled && json) setData(json); })
+      .catch(() => {})
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [origem, range?.from.getTime(), range?.to.getTime()]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [key, tick]); // eslint-disable-line react-hooks/exhaustive-deps
   return { data, loading };
 }
 
