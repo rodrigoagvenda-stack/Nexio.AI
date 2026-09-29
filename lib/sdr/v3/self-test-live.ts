@@ -29,7 +29,7 @@ export interface CenarioResultado {
   esperado: string
 }
 
-async function turno(
+export async function turno(
   openai: OpenAI,
   config: CompanyConfig,
   estadoIn: Estado,

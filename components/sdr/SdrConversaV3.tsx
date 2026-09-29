@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/components/ui/use-toast';
 import { askConfirm } from './ConfirmHost';
 import { CARD, Chips, INPUT, LIME, PILL3D, PILL_GREEN, Toggle } from './ui';
+import { ConversaTestV3 } from './ConversaTestV3';
 import type { CompanyConfig, ObjecaoConfig, PerguntaQualificacao, ProximaAcaoObjecao } from '@/lib/sdr/v3/config-types';
 
 type Section = 'agente' | 'perguntas' | 'preco' | 'objecoes' | 'encerramentos';
@@ -23,12 +24,15 @@ const ACOES: { value: ProximaAcaoObjecao; label: string }[] = [
 ];
 
 // ── peças idênticas ao padrão do SdrConversa.tsx (Paper) ──
-function EditorHead({ eyebrow, title, subtitle, actions }: { eyebrow?: string; title: React.ReactNode; subtitle?: string; actions?: React.ReactNode }) {
+function Badge({ children }: { children: React.ReactNode }) {
+  return <span className="inline-flex items-center gap-1.5 rounded-full bg-[#01573C]/10 px-2.5 py-1 text-xs font-semibold text-[#01573C] dark:bg-[#96F63C]/[0.14] dark:text-[#96F63C]"><span className="h-1.5 w-1.5 rounded-full bg-[#01573C] dark:bg-[#96F63C]" />{children}</span>;
+}
+function EditorHead({ eyebrow, title, badge, subtitle, actions }: { eyebrow?: string; title: React.ReactNode; badge?: string; subtitle?: string; actions?: React.ReactNode }) {
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="flex min-w-0 flex-col gap-1.5">
         {eyebrow && <p className="text-sm text-muted-foreground">{eyebrow}</p>}
-        <div className="flex flex-wrap items-center gap-3"><h3 className="text-[28px] font-semibold leading-8 tracking-tight text-foreground">{title}</h3></div>
+        <div className="flex flex-wrap items-center gap-3"><h3 className="text-[28px] font-semibold leading-8 tracking-tight text-foreground">{title}</h3>{badge && <Badge>{badge}</Badge>}</div>
         {subtitle && <p className="text-[15px] text-muted-foreground">{subtitle}</p>}
       </div>
       {actions && <div className="flex shrink-0 items-center gap-3">{actions}</div>}
@@ -81,10 +85,10 @@ const SPICED: Omit<PerguntaQualificacao, 'ordem'>[] = [
 ];
 const NOME_PADRAO: Omit<PerguntaQualificacao, 'ordem'> = { id: 'nome', campo: 'nome', texto: 'Olá, tudo bem? Qual o seu nome?', obrigatoria: false };
 const TOM_PRESETS = [
-  { value: 'Consultivo, direto e natural, no jeito de WhatsApp', label: 'Consultivo', desc: 'Direto e natural, no jeito de WhatsApp' },
-  { value: 'Amigável e próximo, poucos emojis', label: 'Amigável', desc: 'Próximo e descontraído, poucos emojis' },
-  { value: 'Profissional e direto, sem emojis', label: 'Profissional', desc: 'Formal, objetivo, sem emojis' },
-  { value: 'Empático e acolhedor, caloroso e paciente', label: 'Empático', desc: 'Caloroso, paciente, acolhedor' },
+  { value: 'amigável e próximo', label: 'Amigável', desc: 'Próximo e descontraído, poucos emojis' },
+  { value: 'profissional e direto', label: 'Profissional', desc: 'Formal, objetivo, sem emojis' },
+  { value: 'empático e acolhedor', label: 'Empático', desc: 'Caloroso, paciente, acolhedor' },
+  { value: 'dinâmico e entusiasmado', label: 'Dinâmico', desc: 'Energético, animado, motivador' },
 ];
 
 export function SdrConversaV3() {
@@ -166,13 +170,6 @@ export function SdrConversaV3() {
     const sel = perguntas.find((p) => p.id === selQ); if (!sel) return;
     const next = { ...config, qualificacao: { perguntas: perguntas.map((p) => (p.id === sel.id ? { ...p, ...patch } : p)) } };
     scheduleSave(next, `Editou pergunta "${sel.id}"`);
-  };
-  const moverPergunta = async (dir: -1 | 1) => {
-    const i = perguntas.findIndex((p) => p.id === selQ); const j = i + dir;
-    if (i < 0 || j < 0 || j >= perguntas.length) return;
-    const list = [...perguntas]; [list[i], list[j]] = [list[j], list[i]];
-    const renum = list.map((p, k) => ({ ...p, ordem: k + 1 }));
-    await persist({ ...config, qualificacao: { perguntas: renum } }, 'Reordenou perguntas');
   };
   const removerPergunta = async () => {
     const sel = perguntas.find((p) => p.id === selQ); if (!sel) return;
@@ -266,7 +263,6 @@ export function SdrConversaV3() {
                     </button>
                   ))}
                 </div>
-                <Area rows={2} value={config.persona?.tom ?? ''} onChange={(v) => scheduleSave({ ...config, persona: { ...config.persona, tom: v } }, 'Editou tom')} />
               </Labeled>
               <Labeled label="O que nunca dizer" optional htmlFor="p-restr"><Area id="p-restr" rows={3} value={joinLines(config.palavras_proibidas)} onChange={(v) => scheduleSave({ ...config, palavras_proibidas: splitLines(v) }, 'Editou palavras proibidas')} placeholder="Ex: não mencione preços sem entender a necessidade do cliente" /></Labeled>
             </section>
@@ -307,11 +303,8 @@ export function SdrConversaV3() {
                     <EditorHead
                       eyebrow={`Pergunta ${selPerguntaIdx + 1} de ${perguntas.length}`}
                       title={<input aria-label="Identificador da pergunta" value={selPergunta.id} onChange={(e) => mutarPergunta({ id: e.target.value })} className="min-w-[120px] max-w-full bg-transparent [field-sizing:content] text-[28px] font-semibold leading-8 tracking-tight text-foreground outline-none" />}
-                      actions={<>
-                        <button type="button" aria-label="Subir pergunta" disabled={selPerguntaIdx === 0} onClick={() => void moverPergunta(-1)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted disabled:opacity-40">▲</button>
-                        <button type="button" aria-label="Descer pergunta" disabled={selPerguntaIdx === perguntas.length - 1} onClick={() => void moverPergunta(1)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted disabled:opacity-40">▼</button>
-                        <RemoveButton label="Remover pergunta" onClick={() => void removerPergunta()} />
-                      </>}
+                      badge={selPergunta.obrigatoria ? 'Obrigatória' : undefined}
+                      actions={<RemoveButton label="Remover pergunta" onClick={() => void removerPergunta()} />}
                     />
                     <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-muted/40 px-5 py-4 dark:border-[#2A2A2A] dark:bg-[#161616]">
                       <div className="flex flex-col gap-1"><p className="text-[15px] font-semibold text-foreground">Obrigatória</p><p className="text-[13px] text-muted-foreground">Enquanto essa pergunta não for respondida, o agente não oferece reunião.</p></div>
@@ -334,8 +327,8 @@ export function SdrConversaV3() {
               <div className="px-6 pb-3"><label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/50 px-4 py-3 text-sm font-semibold text-foreground dark:bg-[#181818]">Pode informar valores<Toggle on={!!config.preco?.pode_informar} onChange={(v) => setPreco({ pode_informar: v })} label="Pode informar valores" /></label></div>
               <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-3">
                 {frasesAntes.map((s, i) => <ListRow key={i} active={selPrice === `antes-${i}`} title={`${ordinal(i + 1)} pergunta de preço`} sub={s} onClick={() => setSelPrice(`antes-${i}`)} />)}
-                <ListRow active={selPrice === 'depois'} title="Depois da qualificação completa" sub={config.preco?.frase_depois_qualificacao || 'Sem resposta definida'} onClick={() => setSelPrice('depois')} />
-                <ListRow active={selPrice === 'escalar'} title="Escalar para a pessoa" sub={`Depois de ${config.preco?.escalar_apos ?? 2} ${config.preco?.escalar_apos === 1 ? 'vez' : 'vezes'}, passa para ${humanName}`} onClick={() => setSelPrice('escalar')} />
+                <ListRow active={selPrice === 'escalar'} title={`${ordinal(frasesAntes.length + 1)} em diante, se insistir`} sub={`Passa para ${humanName}`} onClick={() => setSelPrice('escalar')} />
+                <ListRow active={selPrice === 'depois'} title="Depois das perguntas" sub={config.preco?.frase_depois_qualificacao || 'Sem resposta definida'} onClick={() => setSelPrice('depois')} />
                 {config.preco?.por_escopo && <ListRow active={selPrice === 'escopo'} title="Preço por escopo" sub={config.preco.por_escopo.pergunta} onClick={() => setSelPrice('escopo')} />}
               </div>
               <div className="border-t border-border p-4"><button type="button" onClick={() => { const next = [...frasesAntes, '']; setSelPrice(`antes-${next.length - 1}`); void persist({ ...config, preco: { ...config.preco, frases_antes_qualificacao: next } }, 'Adicionou resposta de preço'); }} className={cn('flex w-full items-center justify-center gap-2 py-2 text-sm font-semibold hover:underline', LIME)}><Plus className="h-4 w-4" />Adicionar resposta</button></div>
@@ -381,6 +374,14 @@ export function SdrConversaV3() {
                     <EditorHead eyebrow={`Preço, resposta ${i + 1} de ${frasesAntes.length}`} title={`${ordinal(i + 1)} pergunta de preço`}
                       actions={<RemoveButton label="Remover resposta" onClick={() => { const next = frasesAntes.filter((_, k) => k !== i); setSelPrice('depois'); void persist({ ...config, preco: { ...config.preco, frases_antes_qualificacao: next } }, 'Removeu resposta de preço'); }} />} />
                     <Labeled label="O que o agente responde" htmlFor="pr" help="As quebras de linha são mantidas na mensagem."><Area id="pr" rows={8} value={frasesAntes[i] ?? ''} onChange={(v) => { const next = [...frasesAntes]; next[i] = v; setPreco({ frases_antes_qualificacao: next }); }} /></Labeled>
+                    <div className="flex flex-col gap-3">
+                      <p className="text-[15px] font-semibold text-foreground">Como o agente escolhe a resposta</p>
+                      <div className="grid gap-3 md:grid-cols-3">
+                        {[...frasesAntes.map((_, k) => ({ when: `${ordinal(k + 1)} vez${k === 0 ? ' que pergunta' : ''}`, what: `Resposta ${k + 1}${k === i ? ' (esta)' : ''}`, on: k === i })), { when: `${ordinal(frasesAntes.length + 1)} vez em diante`, what: `Passa para ${humanName}`, on: false }].slice(0, 4).map((c, k) => (
+                          <div key={k} className={cn('flex flex-col gap-1 rounded-xl border px-5 py-4', c.on ? 'border-[#01573C]/30 bg-[#E4F1E9] dark:border-transparent dark:bg-[#12301F]' : 'border-border')}><span className="text-[13px] text-muted-foreground">{c.when}</span><span className="text-[15px] font-semibold text-foreground">{c.what}</span></div>
+                        ))}
+                      </div>
+                    </div>
                   </>
                 );
               })()}
@@ -441,6 +442,7 @@ export function SdrConversaV3() {
               <div className="flex flex-col gap-1 px-6 pb-3 pt-6"><h3 className="text-lg font-semibold text-foreground">Encerramentos</h3><p className="text-[13px] leading-[150%] text-muted-foreground">O que o agente diz quando a conversa sai do roteiro.</p></div>
               <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-3">
                 <p className="px-3.5 pb-1 pt-3 text-[13px] font-semibold text-muted-foreground">Mensagens</p>
+                {config.ligacao && <ListRow active={selEnc === 'ligacao'} title="Lead pede ligação" sub={config.ligacao.oferta} onClick={() => setSelEnc('ligacao')} />}
                 {encItems.map((it) => <ListRow key={it.id} active={selEnc === it.id} title={it.title} sub={it.sub} onClick={() => setSelEnc(it.id)} />)}
                 <p className="px-3.5 pb-1 pt-4 text-[13px] font-semibold text-muted-foreground">Ajustes</p>
                 <ListRow active={selEnc === 'recusas'} title="Recusas até encerrar" onClick={() => setSelEnc('recusas')} right={<span className="text-sm font-semibold text-muted-foreground">{config.limites?.recusas_para_encerrar ?? 2}</span>} />
@@ -452,6 +454,16 @@ export function SdrConversaV3() {
                   <EditorHead eyebrow="Ajuste" title="Recusas até encerrar" subtitle="Quantas vezes o lead pode recusar antes do agente parar de insistir." />
                   <Labeled label="Recusas" htmlFor="v3-recusas"><input id="v3-recusas" type="number" min={1} className={cn(INPUT, 'max-w-[140px]')} value={config.limites?.recusas_para_encerrar ?? 2} onChange={(e) => scheduleSave({ ...config, limites: { ...config.limites, recusas_para_encerrar: Math.max(1, Number(e.target.value) || 1) } }, 'Editou recusas para encerrar')} /></Labeled>
                 </>
+              ) : selEnc === 'ligacao' && config.ligacao ? (
+                <>
+                  <EditorHead eyebrow="Encerramento" title="Lead pede ligação" subtitle="Quando o lead pede para falar por telefone." />
+                  <Labeled label="Oferta" optional htmlFor="v3-lig-oferta"><Area id="v3-lig-oferta" rows={3} value={config.ligacao.oferta} onChange={(v) => scheduleSave({ ...config, ligacao: { ...config.ligacao!, oferta: v } }, 'Editou oferta de ligação')} /></Labeled>
+                  <Labeled label="Confirmação quando o lead aceita" optional htmlFor="v3-lig-conf"><Area id="v3-lig-conf" rows={2} value={config.ligacao.confirmacao} onChange={(v) => scheduleSave({ ...config, ligacao: { ...config.ligacao!, confirmacao: v } }, 'Editou confirmação de ligação')} /></Labeled>
+                  <Labeled label="Se já tem reunião marcada e pede ligação" optional htmlFor="v3-lig-reuniao"><Area id="v3-lig-reuniao" rows={2} value={config.ligacao.reuniao_e_ligacao ?? ''} onChange={(v) => scheduleSave({ ...config, ligacao: { ...config.ligacao!, reuniao_e_ligacao: v } }, 'Editou reunião e ligação')} /></Labeled>
+                  <div className="flex flex-col gap-3"><p className="text-[15px] font-semibold text-foreground">Como acontece</p>
+                    <div className="grid gap-3 md:grid-cols-3">{[['1. Lead pede ligação', 'Agente envia a oferta'], ['2. Lead aceita', 'Agente envia a confirmação'], ['3. Depois', `Passa para ${humanName}`]].map(([a, b]) => <div key={a} className="flex flex-col gap-1 rounded-xl border border-border px-5 py-4"><span className="text-[13px] text-muted-foreground">{a}</span><span className="text-[15px] font-semibold text-foreground">{b}</span></div>)}</div>
+                  </div>
+                </>
               ) : (
                 <>
                   <EditorHead eyebrow="Encerramento" title={selEncItem.title} />
@@ -461,6 +473,8 @@ export function SdrConversaV3() {
             </section>
           </>
         )}
+
+        <ConversaTestV3 config={config} agentName={agentName} />
       </div>
     </div>
   );
