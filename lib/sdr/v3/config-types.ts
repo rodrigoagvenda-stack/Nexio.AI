@@ -8,6 +8,8 @@ export type ModoTexto = 'literal' | 'livre'
 
 export interface PerguntaQualificacao {
   id: string
+  /** EXTENSÃO: nome de exibição (ex.: "Quem decide"). Sem isso, a tela usa o `id` humanizado. */
+  titulo?: string
   /** Texto de referência. Aceita {nome}, {segmento}, {cidade}, {ramo}, {nome_empresa}. */
   texto: string
   /** Campo de `dados` que esta pergunta preenche. */

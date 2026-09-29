@@ -25,7 +25,7 @@ const ACOES: { value: ProximaAcaoObjecao; label: string }[] = [
 
 // ── peças idênticas ao padrão do SdrConversa.tsx (Paper) ──
 function Badge({ children }: { children: React.ReactNode }) {
-  return <span className="inline-flex items-center gap-1.5 rounded-full bg-[#01573C]/10 px-2.5 py-1 text-xs font-semibold text-[#01573C] dark:bg-[#96F63C]/[0.14] dark:text-[#96F63C]"><span className="h-1.5 w-1.5 rounded-full bg-[#01573C] dark:bg-[#96F63C]" />{children}</span>;
+  return <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F5B544]/[0.14] px-2.5 py-1 text-xs font-semibold text-[#8A5A00] dark:text-[#F5B544]"><span className="h-1.5 w-1.5 rounded-full bg-[#F5B544]" />{children}</span>;
 }
 function EditorHead({ eyebrow, title, badge, subtitle, actions }: { eyebrow?: string; title: React.ReactNode; badge?: string; subtitle?: string; actions?: React.ReactNode }) {
   return (
@@ -55,26 +55,44 @@ function Area({ value, onChange, rows = 3, id, placeholder }: { value: string; o
   return <textarea id={id} rows={rows} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className={cn(INPUT, 'resize-y leading-[160%]')} />;
 }
 const TIPO_LABEL: Record<string, string> = { texto: 'Texto', sim_nao: 'Sim ou não', link_ou_print: 'Link ou print' };
-function CampoCard({ label, onLabel, labelPlaceholder, campo, onCampo, tipo, onTipo, descricao, onDescricao, opcional, onOpcional, onRemover }: {
+const slugify = (s: string) => s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+function CampoCard({ label, onLabel, labelPlaceholder, tipo, onTipo, descricao, onDescricao, opcional, onRemover }: {
   label: string; onLabel: (v: string) => void; labelPlaceholder?: string;
-  campo: string; onCampo: (v: string) => void;
   tipo: 'texto' | 'sim_nao' | 'link_ou_print'; onTipo: (v: 'texto' | 'sim_nao' | 'link_ou_print') => void;
   descricao: string; onDescricao: (v: string) => void;
-  opcional?: boolean; onOpcional?: (v: boolean) => void; onRemover?: () => void;
+  opcional?: boolean; onRemover?: () => void;
 }) {
   return (
     <div className="flex min-w-[220px] flex-1 flex-col gap-2 rounded-xl border border-border bg-muted/40 px-4 py-3.5 dark:border-[#2A2A2A] dark:bg-[#181818]">
       <div className="flex items-center justify-between gap-2">
-        <input aria-label="Rótulo" value={label} placeholder={labelPlaceholder} onChange={(e) => onLabel(e.target.value)} className="min-w-0 flex-1 bg-transparent text-[14.5px] font-semibold text-foreground outline-none placeholder:text-muted-foreground" />
-        <select aria-label="Tipo" value={tipo} onChange={(e) => onTipo(e.target.value as 'texto' | 'sim_nao' | 'link_ou_print')} className="shrink-0 rounded-full bg-[#0F3D2B] px-2.5 py-0.5 text-[12.5px] font-semibold text-[#96F63C] outline-none dark:bg-[#0F3D2B]">
+        <div className="flex min-w-0 items-baseline gap-2">
+          <input aria-label="Rótulo" value={label} placeholder={labelPlaceholder} onChange={(e) => onLabel(e.target.value)} className="min-w-0 flex-1 bg-transparent text-[14.5px] font-semibold text-foreground outline-none placeholder:text-muted-foreground" />
+          {opcional && <span className="shrink-0 text-[12.5px] text-muted-foreground">opcional</span>}
+        </div>
+        <select aria-label="Tipo" value={tipo} onChange={(e) => onTipo(e.target.value as 'texto' | 'sim_nao' | 'link_ou_print')} className="shrink-0 rounded-full bg-[#0F3D2B] px-2.5 py-0.5 text-[12.5px] font-semibold text-[#96F63C] outline-none">
           {(['texto', 'sim_nao', 'link_ou_print'] as const).map((t) => <option key={t} value={t}>{TIPO_LABEL[t]}</option>)}
         </select>
       </div>
-      {onOpcional && <label className="flex w-fit items-center gap-1.5 text-[12.5px] text-muted-foreground"><input type="checkbox" checked={!!opcional} onChange={(e) => onOpcional(e.target.checked)} />opcional</label>}
-      <input aria-label="Campo (chave interna)" value={campo} onChange={(e) => onCampo(e.target.value)} className="rounded-lg bg-transparent text-[13px] text-muted-foreground outline-none" />
       <textarea aria-label="Descrição" rows={2} value={descricao} onChange={(e) => onDescricao(e.target.value)} placeholder="O que esse dado guarda" className="resize-y bg-transparent text-[13.5px] leading-[145%] text-muted-foreground outline-none placeholder:text-muted-foreground/70" />
       {onRemover && <button type="button" onClick={onRemover} className="w-fit text-[12.5px] font-semibold text-destructive hover:underline">Remover</button>}
     </div>
+  );
+}
+function PerguntaRow({ num, active, obrigatoria, title, sub, isLast, onClick }: { num: number; active: boolean; obrigatoria: boolean; title: string; sub?: string; isLast: boolean; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} aria-current={active ? 'true' : undefined} className={cn('flex gap-3.5 px-2.5 text-left', active && 'mx-[-2px] rounded-xl bg-[#E4F1E9] p-2.5 dark:bg-[#12301F]')}>
+      <span className="flex shrink-0 flex-col items-center">
+        <span className={cn('flex h-7.5 w-7.5 items-center justify-center rounded-full text-[13.5px] font-semibold', active ? 'bg-[#01573C] text-white' : 'bg-muted text-foreground dark:bg-[#1A1A1A]')}>{num}</span>
+        {!isLast && <span className="w-0.5 min-h-3.5 flex-1 bg-border dark:bg-[#262626]" />}
+      </span>
+      <span className={cn('flex min-w-0 flex-col gap-0.5', !active && 'pb-4')}>
+        <span className="flex min-w-0 items-center gap-2">
+          <span className={cn('truncate text-[14.5px] font-semibold', active ? 'text-[#01573C] dark:text-white' : 'text-foreground')}>{title}</span>
+          {obrigatoria && <span className="h-1.75 w-1.75 shrink-0 rounded-full bg-[#F5B544]" />}
+        </span>
+        {sub && <span className={cn('truncate text-[13px]', active ? 'text-[#01573C]/80 dark:text-[#A9C9B7]' : 'text-muted-foreground')}>{sub}</span>}
+      </span>
+    </button>
   );
 }
 function ListRow({ active, title, sub, num, right, onClick }: { active: boolean; title: string; sub?: string; num?: React.ReactNode; right?: React.ReactNode; onClick: () => void }) {
@@ -89,6 +107,7 @@ function ListRow({ active, title, sub, num, right, onClick }: { active: boolean;
     </button>
   );
 }
+const humanize = (id: string) => id.trim() ? id.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/^./, (c) => c.toUpperCase()) : id;
 const joinLines = (v: string | string[] | undefined) => (Array.isArray(v) ? v.join('\n') : v ?? '');
 const splitLines = (v: string) => v.split('\n').map((l) => l.trim()).filter(Boolean);
 const arr = (v: string | string[] | undefined) => (Array.isArray(v) ? v : v ? [v] : ['']);
@@ -206,7 +225,7 @@ export function SdrConversaV3() {
     const sel = perguntas.find((p) => p.id === selQ); if (!sel) return;
     let n = (sel.campos_extra?.length ?? 0) + 1;
     while (sel.campos_extra?.some((c) => c.campo === `${sel.campo}_extra_${n}`)) n++;
-    const novo = { campo: `${sel.campo}_extra_${n}`, label: 'Novo dado', tipo: 'texto' as const };
+    const novo = { campo: `${sel.campo}_extra_${n}`, label: 'Novo dado', tipo: 'texto' as const, opcional: true };
     mutarPergunta({ campos_extra: [...(sel.campos_extra ?? []), novo] });
   };
   const removerCampoExtra = (i: number) => {
@@ -335,7 +354,7 @@ export function SdrConversaV3() {
               <aside className={cn(CARD, card, 'w-full shrink-0 xl:w-[330px]')}>
                 <div className="flex flex-col gap-1 px-6 pb-3 pt-6"><h3 className="text-lg font-semibold text-foreground">Roteiro</h3><p className="text-[13px] text-muted-foreground">Nesta ordem</p></div>
                 <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-3">
-                  {perguntas.map((p, i) => <ListRow key={p.id} num={i + 1} active={p.id === selQ} title={p.texto ? (p.texto.slice(0, 40) || p.id) : p.id} sub={p.obrigatoria ? 'Obrigatória' : undefined} onClick={() => setSelQ(p.id)} />)}
+                  {perguntas.map((p, i) => <PerguntaRow key={p.id} num={i + 1} isLast={i === perguntas.length - 1} active={p.id === selQ} obrigatoria={p.obrigatoria} title={p.titulo || humanize(p.id)} sub={p.texto} onClick={() => setSelQ(p.id)} />)}
                 </div>
                 <div className="border-t border-border p-4"><button type="button" onClick={() => void adicionarPergunta()} className={cn('flex w-full items-center justify-center gap-2 py-2 text-sm font-semibold hover:underline', LIME)}><Plus className="h-4 w-4" />Adicionar pergunta</button></div>
               </aside>
@@ -344,7 +363,7 @@ export function SdrConversaV3() {
                   <>
                     <EditorHead
                       eyebrow={`Pergunta ${selPerguntaIdx + 1} de ${perguntas.length}`}
-                      title={<input aria-label="Identificador da pergunta" value={selPergunta.id} onChange={(e) => mutarPergunta({ id: e.target.value })} className="min-w-[120px] max-w-full bg-transparent [field-sizing:content] text-[28px] font-semibold leading-8 tracking-tight text-foreground outline-none" />}
+                      title={<input aria-label="Nome da pergunta" value={selPergunta.titulo ?? ''} placeholder={humanize(selPergunta.id)} onChange={(e) => mutarPergunta({ titulo: e.target.value || undefined })} className="min-w-[120px] max-w-full bg-transparent [field-sizing:content] text-[28px] font-semibold leading-8 tracking-tight text-foreground outline-none placeholder:text-muted-foreground" />}
                       badge={selPergunta.obrigatoria ? 'Obrigatória' : undefined}
                       actions={<RemoveButton label="Remover pergunta" onClick={() => void removerPergunta()} />}
                     />
@@ -359,17 +378,15 @@ export function SdrConversaV3() {
                       <div className="flex flex-wrap gap-3">
                         <CampoCard
                           label={selPergunta.campo_label ?? ''} onLabel={(v) => mutarPergunta({ campo_label: v || undefined })} labelPlaceholder={selPergunta.campo}
-                          campo={selPergunta.campo} onCampo={(v) => mutarPergunta({ campo: v })}
                           tipo={selPergunta.campo_tipo ?? 'texto'} onTipo={(v) => mutarPergunta({ campo_tipo: v === 'texto' ? undefined : v })}
                           descricao={selPergunta.campo_descricao ?? ''} onDescricao={(v) => mutarPergunta({ campo_descricao: v || undefined })}
                         />
                         {(selPergunta.campos_extra ?? []).map((c, i) => (
                           <CampoCard key={i}
-                            label={c.label} onLabel={(v) => mutarCampoExtra(i, { label: v })}
-                            campo={c.campo} onCampo={(v) => mutarCampoExtra(i, { campo: v })}
+                            label={c.label} onLabel={(v) => mutarCampoExtra(i, { label: v, campo: slugify(v) || c.campo })}
                             tipo={c.tipo} onTipo={(v) => mutarCampoExtra(i, { tipo: v })}
                             descricao={c.descricao ?? ''} onDescricao={(v) => mutarCampoExtra(i, { descricao: v || undefined })}
-                            opcional={!!c.opcional} onOpcional={(v) => mutarCampoExtra(i, { opcional: v || undefined })}
+                            opcional={!!c.opcional}
                             onRemover={() => removerCampoExtra(i)}
                           />
                         ))}
@@ -380,7 +397,7 @@ export function SdrConversaV3() {
                       <p className="text-[15px] font-semibold text-foreground">Depois, se precisar</p>
                       <p className="text-[14.5px] leading-[150%] text-foreground/90">Se não responder, pergunta de novo com outras palavras antes de seguir pro próximo passo.</p>
                     </div>
-                    <div><button type="button" onClick={() => retest(selPergunta.id)} className={PILL_GREEN}>Testar a partir desta pergunta</button></div>
+                    <div><button type="button" onClick={() => retest(selPergunta.id)} className="flex h-[42px] items-center justify-center gap-2 rounded-full border border-[#01573C] bg-[#0F3D2B] px-5.5 text-sm font-semibold text-white">Testar a partir desta pergunta</button></div>
                   </>
                 ) : <p className="py-16 text-center text-muted-foreground">Escolha uma pergunta na lista.</p>}
               </section>
