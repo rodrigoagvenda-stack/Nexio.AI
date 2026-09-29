@@ -208,7 +208,7 @@ export function SdrConversaV3() {
     const base = tipo === 'bant' ? BANT : tipo === 'spiced' ? SPICED : [];
     const novas: PerguntaQualificacao[] = [{ ...NOME_PADRAO, ordem: 1 }, ...base.map((p, i) => ({ ...p, ordem: i + 2 }))];
     const next = { ...config, qualificacao: { perguntas: novas } };
-    setConfig(next); setSelQ(novas[0]?.id ?? null);
+    setConfig(next); setSelQ(tipo === 'zero' ? null : (novas[0]?.id ?? null));
     await persist(next, `Framework escolhido: ${tipo}`);
   };
   const mutarPergunta = (patch: Partial<PerguntaQualificacao>) => {
@@ -406,7 +406,14 @@ export function SdrConversaV3() {
                     </div>
                     <div><button type="button" onClick={() => retest(selPergunta.id)} className="flex h-[42px] items-center justify-center gap-2 rounded-full border border-[#01573C] bg-[#0F3D2B] px-5.5 text-sm font-semibold text-white">Testar a partir desta pergunta</button></div>
                   </>
-                ) : <p className="py-16 text-center text-muted-foreground">Escolha uma pergunta na lista.</p>}
+                ) : (
+                  <div className="flex flex-1 flex-col items-center justify-center gap-4">
+                    <div className="flex max-w-[360px] flex-col items-center gap-4 text-center">
+                      <p className="text-[17px] leading-[22px] font-semibold text-foreground">Nenhuma pergunta ainda</p>
+                      <p className="text-sm leading-[21px] text-muted-foreground">Clique em &quot;Adicionar pergunta&quot; pra criar a primeira. Você define o texto, se é obrigatória, e o que o agente guarda no lead.</p>
+                    </div>
+                  </div>
+                )}
               </section>
             </>
           )
