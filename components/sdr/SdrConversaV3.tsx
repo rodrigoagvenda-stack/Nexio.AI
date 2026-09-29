@@ -54,7 +54,7 @@ function Labeled({ label, optional, help, children, htmlFor }: { label: string; 
 function Area({ value, onChange, rows = 3, id, placeholder }: { value: string; onChange: (v: string) => void; rows?: number; id?: string; placeholder?: string }) {
   return <textarea id={id} rows={rows} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className={cn(INPUT, 'resize-y leading-[160%]')} />;
 }
-const TIPO_LABEL: Record<string, string> = { texto: 'Texto', sim_nao: 'Sim ou não', link_ou_print: 'Link ou print' };
+const TIPO_LABEL: Record<string, string> = { texto: 'Texto curto', sim_nao: 'Sim ou não', link_ou_print: 'Link ou print' };
 const slugify = (s: string) => s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 function CampoCard({ label, onLabel, labelPlaceholder, tipo, onTipo, descricao, onDescricao, opcional, onRemover }: {
   label: string; onLabel: (v: string) => void; labelPlaceholder?: string;
@@ -115,7 +115,7 @@ const arr = (v: string | string[] | undefined) => (Array.isArray(v) ? v : v ? [v
 const BANT: Omit<PerguntaQualificacao, 'ordem'>[] = [
   { id: 'orcamento', campo: 'orcamento', texto: 'Você já separou um valor pra investir nisso, ou ainda não pensou?', obrigatoria: false },
   { id: 'decisor', campo: 'decisor', texto: 'Você é quem decide sobre esse investimento, ou tem mais alguém envolvido?', obrigatoria: true },
-  { id: 'necessidade', campo: 'necessidade', texto: 'O que pesa mais hoje pra você resolver isso?', obrigatoria: false },
+  { id: 'necessidade', campo: 'necessidade', texto: 'O que pesa mais hoje: não aparecer no Google, não ter site, ou outra coisa?', obrigatoria: false },
   { id: 'prazo', campo: 'prazo', texto: 'Isso é algo que quer resolver logo, ou é mais pra frente?', obrigatoria: false },
 ];
 const SPICED: Omit<PerguntaQualificacao, 'ordem'>[] = [
