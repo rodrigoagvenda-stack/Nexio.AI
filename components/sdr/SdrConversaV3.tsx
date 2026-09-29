@@ -31,8 +31,8 @@ function EditorHead({ eyebrow, title, badge, subtitle, actions }: { eyebrow?: st
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="flex min-w-0 flex-col gap-1.5">
-        {eyebrow && <p className="text-sm text-muted-foreground">{eyebrow}</p>}
-        <div className="flex flex-wrap items-center gap-3"><h3 className="text-[28px] font-semibold leading-8 tracking-tight text-foreground">{title}</h3>{badge && <Badge>{badge}</Badge>}</div>
+        {eyebrow && <p className="text-[13.5px] leading-[18px] text-muted-foreground">{eyebrow}</p>}
+        <div className="flex flex-wrap items-center gap-3"><h3 className="text-[24px] font-semibold leading-[30px] tracking-[-0.01em] text-foreground">{title}</h3>{badge && <Badge>{badge}</Badge>}</div>
         {subtitle && <p className="text-[15px] text-muted-foreground">{subtitle}</p>}
       </div>
       {actions && <div className="flex shrink-0 items-center gap-3">{actions}</div>}
@@ -66,10 +66,10 @@ function CampoCard({ label, onLabel, labelPlaceholder, tipo, onTipo, descricao, 
     <div className="flex min-w-[220px] flex-1 flex-col gap-2 rounded-xl border border-border bg-muted/40 px-4 py-3.5 dark:border-[#2A2A2A] dark:bg-[#181818]">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-baseline gap-2">
-          <input aria-label="Rótulo" value={label} placeholder={labelPlaceholder} onChange={(e) => onLabel(e.target.value)} className="min-w-0 flex-1 bg-transparent text-[14.5px] font-semibold text-foreground outline-none placeholder:text-muted-foreground" />
-          {opcional && <span className="shrink-0 text-[12.5px] text-muted-foreground">opcional</span>}
+          <input aria-label="Rótulo" value={label} placeholder={labelPlaceholder} onChange={(e) => onLabel(e.target.value)} className="min-w-0 flex-1 bg-transparent text-[14.5px] leading-[18px] font-semibold text-foreground outline-none placeholder:text-muted-foreground" />
+          {opcional && <span className="shrink-0 text-[12.5px] leading-4 text-muted-foreground">opcional</span>}
         </div>
-        <select aria-label="Tipo" value={tipo} onChange={(e) => onTipo(e.target.value as 'texto' | 'sim_nao' | 'link_ou_print')} className="shrink-0 rounded-full bg-[#0F3D2B] px-2.5 py-0.5 text-[12.5px] font-semibold text-[#96F63C] outline-none">
+        <select aria-label="Tipo" value={tipo} onChange={(e) => onTipo(e.target.value as 'texto' | 'sim_nao' | 'link_ou_print')} className="shrink-0 rounded-full bg-[#0F3D2B] px-2.5 py-0.75 text-[12.5px] leading-4 font-semibold text-[#96F63C] outline-none">
           {(['texto', 'sim_nao', 'link_ou_print'] as const).map((t) => <option key={t} value={t}>{TIPO_LABEL[t]}</option>)}
         </select>
       </div>
@@ -87,10 +87,10 @@ function PerguntaRow({ num, active, obrigatoria, title, sub, isLast, onClick }: 
       </span>
       <span className={cn('flex min-w-0 flex-col gap-0.5', !active && 'pb-4')}>
         <span className="flex min-w-0 items-center gap-2">
-          <span className={cn('truncate text-[14.5px] font-semibold', active ? 'text-[#01573C] dark:text-white' : 'text-foreground')}>{title}</span>
+          <span className={cn('truncate text-[14.5px] leading-[18px] font-semibold', active ? 'text-[#01573C] dark:text-white' : 'text-foreground')}>{title}</span>
           {obrigatoria && <span className="h-1.75 w-1.75 shrink-0 rounded-full bg-[#F5B544]" />}
         </span>
-        {sub && <span className={cn('truncate text-[13px]', active ? 'text-[#01573C]/80 dark:text-[#A9C9B7]' : 'text-muted-foreground')}>{sub}</span>}
+        {sub && <span className={cn('truncate text-[13px] leading-4', active ? 'text-[#01573C]/80 dark:text-[#A9C9B7]' : 'text-muted-foreground')}>{sub}</span>}
       </span>
     </button>
   );
@@ -352,23 +352,30 @@ export function SdrConversaV3() {
           ) : (
             <>
               <aside className={cn(CARD, card, 'w-full shrink-0 xl:w-[330px]')}>
-                <div className="flex flex-col gap-1 px-6 pb-3 pt-6"><h3 className="text-lg font-semibold text-foreground">Roteiro</h3><p className="text-[13px] text-muted-foreground">Nesta ordem</p></div>
-                <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-3">
-                  {perguntas.map((p, i) => <PerguntaRow key={p.id} num={i + 1} isLast={i === perguntas.length - 1} active={p.id === selQ} obrigatoria={p.obrigatoria} title={p.titulo || humanize(p.id)} sub={p.texto} onClick={() => setSelQ(p.id)} />)}
+                <div className="flex items-center justify-between gap-3 px-5 pb-3 pt-4.5">
+                  <div className="flex flex-col gap-0.5"><h3 className="text-[17px] leading-[22px] font-semibold text-foreground">Roteiro</h3><p className="text-[13px] leading-4 text-muted-foreground">Nesta ordem</p></div>
+                  <div className="flex items-center gap-2"><span className="text-[13.5px] leading-[18px] text-foreground">Ligado</span><Toggle on={true} onChange={() => {}} label="Ligado" disabled /></div>
                 </div>
-                <div className="border-t border-border p-4"><button type="button" onClick={() => void adicionarPergunta()} className={cn('flex w-full items-center justify-center gap-2 py-2 text-sm font-semibold hover:underline', LIME)}><Plus className="h-4 w-4" />Adicionar pergunta</button></div>
+                <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-2 pt-1.5">
+                  {perguntas.map((p, i) => <PerguntaRow key={p.id} num={i + 1} isLast={false} active={p.id === selQ} obrigatoria={p.obrigatoria} title={p.titulo || humanize(p.id)} sub={p.texto} onClick={() => setSelQ(p.id)} />)}
+                  <div className="flex gap-3.5 px-2.5">
+                    <span className="flex h-7.5 w-7.5 shrink-0 items-center justify-center rounded-full bg-[#96F63C24]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 21V4M5 4h11l-2 4 2 4H5" stroke="#96F63C" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
+                    <span className="flex min-w-0 flex-col gap-0.5"><span className="text-[14.5px] leading-[18px] font-semibold text-foreground">Ao terminar</span><span className="truncate text-[13px] leading-4 text-muted-foreground">Perfeito, {'{nome}'}! O próximo…</span></span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-center gap-2 border-t border-border py-4"><button type="button" onClick={() => void adicionarPergunta()} className={cn('flex items-center gap-2 text-sm font-semibold hover:underline', LIME)}><Plus className="h-4 w-4" />Adicionar pergunta</button></div>
               </aside>
               <section className={cn(CARD, card, 'min-w-0 flex-1 gap-6 px-8 py-7')}>
                 {selPergunta ? (
                   <>
                     <EditorHead
                       eyebrow={`Pergunta ${selPerguntaIdx + 1} de ${perguntas.length}`}
-                      title={<input aria-label="Nome da pergunta" value={selPergunta.titulo ?? ''} placeholder={humanize(selPergunta.id)} onChange={(e) => mutarPergunta({ titulo: e.target.value || undefined })} className="min-w-[120px] max-w-full bg-transparent [field-sizing:content] text-[28px] font-semibold leading-8 tracking-tight text-foreground outline-none placeholder:text-muted-foreground" />}
+                      title={<input aria-label="Nome da pergunta" value={selPergunta.titulo ?? ''} placeholder={humanize(selPergunta.id)} onChange={(e) => mutarPergunta({ titulo: e.target.value || undefined })} className="min-w-[120px] max-w-full bg-transparent [field-sizing:content] text-[24px] font-semibold leading-[30px] tracking-[-0.01em] text-foreground outline-none placeholder:text-muted-foreground" />}
                       badge={selPergunta.obrigatoria ? 'Obrigatória' : undefined}
                       actions={<RemoveButton label="Remover pergunta" onClick={() => void removerPergunta()} />}
                     />
-                    <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-muted/40 px-5 py-4 dark:border-[#2A2A2A] dark:bg-[#161616]">
-                      <div className="flex flex-col gap-1"><p className="text-[15px] font-semibold text-foreground">Obrigatória</p><p className="text-[13px] text-muted-foreground">Enquanto essa pergunta não for respondida, o agente não oferece reunião.</p></div>
+                    <div className="flex items-center justify-between gap-4 rounded-[10px] border border-border bg-muted/40 px-4 py-3.5 dark:border-[#262626] dark:bg-[#161616]">
+                      <div className="flex flex-col gap-1"><p className="text-[15px] leading-[18px] font-semibold text-foreground">Obrigatória</p><p className="text-[13px] leading-4 text-muted-foreground">Enquanto essa pergunta não for respondida, o agente não oferece reunião.</p></div>
                       <Toggle on={selPergunta.obrigatoria} onChange={(v) => mutarPergunta({ obrigatoria: v })} label="Obrigatória" />
                     </div>
                     <Labeled label="O que o agente pergunta" htmlFor="v3-texto" help="Use {nome} para o nome do lead."><Area id="v3-texto" rows={3} value={selPergunta.texto} onChange={(v) => mutarPergunta({ texto: v })} /></Labeled>
