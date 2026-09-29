@@ -2275,15 +2275,36 @@ O lead veio de um anúncio com este título/gancho: "${adHeadline}". Se ainda fi
     /nome completo|e-?mail para enviar|seu e-?mail/i.test(lastAssistant.content) &&
     EMAIL_PATTERN.test(userInput)
 
+  // State 2b: agente pediu email e o lead tentou mandar (tem @) mas veio malformado (ex: espaço
+  // depois do @ ou antes do domínio, comum de autocorretor de celular). Achado ao vivo (Rodrigo,
+  // 2026-09-29, lead Ana Lucia Conde/Assis) : sem essa detecção, pendingEmailCollection ficava
+  // false (EMAIL_PATTERN não batia) e o turno caía pro modelo genérico, que decidiu escalar pro
+  // humano (Bruno) em vez de simplesmente pedir pra reenviar certinho.
+  const pendingEmailMalformed =
+    ctx.calendarId &&
+    lastAssistant &&
+    typeof lastAssistant.content === 'string' &&
+    /nome completo|e-?mail para enviar|seu e-?mail/i.test(lastAssistant.content) &&
+    userInput.includes('@') &&
+    !EMAIL_PATTERN.test(userInput)
+
   console.log(
     `[SDR:${ctx.companyId}] pendingScheduleConfirm=${!!pendingScheduleConfirm}` +
     ` | pendingEmailCollection=${!!pendingEmailCollection}` +
+    ` | pendingEmailMalformed=${!!pendingEmailMalformed}` +
     ` | calendarId=${!!ctx.calendarId}` +
     ` | lastAssistantRole=${lastAssistant?.role ?? 'none'}` +
     ` | lastAssistantSnippet="${(lastAssistant?.content as string | undefined)?.slice(0, 60) ?? 'N/A'}"` +
     ` | affirm=${AFFIRMATIONS.test(userInput.trim())}` +
     ` | historyLen=${history.length}`
   )
+
+  // Short-circuit 1.5: lead tentou mandar o email mas veio malformado → pede pra reenviar
+  // certinho, sem chamar o modelo e sem escalar pro humano (o e-mail é recuperável na hora).
+  if (pendingEmailMalformed) {
+    console.log(`[SDR:${ctx.companyId}] email malformado detectado : pedindo correção`)
+    return `Esse e-mail não ficou certinho, ${ctx.leadName}, você pode reenviar sem espaço? Ex: nome@gmail.com 🙏`
+  }
 
   // Short-circuit 1: lead confirmou → pede email/nome (sem chamar o modelo)
   if (pendingScheduleConfirm && ctx.calendarId) {
