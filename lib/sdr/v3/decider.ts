@@ -61,7 +61,7 @@ export function qualificacaoCompleta(estado: Estado, config: CompanyConfig): boo
 }
 
 /** Próxima pergunta permitida: uma por turno, nunca a respondida, nunca a do turno anterior sem resposta. */
-export function proximaPergunta(estado: Estado, config: CompanyConfig, abertura: boolean, ignorarJanela = false): { id: string; texto: string; reformulada: boolean } | null {
+export function proximaPergunta(estado: Estado, config: CompanyConfig, abertura: boolean, ignorarJanela = false): { id: string; texto: string; reformulada: boolean; reformulacaoFixa: boolean } | null {
   const ordenadas = [...config.qualificacao.perguntas].sort((a, b) => a.ordem - b.ordem)
   for (const q of ordenadas) {
     if (filled(estado.dados, q.campo)) continue
@@ -72,7 +72,10 @@ export function proximaPergunta(estado: Estado, config: CompanyConfig, abertura:
       if (!ignorarJanela && estado.turno - ultima.turno < 2) continue
       if (feitas.length >= 2) continue
     }
-    return { id: q.id, texto: preencher(q.texto, estado.dados), reformulada: feitas.length > 0 }
+    const reformulando = feitas.length > 0
+    const reformulacaoFixa = reformulando && !!q.reformulacao
+    const textoBase = reformulacaoFixa ? q.reformulacao! : q.texto
+    return { id: q.id, texto: preencher(textoBase, estado.dados), reformulada: reformulando, reformulacaoFixa }
   }
   return null
 }
@@ -175,7 +178,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     const q = proximaPergunta(estado, config, false)
     if (q) {
       a.proxima_pergunta = { id: q.id, texto: q.texto }
-      if (q.reformulada) a.contexto.push('Esta pergunta já foi feita antes e não foi respondida: reformule com outras palavras, sem cobrar.')
+      if (q.reformulada && !q.reformulacaoFixa) a.contexto.push('Esta pergunta já foi feita antes e não foi respondida: reformule com outras palavras, sem cobrar.')
     } else if (!a.handoff) {
       const travada = perguntaObrigatoriaEmperrada(estado, config)
       if (travada) a.handoff = { motivo: `pergunta obrigatória "${travada.id}" sem resposta reconhecível após 2 tentativas` }
@@ -455,7 +458,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   const a = base('perguntar')
   if (q) {
     a.proxima_pergunta = { id: q.id, texto: q.texto }
-    if (q.reformulada) a.contexto.push('Esta pergunta já foi feita antes e não foi respondida: reformule com outras palavras, sem cobrar.')
+    if (q.reformulada && !q.reformulacaoFixa) a.contexto.push('Esta pergunta já foi feita antes e não foi respondida: reformule com outras palavras, sem cobrar.')
   } else if (!abertura) {
     const travada = perguntaObrigatoriaEmperrada(estado, config)
     if (travada) a.handoff = { motivo: `pergunta obrigatória "${travada.id}" sem resposta reconhecível após 2 tentativas` }

@@ -14,6 +14,11 @@ export interface PerguntaQualificacao {
   campo: string
   obrigatoria: boolean
   ordem: number
+  /** EXTENSÃO: texto fixo usado quando a pergunta é refeita porque o lead não respondeu direito.
+   * Sem isso, o motor reformula sozinho com outras palavras. */
+  reformulacao?: string
+  /** EXTENSÃO: dá ao extrator uma dica de como formatar o que guarda em `campo` (sem isso, texto livre). */
+  campo_tipo?: 'texto' | 'sim_nao' | 'link_ou_print'
 }
 
 export interface ObjecaoConfig {

@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/auth/require-auth'
 import { rateLimit } from '@/lib/rate-limit'
 import { resolveOpenAIKey } from '@/lib/sdr/rag'
 import { validateCompanyConfig } from '@/lib/sdr/v3/config-validate'
+import { preencher } from '@/lib/sdr/v3/decider'
 import { turno } from '@/lib/sdr/v3/self-test-live'
 import { ESTADO_INICIAL, type Estado } from '@/lib/sdr/v3/types'
 import type { CompanyConfig } from '@/lib/sdr/v3/config-types'
@@ -14,8 +15,10 @@ export const maxDuration = 60
 const schema = z.object({
   config: z.unknown(),
   state: z.unknown().optional(),
-  leadText: z.string().max(2000),
+  leadText: z.string().max(2000).optional().default(''),
   historico: z.array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().max(4000) })).max(40).optional().default([]),
+  /** "Testar a partir desta pergunta": mostra a pergunta como já feita, sem rodar um turno de verdade. */
+  seedPerguntaId: z.string().optional(),
 })
 
 // Testa a conversa do SDR v3 com a config em edição (extrator + decisor + redator + validador em memória,
@@ -31,12 +34,19 @@ export async function POST(request: NextRequest) {
 
   const parsed = schema.safeParse(await request.json().catch(() => ({})))
   if (!parsed.success) return NextResponse.json({ success: false, message: 'Pedido inválido.' }, { status: 422 })
-  const { config: rawConfig, state: rawState, leadText, historico } = parsed.data
-  if (!leadText.trim()) return NextResponse.json({ success: false, message: 'Escreva a mensagem do lead.' }, { status: 400 })
+  const { config: rawConfig, state: rawState, leadText, historico, seedPerguntaId } = parsed.data
 
   const { erros } = validateCompanyConfig(rawConfig)
   if (erros.length > 0) return NextResponse.json({ success: false, message: erros[0], errors: erros }, { status: 400 })
   const config = rawConfig as CompanyConfig
+
+  if (seedPerguntaId) {
+    const pergunta = config.qualificacao.perguntas.find((p) => p.id === seedPerguntaId)
+    if (!pergunta) return NextResponse.json({ success: false, message: 'Pergunta não encontrada.' }, { status: 400 })
+    const estado: Estado = { ...ESTADO_INICIAL(config.version), etapa: 'qualificando', turno: 1, perguntas_feitas: [{ id: pergunta.id, turno: 1, respondida: false }] }
+    return NextResponse.json({ success: true, messages: [preencher(pergunta.texto, estado.dados)], notes: [], state: estado })
+  }
+  if (!leadText.trim()) return NextResponse.json({ success: false, message: 'Escreva a mensagem do lead.' }, { status: 400 })
 
   const state: Estado =
     rawState && typeof rawState === 'object' && Number.isInteger((rawState as Estado).turno) ? (rawState as Estado) : ESTADO_INICIAL(config.version)

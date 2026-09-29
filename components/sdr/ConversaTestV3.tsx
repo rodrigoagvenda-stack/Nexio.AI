@@ -8,9 +8,10 @@ import type { CompanyConfig } from '@/lib/sdr/v3/config-types';
 
 interface Msg { from: 'agent' | 'lead' | 'note'; text: string }
 type MsgHist = { role: 'user' | 'assistant'; content: string };
+export interface TestSeedV3 { n: number; perguntaId?: string }
 
 /** Chat de teste do SDR v3 com a config atual da tela: nada é gravado nem enviado a ninguém. */
-export function ConversaTestV3({ config, agentName }: { config: CompanyConfig; agentName: string }) {
+export function ConversaTestV3({ config, agentName, seed }: { config: CompanyConfig; agentName: string; seed?: TestSeedV3 | null }) {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [state, setState] = useState<unknown>(null);
   const [input, setInput] = useState('');
@@ -42,12 +43,28 @@ export function ConversaTestV3({ config, agentName }: { config: CompanyConfig; a
     }
   }, []);
 
-  const restart = useCallback(() => {
+  const restart = useCallback(async (perguntaId?: string) => {
     setInput('');
-    setState(null);
-    setMsgs([{ from: 'note', text: 'Escreva a primeira mensagem do lead pra começar.' }]);
+    if (!perguntaId) {
+      setState(null);
+      setMsgs([{ from: 'note', text: 'Escreva a primeira mensagem do lead pra começar.' }]);
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch('/api/sdr/v3/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ config: configRef.current, seedPerguntaId: perguntaId }) });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) throw new Error(json.message || 'Não foi possível testar agora.');
+      setState(json.state);
+      setMsgs((json.messages as string[]).map((m): Msg => ({ from: 'agent', text: m })));
+    } catch (e) {
+      setState(null);
+      setMsgs([{ from: 'note', text: e instanceof Error ? e.message : 'Não foi possível testar agora.' }]);
+    } finally {
+      setBusy(false);
+    }
   }, []);
-  useEffect(() => { restart(); }, [restart]);
+  useEffect(() => { void restart(seed?.perguntaId); }, [seed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <aside className={cn(CARD, 'flex w-full shrink-0 flex-col xl:w-[380px]')}>
@@ -56,7 +73,7 @@ export function ConversaTestV3({ config, agentName }: { config: CompanyConfig; a
           <h3 className="text-lg font-semibold leading-6 text-foreground">Testar agente</h3>
           <p className="text-[13px] text-muted-foreground">Usa a configuração atual desta tela.</p>
         </div>
-        <button type="button" onClick={restart} className="flex items-center gap-2 text-sm font-medium text-foreground/85 hover:text-foreground"><RotateCcw className="h-4 w-4" />Reiniciar</button>
+        <button type="button" onClick={() => void restart()} className="flex items-center gap-2 text-sm font-medium text-foreground/85 hover:text-foreground"><RotateCcw className="h-4 w-4" />Reiniciar</button>
       </div>
 
       <div className="flex min-h-[340px] flex-1 flex-col justify-end gap-3 overflow-y-auto px-6 py-5" aria-live="polite">

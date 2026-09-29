@@ -70,8 +70,9 @@ function promptSistema(config: CompanyConfig, estado: Estado, agoraSp: string, a
   const objecoes = config.objecoes
     .map((o) => `- ${o.id}: ${o.titulo}. Exemplos: ${o.gatilhos.map((g) => `"${g}"`).join('; ')}`)
     .join('\n')
+  const tipoHint: Record<string, string> = { sim_nao: ' (responda "sim" ou "nao")', link_ou_print: ' (um link, ou "print enviado" se o lead mandou imagem)' }
   const perguntas = config.qualificacao.perguntas
-    .map((q) => `- campo "${q.campo}": ${q.texto.replace(/\{[^}]*\}/g, '').trim()}`)
+    .map((q) => `- campo "${q.campo}"${q.campo_tipo ? tipoHint[q.campo_tipo] ?? '' : ''}: ${q.texto.replace(/\{[^}]*\}/g, '').trim()}`)
     .join('\n')
   const pe = config.preco.por_escopo
   const escopo = pe

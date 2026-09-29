@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/components/ui/use-toast';
 import { askConfirm } from './ConfirmHost';
 import { CARD, Chips, INPUT, LIME, PILL3D, PILL_GREEN, Toggle } from './ui';
-import { ConversaTestV3 } from './ConversaTestV3';
+import { ConversaTestV3, type TestSeedV3 } from './ConversaTestV3';
 import type { CompanyConfig, ObjecaoConfig, PerguntaQualificacao, ProximaAcaoObjecao } from '@/lib/sdr/v3/config-types';
 
 type Section = 'agente' | 'perguntas' | 'preco' | 'objecoes' | 'encerramentos';
@@ -101,7 +101,10 @@ export function SdrConversaV3() {
   const [selO, setSelO] = useState<string | null>(null);
   const [objSearch, setObjSearch] = useState('');
   const [selEnc, setSelEnc] = useState('escala');
+  const [seed, setSeed] = useState<TestSeedV3 | null>(null);
+  const seedN = useRef(0);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retest = (perguntaId?: string) => { seedN.current += 1; setSeed({ n: seedN.current, perguntaId }); };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -311,7 +314,23 @@ export function SdrConversaV3() {
                       <Toggle on={selPergunta.obrigatoria} onChange={(v) => mutarPergunta({ obrigatoria: v })} label="Obrigatória" />
                     </div>
                     <Labeled label="O que o agente pergunta" htmlFor="v3-texto" help="Use {nome} para o nome do lead."><Area id="v3-texto" rows={3} value={selPergunta.texto} onChange={(v) => mutarPergunta({ texto: v })} /></Labeled>
-                    <Labeled label="Campo que guarda a resposta" htmlFor="v3-campo" help="Nome interno usado pelo motor pra saber se essa pergunta já foi respondida."><input id="v3-campo" className={INPUT} value={selPergunta.campo} onChange={(e) => mutarPergunta({ campo: e.target.value })} /></Labeled>
+                    <Labeled label="Se o lead não responder direito" optional htmlFor="v3-reform" help="Usada quando a pergunta precisa ser refeita. Vazio: o agente reformula sozinho."><Area id="v3-reform" rows={2} value={selPergunta.reformulacao ?? ''} onChange={(v) => mutarPergunta({ reformulacao: v || undefined })} /></Labeled>
+                    <div className="flex flex-col gap-3">
+                      <p className="text-[15px] font-semibold text-foreground">O que o agente guarda no lead</p>
+                      <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/40 px-5 py-4 dark:border-[#2A2A2A] dark:bg-[#141414]">
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <Labeled label="Campo" htmlFor="v3-campo" help="Nome interno usado pelo motor pra saber se já foi respondida."><input id="v3-campo" className={INPUT} value={selPergunta.campo} onChange={(e) => mutarPergunta({ campo: e.target.value })} /></Labeled>
+                          <Labeled label="Tipo" htmlFor="v3-campo-tipo">
+                            <select id="v3-campo-tipo" className={INPUT} value={selPergunta.campo_tipo ?? 'texto'} onChange={(e) => mutarPergunta({ campo_tipo: e.target.value === 'texto' ? undefined : (e.target.value as 'sim_nao' | 'link_ou_print') })}>
+                              <option value="texto">Texto</option>
+                              <option value="sim_nao">Sim ou não</option>
+                              <option value="link_ou_print">Link ou print</option>
+                            </select>
+                          </Labeled>
+                        </div>
+                      </div>
+                    </div>
+                    <div><button type="button" onClick={() => retest(selPergunta.id)} className={PILL_GREEN}>Testar a partir desta pergunta</button></div>
                   </>
                 ) : <p className="py-16 text-center text-muted-foreground">Escolha uma pergunta na lista.</p>}
               </section>
@@ -474,7 +493,7 @@ export function SdrConversaV3() {
           </>
         )}
 
-        <ConversaTestV3 config={config} agentName={agentName} />
+        <ConversaTestV3 config={config} agentName={agentName} seed={seed} />
       </div>
     </div>
   );
