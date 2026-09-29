@@ -2,14 +2,11 @@
 
 // Tela de Conversa do SDR v3 (motor novo, decisor em código). Diferente do funil v2
 // (SdrConversa/FunnelConfig): a config aqui é `CompanyConfig`, versionada em `sdr_company_configs`,
-// lida e salva via /api/sdr/v3/config. Mostrada só pra empresa com company.features.sdr_v3 === true
-// (ver app/(dashboard)/configuracoes/sdr/page.tsx).
-//
-// Escopo desta tela: as 5 seções da config que valem pra qualquer empresa v3 (persona, perguntas,
-// preço, objeções, encerramentos). Ficam de fora por ora (edição só via SQL): ligação, fatos,
-// nunca_prometer, regras_redator, validador, agendamento, palavras_proibidas, como_funciona.
+// lida e salva via /api/sdr/v3/config. Mostrada só pra empresa com company.features.sdr_v3 === true.
+// Layout replica, peça por peça, o padrão já validado no Paper para SdrConversa.tsx (funil v2):
+// mesmo EditorHead, ListRow, Labeled/Area, aside lista + editor principal, card min-h-[640px].
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Search, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from '@/components/ui/use-toast';
 import { askConfirm } from './ConfirmHost';
@@ -17,6 +14,7 @@ import { CARD, Chips, INPUT, LIME, PILL3D, PILL_GREEN, Toggle } from './ui';
 import type { CompanyConfig, ObjecaoConfig, PerguntaQualificacao, ProximaAcaoObjecao } from '@/lib/sdr/v3/config-types';
 
 type Section = 'agente' | 'perguntas' | 'preco' | 'objecoes' | 'encerramentos';
+const ordinal = (n: number) => `${n}ª`;
 const ACOES: { value: ProximaAcaoObjecao; label: string }[] = [
   { value: 'aguardar', label: 'Aguardar' },
   { value: 'voltar_qualificacao', label: 'Voltar pra qualificação' },
@@ -24,7 +22,22 @@ const ACOES: { value: ProximaAcaoObjecao; label: string }[] = [
   { value: 'escalar', label: 'Escalar pra pessoa' },
 ];
 
-// ── peças reaproveitadas do mesmo padrão visual do funil v2 (SdrConversa.tsx) ──
+// ── peças idênticas ao padrão do SdrConversa.tsx (Paper) ──
+function EditorHead({ eyebrow, title, subtitle, actions }: { eyebrow?: string; title: React.ReactNode; subtitle?: string; actions?: React.ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="flex min-w-0 flex-col gap-1.5">
+        {eyebrow && <p className="text-sm text-muted-foreground">{eyebrow}</p>}
+        <div className="flex flex-wrap items-center gap-3"><h3 className="text-[28px] font-semibold leading-8 tracking-tight text-foreground">{title}</h3></div>
+        {subtitle && <p className="text-[15px] text-muted-foreground">{subtitle}</p>}
+      </div>
+      {actions && <div className="flex shrink-0 items-center gap-3">{actions}</div>}
+    </div>
+  );
+}
+function RemoveButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return <button type="button" onClick={onClick} className="flex items-center gap-2 text-sm font-semibold text-destructive hover:underline"><Trash2 className="h-4 w-4" />{label}</button>;
+}
 function Labeled({ label, optional, help, children, htmlFor }: { label: string; optional?: boolean; help?: string; children: React.ReactNode; htmlFor?: string }) {
   return (
     <div className="flex flex-col gap-2.5">
@@ -34,25 +47,24 @@ function Labeled({ label, optional, help, children, htmlFor }: { label: string; 
     </div>
   );
 }
-function Area({ value, onChange, rows = 3, id }: { value: string; onChange: (v: string) => void; rows?: number; id?: string }) {
-  return <textarea id={id} rows={rows} value={value} onChange={(e) => onChange(e.target.value)} className={cn(INPUT, 'resize-y leading-[160%]')} />;
+function Area({ value, onChange, rows = 3, id, placeholder }: { value: string; onChange: (v: string) => void; rows?: number; id?: string; placeholder?: string }) {
+  return <textarea id={id} rows={rows} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className={cn(INPUT, 'resize-y leading-[160%]')} />;
 }
-function ListRow({ active, title, sub, num, onClick }: { active: boolean; title: string; sub?: string; num: React.ReactNode; onClick: () => void }) {
+function ListRow({ active, title, sub, num, right, onClick }: { active: boolean; title: string; sub?: string; num?: React.ReactNode; right?: React.ReactNode; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} aria-current={active ? 'true' : undefined} className={cn('flex items-center gap-3 rounded-xl px-3.5 py-3 text-left transition-colors', active ? 'bg-[#E4F1E9] dark:bg-[#12301F]' : 'hover:bg-muted')}>
-      <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[13px] font-semibold', active ? 'border-[#01573C] bg-[#01573C] text-white dark:border-[#96F63C] dark:bg-transparent dark:text-[#96F63C]' : 'border-border text-foreground')}>{num}</span>
+      {num !== undefined && <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[13px] font-semibold', active ? 'border-[#01573C] bg-[#01573C] text-white dark:border-[#96F63C] dark:bg-transparent dark:text-[#96F63C]' : 'border-border text-foreground')}>{num}</span>}
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-[15px] font-semibold text-foreground">{title}</span>
         {sub && <span className="truncate text-[13px] text-muted-foreground">{sub}</span>}
       </span>
+      {right}
     </button>
   );
 }
-function RemoveButton({ label, onClick }: { label: string; onClick: () => void }) {
-  return <button type="button" onClick={onClick} className="flex items-center gap-2 text-sm font-semibold text-destructive hover:underline"><Trash2 className="h-4 w-4" />{label}</button>;
-}
 const joinLines = (v: string | string[] | undefined) => (Array.isArray(v) ? v.join('\n') : v ?? '');
 const splitLines = (v: string) => v.split('\n').map((l) => l.trim()).filter(Boolean);
+const arr = (v: string | string[] | undefined) => (Array.isArray(v) ? v : v ? [v] : ['']);
 
 const BANT: Omit<PerguntaQualificacao, 'ordem'>[] = [
   { id: 'orcamento', campo: 'orcamento', texto: 'Você já separou um valor pra investir nisso, ou ainda não pensou?', obrigatoria: false },
@@ -68,7 +80,12 @@ const SPICED: Omit<PerguntaQualificacao, 'ordem'>[] = [
   { id: 'decisao', campo: 'decisao', texto: 'Como funciona a decisão aí, é só você ou tem mais gente envolvida?', obrigatoria: true },
 ];
 const NOME_PADRAO: Omit<PerguntaQualificacao, 'ordem'> = { id: 'nome', campo: 'nome', texto: 'Olá, tudo bem? Qual o seu nome?', obrigatoria: false };
-const TONS_RAPIDOS = ['Consultivo, direto e natural, no jeito de WhatsApp', 'Amigável e descontraído, poucos emojis', 'Formal e objetivo, sem emojis', 'Caloroso e paciente'];
+const TOM_PRESETS = [
+  { value: 'Consultivo, direto e natural, no jeito de WhatsApp', label: 'Consultivo', desc: 'Direto e natural, no jeito de WhatsApp' },
+  { value: 'Amigável e próximo, poucos emojis', label: 'Amigável', desc: 'Próximo e descontraído, poucos emojis' },
+  { value: 'Profissional e direto, sem emojis', label: 'Profissional', desc: 'Formal, objetivo, sem emojis' },
+  { value: 'Empático e acolhedor, caloroso e paciente', label: 'Empático', desc: 'Caloroso, paciente, acolhedor' },
+];
 
 export function SdrConversaV3() {
   const [section, setSection] = useState<Section>('agente');
@@ -76,7 +93,10 @@ export function SdrConversaV3() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selQ, setSelQ] = useState<string | null>(null);
+  const [selPrice, setSelPrice] = useState<string>('depois');
   const [selO, setSelO] = useState<string | null>(null);
+  const [objSearch, setObjSearch] = useState('');
+  const [selEnc, setSelEnc] = useState('escala');
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
@@ -121,6 +141,7 @@ export function SdrConversaV3() {
 
   const perguntas = [...(config.qualificacao?.perguntas ?? [])].sort((a, b) => a.ordem - b.ordem);
   const objecoes = [...(config.objecoes ?? [])].sort((a, b) => a.prioridade - b.prioridade);
+  const objFiltered = objecoes.filter((o) => !objSearch.trim() || `${o.titulo} ${o.gatilhos.join(' ')}`.toLowerCase().includes(objSearch.trim().toLowerCase()));
   const chips = [
     ['agente', 'Quem é o agente'],
     ['perguntas', `Perguntas ${perguntas.length}`],
@@ -128,9 +149,12 @@ export function SdrConversaV3() {
     ['objecoes', `Objeções e dúvidas ${objecoes.length}`],
     ['encerramentos', 'Encerramentos'],
   ] as const;
-  const card = 'flex min-h-[560px] flex-col';
+  const card = 'flex min-h-[640px] flex-col';
+  const agentName = config.persona?.nome_agente || 'Agente';
+  const humanName = config.escala?.nome_humano || config.persona?.assinatura_humano || 'uma pessoa da equipe';
+  const firstQuestion = perguntas[0]?.texto?.replace(/\{nome\}/gi, '') ?? '';
 
-  // ── ações: perguntas ──
+  // ── perguntas ──
   const escolherFramework = async (tipo: 'zero' | 'bant' | 'spiced') => {
     const base = tipo === 'bant' ? BANT : tipo === 'spiced' ? SPICED : [];
     const novas: PerguntaQualificacao[] = [{ ...NOME_PADRAO, ordem: 1 }, ...base.map((p, i) => ({ ...p, ordem: i + 2 }))];
@@ -143,44 +167,63 @@ export function SdrConversaV3() {
     const next = { ...config, qualificacao: { perguntas: perguntas.map((p) => (p.id === sel.id ? { ...p, ...patch } : p)) } };
     scheduleSave(next, `Editou pergunta "${sel.id}"`);
   };
+  const moverPergunta = async (dir: -1 | 1) => {
+    const i = perguntas.findIndex((p) => p.id === selQ); const j = i + dir;
+    if (i < 0 || j < 0 || j >= perguntas.length) return;
+    const list = [...perguntas]; [list[i], list[j]] = [list[j], list[i]];
+    const renum = list.map((p, k) => ({ ...p, ordem: k + 1 }));
+    await persist({ ...config, qualificacao: { perguntas: renum } }, 'Reordenou perguntas');
+  };
   const removerPergunta = async () => {
     const sel = perguntas.find((p) => p.id === selQ); if (!sel) return;
     if (perguntas.length <= 1) { toast({ title: 'Precisa de pelo menos uma pergunta', variant: 'warning' }); return; }
     if (!(await askConfirm('Remover esta pergunta do roteiro?'))) return;
     const restantes = perguntas.filter((p) => p.id !== sel.id).map((p, i) => ({ ...p, ordem: i + 1 }));
-    const next = { ...config, qualificacao: { perguntas: restantes } };
-    setSelQ(restantes[0]?.id ?? null);
-    await persist(next, `Removeu pergunta "${sel.id}"`);
+    setSelQ(restantes[Math.max(0, perguntas.findIndex((p) => p.id === sel.id) - 1)]?.id ?? restantes[0]?.id ?? null);
+    await persist({ ...config, qualificacao: { perguntas: restantes } }, `Removeu pergunta "${sel.id}"`);
   };
   const adicionarPergunta = async () => {
     let n = perguntas.length + 1; while (perguntas.some((p) => p.id === `pergunta_${n}`)) n++;
     const nova: PerguntaQualificacao = { id: `pergunta_${n}`, campo: `dado_${n}`, texto: '', obrigatoria: false, ordem: perguntas.length + 1 };
-    const next = { ...config, qualificacao: { perguntas: [...perguntas, nova] } };
     setSelQ(nova.id);
-    await persist(next, 'Adicionou pergunta');
+    await persist({ ...config, qualificacao: { perguntas: [...perguntas, nova] } }, 'Adicionou pergunta');
   };
 
-  // ── ações: objeções ──
+  // ── preço ──
+  const frasesAntes = config.preco?.frases_antes_qualificacao ?? [];
+  const setPreco = (patch: Partial<CompanyConfig['preco']>) => scheduleSave({ ...config, preco: { ...config.preco, ...patch } }, 'Editou preço');
+
+  // ── objeções ──
   const mutarObjecao = (patch: Partial<ObjecaoConfig>) => {
     const sel = objecoes.find((o) => o.id === selO); if (!sel) return;
-    const next = { ...config, objecoes: objecoes.map((o) => (o.id === sel.id ? { ...o, ...patch } : o)) };
-    scheduleSave(next, `Editou objeção "${sel.id}"`);
+    scheduleSave({ ...config, objecoes: objecoes.map((o) => (o.id === sel.id ? { ...o, ...patch } : o)) }, `Editou objeção "${sel.id}"`);
   };
   const removerObjecao = async () => {
     const sel = objecoes.find((o) => o.id === selO); if (!sel) return;
     if (!(await askConfirm('Remover esta objeção?'))) return;
     const restantes = objecoes.filter((o) => o.id !== sel.id);
-    const next = { ...config, objecoes: restantes };
     setSelO(restantes[0]?.id ?? null);
-    await persist(next, `Removeu objeção "${sel.id}"`);
+    await persist({ ...config, objecoes: restantes }, `Removeu objeção "${sel.id}"`);
   };
   const adicionarObjecao = async () => {
-    let n = objecoes.length + 1; while (objecoes.some((o) => o.id === `objecao_${n}`)) n++;
-    const nova: ObjecaoConfig = { id: `objecao_${n}`, titulo: 'Nova objeção', gatilhos: [], modo: 'livre', resposta: '', proxima_acao: 'aguardar', conta_como_recusa: false, prioridade: objecoes.length + 1 };
-    const next = { ...config, objecoes: [...objecoes, nova] };
-    setSelO(nova.id);
-    await persist(next, 'Adicionou objeção');
+    const nome = window.prompt('Nome curto da objeção ou dúvida (ex: prazo, garantia)');
+    const id = (nome ?? '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    if (!id) return;
+    if (objecoes.some((o) => o.id === id)) { setSelO(id); return; }
+    const nova: ObjecaoConfig = { id, titulo: nome!.trim(), gatilhos: [], modo: 'livre', resposta: [''], proxima_acao: 'aguardar', conta_como_recusa: false, prioridade: objecoes.length + 1 };
+    setSelO(id);
+    await persist({ ...config, objecoes: [...objecoes, nova] }, 'Adicionou objeção');
   };
+
+  // ── encerramentos ──
+  const encItems: { id: string; title: string; sub: string; get: () => string; set: (v: string) => void; rows: number }[] = [
+    { id: 'escala', title: 'Chamar a pessoa', sub: config.escala?.frase || 'Sem mensagem', get: () => config.escala?.frase ?? '', set: (v) => scheduleSave({ ...config, escala: { ...config.escala, frase: v } }, 'Editou frase de escalar'), rows: 4 },
+    { id: 'escala_duvida', title: 'Chamar a pessoa (dúvida sem resposta)', sub: config.escala?.frase_duvida || 'Sem mensagem', get: () => config.escala?.frase_duvida ?? '', set: (v) => scheduleSave({ ...config, escala: { ...config.escala, frase_duvida: v } }, 'Editou frase de dúvida'), rows: 4 },
+    { id: 'agradecimento', title: 'Agradecimento final', sub: config.agradecimento_fim?.frase || 'Sem mensagem', get: () => config.agradecimento_fim?.frase ?? '', set: (v) => scheduleSave({ ...config, agradecimento_fim: { frase: v } }, 'Editou agradecimento final'), rows: 3 },
+    { id: 'obj_repetida', title: 'Objeção repetida', sub: config.objecao_repetida?.frase || 'Sem mensagem', get: () => config.objecao_repetida?.frase ?? '', set: (v) => scheduleSave({ ...config, objecao_repetida: { frase: v } }, 'Editou objeção repetida'), rows: 3 },
+    { id: 'encerra_recusas', title: 'Encerramento por recusas', sub: config.encerramento_recusas?.frase || 'Sem mensagem', get: () => config.encerramento_recusas?.frase ?? '', set: (v) => scheduleSave({ ...config, encerramento_recusas: { frase: v } }, 'Editou encerramento por recusas'), rows: 3 },
+  ];
+  const selEncItem = encItems.find((e) => e.id === selEnc) ?? encItems[0];
 
   const selPergunta = perguntas.find((p) => p.id === selQ) ?? null;
   const selPerguntaIdx = perguntas.findIndex((p) => p.id === selQ);
@@ -198,24 +241,36 @@ export function SdrConversaV3() {
       <div className="flex flex-col gap-6 xl:flex-row xl:items-stretch">
         {/* ── Quem é o agente ── */}
         {section === 'agente' && (
-          <section className={cn(CARD, card, 'min-w-0 flex-1 gap-6 px-8 py-8')}>
-            <div className="flex flex-col gap-1"><h3 className="text-lg font-semibold text-foreground">Quem é o agente</h3><p className="text-[13px] text-muted-foreground">Essas informações entram direto no comportamento do agente.</p></div>
-            <div className="grid gap-x-5 gap-y-6 md:grid-cols-2">
-              <Labeled label="Nome do agente" htmlFor="v3-nome-agente"><input id="v3-nome-agente" className={INPUT} value={config.persona?.nome_agente ?? ''} onChange={(e) => scheduleSave({ ...config, persona: { ...config.persona, nome_agente: e.target.value } }, 'Editou nome do agente')} /></Labeled>
-              <Labeled label="Nome da empresa" htmlFor="v3-empresa"><input id="v3-empresa" className={INPUT} value={config.persona?.empresa ?? ''} onChange={(e) => scheduleSave({ ...config, persona: { ...config.persona, empresa: e.target.value } }, 'Editou empresa')} /></Labeled>
-              <Labeled label="Quem assume a conversa" htmlFor="v3-humano" help="O nome que o agente usa ao passar o lead pra uma pessoa."><input id="v3-humano" className={INPUT} value={config.persona?.assinatura_humano ?? ''} onChange={(e) => scheduleSave({ ...config, persona: { ...config.persona, assinatura_humano: e.target.value } }, 'Editou quem assume')} /></Labeled>
-            </div>
-            <Labeled label="Tom de voz" htmlFor="v3-tom">
-              <div className="flex flex-wrap gap-2">
-                {TONS_RAPIDOS.map((t) => (
-                  <button key={t} type="button" onClick={() => scheduleSave({ ...config, persona: { ...config.persona, tom: t } }, 'Editou tom')} className={cn('rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors', config.persona?.tom === t ? 'border-[#01573C] bg-[#E4F1E9] text-[#01573C] dark:border-[#96F63C]/50 dark:bg-[#12301F] dark:text-[#96F63C]' : 'border-border text-muted-foreground hover:bg-muted')}>{t}</button>
-                ))}
+          <>
+            <aside className={cn(CARD, card, 'w-full shrink-0 gap-4 p-6 xl:w-[330px]')}>
+              <div className="flex flex-col gap-1"><h3 className="text-lg font-semibold text-foreground">Como o agente aparece</h3><p className="text-[13px] text-muted-foreground">A primeira mensagem que o lead recebe.</p></div>
+              <div className="rounded-xl border border-border bg-muted/40 p-4 dark:border-[#1F1F1F] dark:bg-[#0F0F0F]">
+                <div className="mb-3 flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#E4F1E9] text-base font-semibold text-[#01573C] dark:bg-[#12301F] dark:text-[#96F63C]">{agentName.charAt(0).toUpperCase()}</span><span className="flex flex-col"><span className="text-[15px] font-semibold text-foreground">{agentName}</span><span className="text-[13px] text-muted-foreground">{config.persona?.empresa}</span></span></div>
+                <p className="whitespace-pre-wrap rounded-xl bg-[#E4F1E9] px-4 py-3 text-[15px] leading-[150%] text-foreground dark:bg-[#12301F]">{firstQuestion || 'A primeira pergunta do roteiro aparece aqui.'}</p>
               </div>
-              <Area id="v3-tom" rows={2} value={config.persona?.tom ?? ''} onChange={(v) => scheduleSave({ ...config, persona: { ...config.persona, tom: v } }, 'Editou tom')} />
-            </Labeled>
-            <Labeled label="Como responde 'você é um robô?'" htmlFor="v3-robo"><Area id="v3-robo" rows={2} value={config.identidade?.frase_robo ?? ''} onChange={(v) => scheduleSave({ ...config, identidade: { ...config.identidade, frase_robo: v } }, 'Editou frase robô')} /></Labeled>
-            <Labeled label="Fora do escopo" htmlFor="v3-fora" help="O que responder quando o assunto não é com a empresa."><Area id="v3-fora" rows={2} value={config.fora_escopo?.frase ?? ''} onChange={(v) => scheduleSave({ ...config, fora_escopo: { frase: v } }, 'Editou fora de escopo')} /></Labeled>
-          </section>
+              <p className="text-sm leading-[150%] text-muted-foreground">Essa frase vem da pergunta 1 do roteiro. Para mudar, edite a pergunta.</p>
+              <button type="button" onClick={() => { setSection('perguntas'); setSelQ(perguntas[0]?.id ?? null); }} className={cn('w-fit text-sm font-semibold hover:underline', LIME)}>Editar pergunta 1 ›</button>
+            </aside>
+            <section className={cn(CARD, card, 'min-w-0 flex-1 gap-6 px-8 py-8')}>
+              <EditorHead title="Quem é o agente" subtitle="Essas informações entram direto no comportamento do agente." />
+              <div className="grid gap-x-5 gap-y-6 md:grid-cols-2">
+                <Labeled label="Nome do agente" htmlFor="p-nome"><input id="p-nome" className={INPUT} value={config.persona?.nome_agente ?? ''} onChange={(e) => scheduleSave({ ...config, persona: { ...config.persona, nome_agente: e.target.value } }, 'Editou nome do agente')} /></Labeled>
+                <Labeled label="Nome da empresa" htmlFor="p-emp"><input id="p-emp" className={INPUT} value={config.persona?.empresa ?? ''} onChange={(e) => scheduleSave({ ...config, persona: { ...config.persona, empresa: e.target.value } }, 'Editou empresa')} /></Labeled>
+                <Labeled label="Quem assume a conversa" htmlFor="p-human" help="O nome que o agente usa ao passar o lead para uma pessoa."><input id="p-human" className={INPUT} value={config.persona?.assinatura_humano ?? ''} onChange={(e) => scheduleSave({ ...config, persona: { ...config.persona, assinatura_humano: e.target.value } }, 'Editou quem assume')} /></Labeled>
+              </div>
+              <Labeled label="Tom de voz">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  {TOM_PRESETS.map((t) => (
+                    <button key={t.value} type="button" aria-pressed={config.persona?.tom === t.value} onClick={() => scheduleSave({ ...config, persona: { ...config.persona, tom: t.value } }, 'Editou tom')} className={cn('flex flex-col gap-1 rounded-xl border px-4 py-3.5 text-left transition-colors', config.persona?.tom === t.value ? 'border-[#01573C] bg-[#E4F1E9] dark:border-[#96F63C]/50 dark:bg-[#12301F]' : 'border-border hover:bg-muted')}>
+                      <span className="text-[15px] font-semibold text-foreground">{t.label}</span><span className="text-[13px] leading-[140%] text-muted-foreground">{t.desc}</span>
+                    </button>
+                  ))}
+                </div>
+                <Area rows={2} value={config.persona?.tom ?? ''} onChange={(v) => scheduleSave({ ...config, persona: { ...config.persona, tom: v } }, 'Editou tom')} />
+              </Labeled>
+              <Labeled label="O que nunca dizer" optional htmlFor="p-restr"><Area id="p-restr" rows={3} value={joinLines(config.palavras_proibidas)} onChange={(v) => scheduleSave({ ...config, palavras_proibidas: splitLines(v) }, 'Editou palavras proibidas')} placeholder="Ex: não mencione preços sem entender a necessidade do cliente" /></Labeled>
+            </section>
+          </>
         )}
 
         {/* ── Perguntas ── */}
@@ -242,18 +297,22 @@ export function SdrConversaV3() {
               <aside className={cn(CARD, card, 'w-full shrink-0 xl:w-[330px]')}>
                 <div className="flex flex-col gap-1 px-6 pb-3 pt-6"><h3 className="text-lg font-semibold text-foreground">Roteiro</h3><p className="text-[13px] text-muted-foreground">Nesta ordem</p></div>
                 <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-3">
-                  {perguntas.map((p, i) => <ListRow key={p.id} num={i + 1} active={p.id === selQ} title={p.texto ? (p.texto.slice(0, 28) || p.id) : p.id} sub={p.obrigatoria ? 'Obrigatória' : undefined} onClick={() => setSelQ(p.id)} />)}
+                  {perguntas.map((p, i) => <ListRow key={p.id} num={i + 1} active={p.id === selQ} title={p.texto ? (p.texto.slice(0, 40) || p.id) : p.id} sub={p.obrigatoria ? 'Obrigatória' : undefined} onClick={() => setSelQ(p.id)} />)}
                 </div>
                 <div className="border-t border-border p-4"><button type="button" onClick={() => void adicionarPergunta()} className={cn('flex w-full items-center justify-center gap-2 py-2 text-sm font-semibold hover:underline', LIME)}><Plus className="h-4 w-4" />Adicionar pergunta</button></div>
               </aside>
               <section className={cn(CARD, card, 'min-w-0 flex-1 gap-6 px-8 py-7')}>
                 {selPergunta ? (
                   <>
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex flex-col gap-1.5"><p className="text-sm text-muted-foreground">Pergunta {selPerguntaIdx + 1} de {perguntas.length}</p>
-                        <input aria-label="Identificador da pergunta" value={selPergunta.id} onChange={(e) => mutarPergunta({ id: e.target.value })} className="min-w-[120px] max-w-full bg-transparent [field-sizing:content] text-[26px] font-semibold leading-8 tracking-tight text-foreground outline-none" /></div>
-                      <RemoveButton label="Remover pergunta" onClick={() => void removerPergunta()} />
-                    </div>
+                    <EditorHead
+                      eyebrow={`Pergunta ${selPerguntaIdx + 1} de ${perguntas.length}`}
+                      title={<input aria-label="Identificador da pergunta" value={selPergunta.id} onChange={(e) => mutarPergunta({ id: e.target.value })} className="min-w-[120px] max-w-full bg-transparent [field-sizing:content] text-[28px] font-semibold leading-8 tracking-tight text-foreground outline-none" />}
+                      actions={<>
+                        <button type="button" aria-label="Subir pergunta" disabled={selPerguntaIdx === 0} onClick={() => void moverPergunta(-1)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted disabled:opacity-40">▲</button>
+                        <button type="button" aria-label="Descer pergunta" disabled={selPerguntaIdx === perguntas.length - 1} onClick={() => void moverPergunta(1)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted disabled:opacity-40">▼</button>
+                        <RemoveButton label="Remover pergunta" onClick={() => void removerPergunta()} />
+                      </>}
+                    />
                     <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-muted/40 px-5 py-4 dark:border-[#2A2A2A] dark:bg-[#161616]">
                       <div className="flex flex-col gap-1"><p className="text-[15px] font-semibold text-foreground">Obrigatória</p><p className="text-[13px] text-muted-foreground">Enquanto essa pergunta não for respondida, o agente não oferece reunião.</p></div>
                       <Toggle on={selPergunta.obrigatoria} onChange={(v) => mutarPergunta({ obrigatoria: v })} label="Obrigatória" />
@@ -269,70 +328,95 @@ export function SdrConversaV3() {
 
         {/* ── Preço ── */}
         {section === 'preco' && (
-          <section className={cn(CARD, card, 'min-w-0 flex-1 gap-6 px-8 py-8')}>
-            <div className="flex flex-col gap-1"><h3 className="text-lg font-semibold text-foreground">Preço</h3><p className="text-[13px] text-muted-foreground">Quando e como o agente pode falar de valor.</p></div>
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-muted/40 px-5 py-4 dark:border-[#2A2A2A] dark:bg-[#161616]">
-              <div className="flex flex-col gap-1"><p className="text-[15px] font-semibold text-foreground">Pode informar preço</p><p className="text-[13px] text-muted-foreground">Desligado, o agente nunca fala valor, só passa pra pessoa.</p></div>
-              <Toggle on={config.preco?.pode_informar ?? false} onChange={(v) => scheduleSave({ ...config, preco: { ...config.preco, pode_informar: v } }, 'Editou pode informar preço')} label="Pode informar preço" />
-            </div>
-            <Labeled label="Frases pra antes da qualificação estar completa" htmlFor="v3-preco-antes" help="Uma frase por linha. Usada quando pedem preço cedo demais."><Area id="v3-preco-antes" rows={3} value={joinLines(config.preco?.frases_antes_qualificacao)} onChange={(v) => scheduleSave({ ...config, preco: { ...config.preco, frases_antes_qualificacao: splitLines(v) } }, 'Editou frases antes do preço')} /></Labeled>
-            <Labeled label="Frase pra depois da qualificação completa" htmlFor="v3-preco-depois"><Area id="v3-preco-depois" rows={2} value={config.preco?.frase_depois_qualificacao ?? ''} onChange={(v) => scheduleSave({ ...config, preco: { ...config.preco, frase_depois_qualificacao: v } }, 'Editou frase depois do preço')} /></Labeled>
-            <Labeled label="Escalar pra pessoa depois de quantos pedidos de preço" htmlFor="v3-escalar-apos"><input id="v3-escalar-apos" type="number" min={1} className={cn(INPUT, 'max-w-[140px]')} value={config.preco?.escalar_apos ?? 2} onChange={(e) => scheduleSave({ ...config, preco: { ...config.preco, escalar_apos: Math.max(1, Number(e.target.value) || 1) } }, 'Editou escalar após')} /></Labeled>
-
-            {config.preco?.por_escopo && (
-              <div className="flex flex-col gap-4 rounded-xl border border-dashed border-border px-5 py-4">
-                <p className="text-[15px] font-semibold text-foreground">Preço por escopo</p>
-                <Labeled label="Campo que guarda o escopo" htmlFor="v3-escopo-campo" help="Precisa bater com o campo de alguma pergunta de qualificação.">
-                  <select id="v3-escopo-campo" className={INPUT} value={config.preco.por_escopo.campo} onChange={(e) => scheduleSave({ ...config, preco: { ...config.preco, por_escopo: { ...config.preco!.por_escopo!, campo: e.target.value } } }, 'Editou campo do escopo')}>
-                    {perguntas.map((p) => <option key={p.campo} value={p.campo}>{p.campo}</option>)}
-                  </select>
-                </Labeled>
-                <Labeled label="Pergunta que descobre o escopo" htmlFor="v3-escopo-pergunta"><Area id="v3-escopo-pergunta" rows={2} value={config.preco.por_escopo.pergunta} onChange={(v) => scheduleSave({ ...config, preco: { ...config.preco, por_escopo: { ...config.preco!.por_escopo!, pergunta: v } } }, 'Editou pergunta do escopo')} /></Labeled>
-                <div className="flex flex-col gap-3">
-                  {config.preco.por_escopo.opcoes.map((op, i) => (
-                    <div key={op.valor || i} className="flex flex-col gap-2 rounded-xl border border-border bg-muted/40 px-5 py-4 dark:border-[#2A2A2A] dark:bg-[#141414]">
-                      <div className="grid gap-2 md:grid-cols-2">
-                        <input className={INPUT} placeholder="valor (id curto)" value={op.valor} onChange={(e) => { const opcoes = [...config.preco!.por_escopo!.opcoes]; opcoes[i] = { ...op, valor: e.target.value }; scheduleSave({ ...config, preco: { ...config.preco, por_escopo: { ...config.preco!.por_escopo!, opcoes } } }, 'Editou opção de escopo'); }} />
-                        <input className={INPUT} placeholder="descrição (como o extrator reconhece)" value={op.descricao} onChange={(e) => { const opcoes = [...config.preco!.por_escopo!.opcoes]; opcoes[i] = { ...op, descricao: e.target.value }; scheduleSave({ ...config, preco: { ...config.preco, por_escopo: { ...config.preco!.por_escopo!, opcoes } } }, 'Editou opção de escopo'); }} />
-                      </div>
-                      <Area rows={2} value={joinLines(op.texto)} onChange={(v) => { const opcoes = [...config.preco!.por_escopo!.opcoes]; opcoes[i] = { ...op, texto: splitLines(v) }; scheduleSave({ ...config, preco: { ...config.preco, por_escopo: { ...config.preco!.por_escopo!, opcoes } } }, 'Editou texto de escopo'); }} />
-                      <button type="button" className="w-fit text-[13px] font-semibold text-destructive hover:underline" onClick={() => { const opcoes = config.preco!.por_escopo!.opcoes.filter((_, j) => j !== i); void persist({ ...config, preco: { ...config.preco, por_escopo: { ...config.preco!.por_escopo!, opcoes } } }, 'Removeu opção de escopo'); }}>Remover opção</button>
-                    </div>
-                  ))}
-                  <button type="button" onClick={() => { const opcoes = [...(config.preco?.por_escopo?.opcoes ?? []), { valor: '', descricao: '', texto: [''] }]; void persist({ ...config, preco: { ...config.preco, por_escopo: { ...config.preco!.por_escopo!, opcoes } } }, 'Adicionou opção de escopo'); }} className={cn('flex min-h-[60px] items-center justify-center gap-2 rounded-xl border border-dashed border-border text-sm font-semibold text-muted-foreground hover:text-foreground')}><Plus className="h-4 w-4" />Adicionar opção</button>
-                </div>
+          <>
+            <aside className={cn(CARD, card, 'w-full shrink-0 xl:w-[330px]')}>
+              <div className="flex flex-col gap-1 px-6 pb-3 pt-6"><h3 className="text-lg font-semibold text-foreground">Quando o lead pergunta o preço</h3><p className="text-[13px] leading-[150%] text-muted-foreground">Cada pergunta recebe a resposta da posição seguinte.</p></div>
+              <div className="px-6 pb-3"><label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/50 px-4 py-3 text-sm font-semibold text-foreground dark:bg-[#181818]">Pode informar valores<Toggle on={!!config.preco?.pode_informar} onChange={(v) => setPreco({ pode_informar: v })} label="Pode informar valores" /></label></div>
+              <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-3">
+                {frasesAntes.map((s, i) => <ListRow key={i} active={selPrice === `antes-${i}`} title={`${ordinal(i + 1)} pergunta de preço`} sub={s} onClick={() => setSelPrice(`antes-${i}`)} />)}
+                <ListRow active={selPrice === 'depois'} title="Depois da qualificação completa" sub={config.preco?.frase_depois_qualificacao || 'Sem resposta definida'} onClick={() => setSelPrice('depois')} />
+                <ListRow active={selPrice === 'escalar'} title="Escalar para a pessoa" sub={`Depois de ${config.preco?.escalar_apos ?? 2} ${config.preco?.escalar_apos === 1 ? 'vez' : 'vezes'}, passa para ${humanName}`} onClick={() => setSelPrice('escalar')} />
+                {config.preco?.por_escopo && <ListRow active={selPrice === 'escopo'} title="Preço por escopo" sub={config.preco.por_escopo.pergunta} onClick={() => setSelPrice('escopo')} />}
               </div>
-            )}
-          </section>
+              <div className="border-t border-border p-4"><button type="button" onClick={() => { const next = [...frasesAntes, '']; setSelPrice(`antes-${next.length - 1}`); void persist({ ...config, preco: { ...config.preco, frases_antes_qualificacao: next } }, 'Adicionou resposta de preço'); }} className={cn('flex w-full items-center justify-center gap-2 py-2 text-sm font-semibold hover:underline', LIME)}><Plus className="h-4 w-4" />Adicionar resposta</button></div>
+            </aside>
+            <section className={cn(CARD, card, 'min-w-0 flex-1 gap-6 px-8 py-7')}>
+              {selPrice === 'depois' ? (
+                <>
+                  <EditorHead eyebrow="Preço" title="Depois da qualificação completa" subtitle="Resposta usada quando a qualificação já terminou." />
+                  <Labeled label="O que o agente responde" htmlFor="pp"><Area id="pp" rows={5} value={config.preco?.frase_depois_qualificacao ?? ''} onChange={(v) => setPreco({ frase_depois_qualificacao: v })} /></Labeled>
+                </>
+              ) : selPrice === 'escalar' ? (
+                <>
+                  <EditorHead eyebrow="Preço" title="Escalar para a pessoa" subtitle={`Quantas vezes o lead pode perguntar o preço antes de passar para ${humanName}.`} />
+                  <Labeled label="Vezes que pergunta antes de escalar" htmlFor="pe"><input id="pe" type="number" min={1} className={cn(INPUT, 'max-w-[140px]')} value={config.preco?.escalar_apos ?? 2} onChange={(e) => setPreco({ escalar_apos: Math.max(1, Number(e.target.value) || 1) })} /></Labeled>
+                </>
+              ) : selPrice === 'escopo' && config.preco?.por_escopo ? (
+                <>
+                  <EditorHead eyebrow="Preço" title="Preço por escopo" subtitle="O valor sai sempre do texto fixo abaixo, nunca escrito pela IA." />
+                  <Labeled label="Campo que guarda o escopo" htmlFor="v3-escopo-campo" help="Precisa bater com o campo de alguma pergunta de qualificação.">
+                    <select id="v3-escopo-campo" className={INPUT} value={config.preco.por_escopo.campo} onChange={(e) => setPreco({ por_escopo: { ...config.preco!.por_escopo!, campo: e.target.value } })}>
+                      {perguntas.map((p) => <option key={p.campo} value={p.campo}>{p.campo}</option>)}
+                    </select>
+                  </Labeled>
+                  <Labeled label="Pergunta que descobre o escopo" htmlFor="v3-escopo-pergunta"><Area id="v3-escopo-pergunta" rows={2} value={config.preco.por_escopo.pergunta} onChange={(v) => setPreco({ por_escopo: { ...config.preco!.por_escopo!, pergunta: v } })} /></Labeled>
+                  <div className="flex flex-col gap-3">
+                    {config.preco.por_escopo.opcoes.map((op, i) => (
+                      <div key={op.valor || i} className="flex flex-col gap-2 rounded-xl border border-border bg-muted/40 px-5 py-4 dark:border-[#2A2A2A] dark:bg-[#141414]">
+                        <div className="grid gap-2 md:grid-cols-2">
+                          <input className={INPUT} placeholder="valor (id curto)" value={op.valor} onChange={(e) => { const opcoes = [...config.preco!.por_escopo!.opcoes]; opcoes[i] = { ...op, valor: e.target.value }; setPreco({ por_escopo: { ...config.preco!.por_escopo!, opcoes } }); }} />
+                          <input className={INPUT} placeholder="descrição (como o extrator reconhece)" value={op.descricao} onChange={(e) => { const opcoes = [...config.preco!.por_escopo!.opcoes]; opcoes[i] = { ...op, descricao: e.target.value }; setPreco({ por_escopo: { ...config.preco!.por_escopo!, opcoes } }); }} />
+                        </div>
+                        <Area rows={2} value={joinLines(op.texto)} onChange={(v) => { const opcoes = [...config.preco!.por_escopo!.opcoes]; opcoes[i] = { ...op, texto: splitLines(v) }; setPreco({ por_escopo: { ...config.preco!.por_escopo!, opcoes } }); }} />
+                        <button type="button" className="w-fit text-[13px] font-semibold text-destructive hover:underline" onClick={() => { const opcoes = config.preco!.por_escopo!.opcoes.filter((_, j) => j !== i); void persist({ ...config, preco: { ...config.preco, por_escopo: { ...config.preco!.por_escopo!, opcoes } } }, 'Removeu opção de escopo'); }}>Remover opção</button>
+                      </div>
+                    ))}
+                    <button type="button" onClick={() => { const opcoes = [...(config.preco?.por_escopo?.opcoes ?? []), { valor: '', descricao: '', texto: [''] }]; void persist({ ...config, preco: { ...config.preco, por_escopo: { ...config.preco!.por_escopo!, opcoes } } }, 'Adicionou opção de escopo'); }} className={cn('flex min-h-[60px] items-center justify-center gap-2 rounded-xl border border-dashed border-border text-sm font-semibold text-muted-foreground hover:text-foreground')}><Plus className="h-4 w-4" />Adicionar opção</button>
+                  </div>
+                </>
+              ) : (() => {
+                const i = Number(selPrice.replace('antes-', '')) || 0;
+                return (
+                  <>
+                    <EditorHead eyebrow={`Preço, resposta ${i + 1} de ${frasesAntes.length}`} title={`${ordinal(i + 1)} pergunta de preço`}
+                      actions={<RemoveButton label="Remover resposta" onClick={() => { const next = frasesAntes.filter((_, k) => k !== i); setSelPrice('depois'); void persist({ ...config, preco: { ...config.preco, frases_antes_qualificacao: next } }, 'Removeu resposta de preço'); }} />} />
+                    <Labeled label="O que o agente responde" htmlFor="pr" help="As quebras de linha são mantidas na mensagem."><Area id="pr" rows={8} value={frasesAntes[i] ?? ''} onChange={(v) => { const next = [...frasesAntes]; next[i] = v; setPreco({ frases_antes_qualificacao: next }); }} /></Labeled>
+                  </>
+                );
+              })()}
+            </section>
+          </>
         )}
 
         {/* ── Objeções e dúvidas ── */}
         {section === 'objecoes' && (
           <>
             <aside className={cn(CARD, card, 'w-full shrink-0 xl:w-[330px]')}>
-              <div className="flex flex-col gap-1 px-6 pb-3 pt-6"><h3 className="text-lg font-semibold text-foreground">Objeções</h3><p className="text-[13px] text-muted-foreground">Por prioridade</p></div>
+              <div className="flex flex-col gap-3 px-6 pb-3 pt-6"><h3 className="text-lg font-semibold text-foreground">Objeções e dúvidas</h3>
+                <div className="flex h-10 items-center gap-2 rounded-xl border border-border bg-muted px-3.5 dark:border-[#2A2A2A] dark:bg-[#181818]"><Search className="h-4 w-4 text-muted-foreground" /><input aria-label="Buscar" placeholder="Buscar" value={objSearch} onChange={(e) => setObjSearch(e.target.value)} className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground" /></div></div>
               <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-3">
-                {objecoes.map((o, i) => <ListRow key={o.id} num={i + 1} active={o.id === selO} title={o.titulo || o.id} sub={o.gatilhos[0]} onClick={() => setSelO(o.id)} />)}
+                {objFiltered.map((o) => <ListRow key={o.id} active={o.id === selO} title={o.titulo || o.id} sub={o.gatilhos[0]} onClick={() => setSelO(o.id)} />)}
               </div>
-              <div className="border-t border-border p-4"><button type="button" onClick={() => void adicionarObjecao()} className={cn('flex w-full items-center justify-center gap-2 py-2 text-sm font-semibold hover:underline', LIME)}><Plus className="h-4 w-4" />Adicionar objeção</button></div>
+              <div className="border-t border-border p-4"><button type="button" onClick={() => void adicionarObjecao()} className={cn('flex w-full items-center justify-center gap-2 py-2 text-sm font-semibold hover:underline', LIME)}><Plus className="h-4 w-4" />Adicionar objeção ou dúvida</button></div>
             </aside>
             <section className={cn(CARD, card, 'min-w-0 flex-1 gap-6 px-8 py-7')}>
               {selObjecao ? (
                 <>
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex flex-col gap-1.5"><p className="text-sm text-muted-foreground">Objeção {selObjecaoIdx + 1} de {objecoes.length}</p>
-                      <input aria-label="Título da objeção" value={selObjecao.titulo} onChange={(e) => mutarObjecao({ titulo: e.target.value })} className="min-w-[120px] max-w-full bg-transparent [field-sizing:content] text-[26px] font-semibold leading-8 tracking-tight text-foreground outline-none" /></div>
-                    <RemoveButton label="Remover objeção" onClick={() => void removerObjecao()} />
-                  </div>
-                  <Labeled label="Gatilhos" htmlFor="v3-obj-gatilhos" help="Exemplos de fala do lead, um por linha."><Area id="v3-obj-gatilhos" rows={3} value={joinLines(selObjecao.gatilhos)} onChange={(v) => mutarObjecao({ gatilhos: splitLines(v) })} /></Labeled>
-                  <Labeled label="Resposta" htmlFor="v3-obj-resposta" help="Um bloco por linha."><Area id="v3-obj-resposta" rows={3} value={joinLines(selObjecao.resposta)} onChange={(v) => mutarObjecao({ resposta: splitLines(v) })} /></Labeled>
-                  <div className="grid gap-x-5 gap-y-6 md:grid-cols-2">
-                    <Labeled label="Modo" htmlFor="v3-obj-modo">
-                      <select id="v3-obj-modo" className={INPUT} value={selObjecao.modo} onChange={(e) => mutarObjecao({ modo: e.target.value as 'literal' | 'livre' })}>
-                        <option value="literal">Literal (copia exatamente)</option>
-                        <option value="livre">Livre (a IA adapta)</option>
-                      </select>
+                  <EditorHead eyebrow={`Objeção ${selObjecaoIdx + 1} de ${objecoes.length}`}
+                    title={<input aria-label="Título da objeção" value={selObjecao.titulo} onChange={(e) => mutarObjecao({ titulo: e.target.value })} className="min-w-[120px] max-w-full bg-transparent [field-sizing:content] text-[28px] font-semibold leading-8 tracking-tight text-foreground outline-none" />}
+                    actions={<RemoveButton label="Remover" onClick={() => void removerObjecao()} />} />
+                  <Labeled label="Modo" help="Literal copia exatamente. Livre deixa a IA adaptar o texto.">
+                    <div className="flex w-fit items-center gap-0.5 rounded-full bg-muted p-1 dark:bg-[#141414]">{([['literal', 'Literal'], ['livre', 'Livre']] as const).map(([v, l]) => <button key={v} type="button" aria-pressed={selObjecao.modo === v} onClick={() => mutarObjecao({ modo: v })} className={cn('rounded-full px-5 py-2 text-sm transition-colors', selObjecao.modo === v ? 'bg-[#0F3D2B] font-semibold text-white' : 'font-medium text-muted-foreground hover:text-foreground')}>{l}</button>)}</div>
+                  </Labeled>
+                  <Labeled label="Como o lead costuma dizer isso" htmlFor="o-t"><Area id="o-t" rows={2} value={joinLines(selObjecao.gatilhos)} onChange={(v) => mutarObjecao({ gatilhos: splitLines(v) })} /></Labeled>
+                  {arr(selObjecao.resposta).map((sc, i) => (
+                    <Labeled key={i} label={`Resposta ${i + 1}`} htmlFor={`o-s${i}`}>
+                      <Area id={`o-s${i}`} rows={3} value={sc} onChange={(v) => { const list = [...arr(selObjecao.resposta)]; list[i] = v; mutarObjecao({ resposta: list }); }} />
+                      <div className="flex items-center justify-between"><span className="text-[13px] text-muted-foreground">{i === 0 ? 'usada uma vez por conversa' : 'usada quando o lead repete'}</span>{arr(selObjecao.resposta).length > 1 && <button type="button" className="text-[13px] font-semibold text-destructive hover:underline" onClick={() => { const list = arr(selObjecao.resposta).filter((_, k) => k !== i); mutarObjecao({ resposta: list }); }}>Remover resposta</button>}</div>
                     </Labeled>
+                  ))}
+                  <button type="button" onClick={() => mutarObjecao({ resposta: [...arr(selObjecao.resposta), ''] })} className={cn('flex w-fit items-center gap-2 text-sm font-semibold hover:underline', LIME)}><Plus className="h-4 w-4" />Adicionar outra resposta</button>
+                  <div className="grid gap-x-5 gap-y-6 md:grid-cols-2">
                     <Labeled label="Depois de responder" htmlFor="v3-obj-acao">
                       <select id="v3-obj-acao" className={INPUT} value={selObjecao.proxima_acao} onChange={(e) => mutarObjecao({ proxima_acao: e.target.value as ProximaAcaoObjecao })}>
                         {ACOES.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
@@ -340,28 +424,42 @@ export function SdrConversaV3() {
                     </Labeled>
                     <Labeled label="Prioridade" htmlFor="v3-obj-prioridade" help="Quando duas objeções batem, vale a de menor número."><input id="v3-obj-prioridade" type="number" min={1} className={cn(INPUT, 'max-w-[140px]')} value={selObjecao.prioridade} onChange={(e) => mutarObjecao({ prioridade: Math.max(1, Number(e.target.value) || 1) })} /></Labeled>
                   </div>
-                  <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-muted/40 px-5 py-4 dark:border-[#2A2A2A] dark:bg-[#161616]">
-                    <div className="flex flex-col gap-1"><p className="text-[15px] font-semibold text-foreground">Conta como recusa</p><p className="text-[13px] text-muted-foreground">Se marcada, essa objeção soma pro limite de recusas que encerra a conversa.</p></div>
-                    <Toggle on={selObjecao.conta_como_recusa} onChange={(v) => mutarObjecao({ conta_como_recusa: v })} label="Conta como recusa" />
+                  <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/40 px-6 py-5 dark:border-[#2A2A2A] dark:bg-[#141414]">
+                    <div className="flex items-center justify-between gap-4"><p className="text-base font-semibold text-foreground">Conta como recusa</p><Toggle on={selObjecao.conta_como_recusa} onChange={(v) => mutarObjecao({ conta_como_recusa: v })} label="Conta como recusa" /></div>
+                    <p className="text-sm leading-[150%] text-muted-foreground">Se marcada, essa objeção soma para o limite de recusas que encerra a conversa.</p>
                   </div>
                 </>
-              ) : <p className="py-16 text-center text-muted-foreground">Escolha uma objeção na lista, ou adicione uma nova.</p>}
+              ) : <p className="py-16 text-center text-muted-foreground">Escolha uma objeção ou dúvida na lista.</p>}
             </section>
           </>
         )}
 
         {/* ── Encerramentos ── */}
         {section === 'encerramentos' && (
-          <section className={cn(CARD, card, 'min-w-0 flex-1 gap-6 px-8 py-8')}>
-            <div className="flex flex-col gap-1"><h3 className="text-lg font-semibold text-foreground">Encerramentos</h3><p className="text-[13px] text-muted-foreground">Como a conversa termina, e como o agente passa pra uma pessoa.</p></div>
-            <Labeled label="Recusas até encerrar" htmlFor="v3-recusas" help="Quantas vezes o lead pode recusar antes do agente parar de insistir."><input id="v3-recusas" type="number" min={1} className={cn(INPUT, 'max-w-[140px]')} value={config.limites?.recusas_para_encerrar ?? 2} onChange={(e) => scheduleSave({ ...config, limites: { ...config.limites, recusas_para_encerrar: Math.max(1, Number(e.target.value) || 1) } }, 'Editou recusas para encerrar')} /></Labeled>
-            <Labeled label="Frase pra chamar a pessoa" htmlFor="v3-escala-frase"><Area id="v3-escala-frase" rows={2} value={config.escala?.frase ?? ''} onChange={(v) => scheduleSave({ ...config, escala: { ...config.escala, frase: v } }, 'Editou frase de escalar')} /></Labeled>
-            <Labeled label="Frase pra chamar a pessoa (dúvida sem resposta)" htmlFor="v3-escala-duvida"><Area id="v3-escala-duvida" rows={2} value={config.escala?.frase_duvida ?? ''} onChange={(v) => scheduleSave({ ...config, escala: { ...config.escala, frase_duvida: v } }, 'Editou frase de dúvida')} /></Labeled>
-            <Labeled label="Nome de quem assume (escalonamento)" htmlFor="v3-escala-nome"><input id="v3-escala-nome" className={INPUT} value={config.escala?.nome_humano ?? ''} onChange={(e) => scheduleSave({ ...config, escala: { ...config.escala, nome_humano: e.target.value } }, 'Editou nome de quem assume')} /></Labeled>
-            <Labeled label="Agradecimento final" optional htmlFor="v3-agradecimento"><Area id="v3-agradecimento" rows={2} value={config.agradecimento_fim?.frase ?? ''} onChange={(v) => scheduleSave({ ...config, agradecimento_fim: { frase: v } }, 'Editou agradecimento final')} /></Labeled>
-            <Labeled label="Quando o lead repete uma objeção já respondida" optional htmlFor="v3-obj-repetida"><Area id="v3-obj-repetida" rows={2} value={config.objecao_repetida?.frase ?? ''} onChange={(v) => scheduleSave({ ...config, objecao_repetida: { frase: v } }, 'Editou objeção repetida')} /></Labeled>
-            <Labeled label="Encerramento depois do limite de recusas" optional htmlFor="v3-encerra-recusas"><Area id="v3-encerra-recusas" rows={2} value={config.encerramento_recusas?.frase ?? ''} onChange={(v) => scheduleSave({ ...config, encerramento_recusas: { frase: v } }, 'Editou encerramento por recusas')} /></Labeled>
-          </section>
+          <>
+            <aside className={cn(CARD, card, 'w-full shrink-0 xl:w-[330px]')}>
+              <div className="flex flex-col gap-1 px-6 pb-3 pt-6"><h3 className="text-lg font-semibold text-foreground">Encerramentos</h3><p className="text-[13px] leading-[150%] text-muted-foreground">O que o agente diz quando a conversa sai do roteiro.</p></div>
+              <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-3">
+                <p className="px-3.5 pb-1 pt-3 text-[13px] font-semibold text-muted-foreground">Mensagens</p>
+                {encItems.map((it) => <ListRow key={it.id} active={selEnc === it.id} title={it.title} sub={it.sub} onClick={() => setSelEnc(it.id)} />)}
+                <p className="px-3.5 pb-1 pt-4 text-[13px] font-semibold text-muted-foreground">Ajustes</p>
+                <ListRow active={selEnc === 'recusas'} title="Recusas até encerrar" onClick={() => setSelEnc('recusas')} right={<span className="text-sm font-semibold text-muted-foreground">{config.limites?.recusas_para_encerrar ?? 2}</span>} />
+              </div>
+            </aside>
+            <section className={cn(CARD, card, 'min-w-0 flex-1 gap-6 px-8 py-7')}>
+              {selEnc === 'recusas' ? (
+                <>
+                  <EditorHead eyebrow="Ajuste" title="Recusas até encerrar" subtitle="Quantas vezes o lead pode recusar antes do agente parar de insistir." />
+                  <Labeled label="Recusas" htmlFor="v3-recusas"><input id="v3-recusas" type="number" min={1} className={cn(INPUT, 'max-w-[140px]')} value={config.limites?.recusas_para_encerrar ?? 2} onChange={(e) => scheduleSave({ ...config, limites: { ...config.limites, recusas_para_encerrar: Math.max(1, Number(e.target.value) || 1) } }, 'Editou recusas para encerrar')} /></Labeled>
+                </>
+              ) : (
+                <>
+                  <EditorHead eyebrow="Encerramento" title={selEncItem.title} />
+                  <Labeled label="Mensagem" optional htmlFor="v3-enc"><Area id="v3-enc" rows={selEncItem.rows} value={selEncItem.get()} onChange={selEncItem.set} /></Labeled>
+                </>
+              )}
+            </section>
+          </>
         )}
       </div>
     </div>
