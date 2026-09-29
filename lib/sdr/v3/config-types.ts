@@ -19,6 +19,12 @@ export interface PerguntaQualificacao {
   reformulacao?: string
   /** EXTENSÃO: dá ao extrator uma dica de como formatar o que guarda em `campo` (sem isso, texto livre). */
   campo_tipo?: 'texto' | 'sim_nao' | 'link_ou_print'
+  /** EXTENSÃO: rótulo do campo principal no card "O que o agente guarda no lead". Sem isso, usa o próprio `campo`. */
+  campo_label?: string
+  /** EXTENSÃO: descrição do campo principal, mostrada no card. */
+  campo_descricao?: string
+  /** EXTENSÃO: outros dados que a mesma pergunta também preenche (ex.: "confirma decisor" junto com "nome do decisor"). */
+  campos_extra?: { campo: string; label: string; tipo: 'texto' | 'sim_nao' | 'link_ou_print'; descricao?: string; opcional?: boolean }[]
 }
 
 export interface ObjecaoConfig {

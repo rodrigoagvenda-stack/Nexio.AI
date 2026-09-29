@@ -18,7 +18,8 @@ const CAMPOS_FIXOS = ['nome', 'nome_completo', 'segmento', 'cidade', 'email', 'd
 
 export function camposDeDados(config: CompanyConfig): string[] {
   const escopo = config.preco.por_escopo?.campo
-  return [...new Set([...CAMPOS_FIXOS, ...config.qualificacao.perguntas.map((q) => q.campo), ...(escopo ? [escopo] : [])])]
+  const extras = config.qualificacao.perguntas.flatMap((q) => q.campos_extra?.map((c) => c.campo) ?? [])
+  return [...new Set([...CAMPOS_FIXOS, ...config.qualificacao.perguntas.map((q) => q.campo), ...extras, ...(escopo ? [escopo] : [])])]
 }
 
 export function schemaExtracao(config: CompanyConfig) {
@@ -72,7 +73,10 @@ function promptSistema(config: CompanyConfig, estado: Estado, agoraSp: string, a
     .join('\n')
   const tipoHint: Record<string, string> = { sim_nao: ' (responda "sim" ou "nao")', link_ou_print: ' (um link, ou "print enviado" se o lead mandou imagem)' }
   const perguntas = config.qualificacao.perguntas
-    .map((q) => `- campo "${q.campo}"${q.campo_tipo ? tipoHint[q.campo_tipo] ?? '' : ''}: ${q.texto.replace(/\{[^}]*\}/g, '').trim()}`)
+    .map((q) => {
+      const extras = (q.campos_extra ?? []).map((c) => `\n  também extraia campo "${c.campo}"${tipoHint[c.tipo] ?? ''}: ${c.descricao || c.label}`).join('')
+      return `- campo "${q.campo}"${q.campo_tipo ? tipoHint[q.campo_tipo] ?? '' : ''}: ${q.texto.replace(/\{[^}]*\}/g, '').trim()}${extras}`
+    })
     .join('\n')
   const pe = config.preco.por_escopo
   const escopo = pe

@@ -54,6 +54,29 @@ function Labeled({ label, optional, help, children, htmlFor }: { label: string; 
 function Area({ value, onChange, rows = 3, id, placeholder }: { value: string; onChange: (v: string) => void; rows?: number; id?: string; placeholder?: string }) {
   return <textarea id={id} rows={rows} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className={cn(INPUT, 'resize-y leading-[160%]')} />;
 }
+const TIPO_LABEL: Record<string, string> = { texto: 'Texto', sim_nao: 'Sim ou não', link_ou_print: 'Link ou print' };
+function CampoCard({ label, onLabel, labelPlaceholder, campo, onCampo, tipo, onTipo, descricao, onDescricao, opcional, onOpcional, onRemover }: {
+  label: string; onLabel: (v: string) => void; labelPlaceholder?: string;
+  campo: string; onCampo: (v: string) => void;
+  tipo: 'texto' | 'sim_nao' | 'link_ou_print'; onTipo: (v: 'texto' | 'sim_nao' | 'link_ou_print') => void;
+  descricao: string; onDescricao: (v: string) => void;
+  opcional?: boolean; onOpcional?: (v: boolean) => void; onRemover?: () => void;
+}) {
+  return (
+    <div className="flex min-w-[220px] flex-1 flex-col gap-2 rounded-xl border border-border bg-muted/40 px-4 py-3.5 dark:border-[#2A2A2A] dark:bg-[#181818]">
+      <div className="flex items-center justify-between gap-2">
+        <input aria-label="Rótulo" value={label} placeholder={labelPlaceholder} onChange={(e) => onLabel(e.target.value)} className="min-w-0 flex-1 bg-transparent text-[14.5px] font-semibold text-foreground outline-none placeholder:text-muted-foreground" />
+        <select aria-label="Tipo" value={tipo} onChange={(e) => onTipo(e.target.value as 'texto' | 'sim_nao' | 'link_ou_print')} className="shrink-0 rounded-full bg-[#0F3D2B] px-2.5 py-0.5 text-[12.5px] font-semibold text-[#96F63C] outline-none dark:bg-[#0F3D2B]">
+          {(['texto', 'sim_nao', 'link_ou_print'] as const).map((t) => <option key={t} value={t}>{TIPO_LABEL[t]}</option>)}
+        </select>
+      </div>
+      {onOpcional && <label className="flex w-fit items-center gap-1.5 text-[12.5px] text-muted-foreground"><input type="checkbox" checked={!!opcional} onChange={(e) => onOpcional(e.target.checked)} />opcional</label>}
+      <input aria-label="Campo (chave interna)" value={campo} onChange={(e) => onCampo(e.target.value)} className="rounded-lg bg-transparent text-[13px] text-muted-foreground outline-none" />
+      <textarea aria-label="Descrição" rows={2} value={descricao} onChange={(e) => onDescricao(e.target.value)} placeholder="O que esse dado guarda" className="resize-y bg-transparent text-[13.5px] leading-[145%] text-muted-foreground outline-none placeholder:text-muted-foreground/70" />
+      {onRemover && <button type="button" onClick={onRemover} className="w-fit text-[12.5px] font-semibold text-destructive hover:underline">Remover</button>}
+    </div>
+  );
+}
 function ListRow({ active, title, sub, num, right, onClick }: { active: boolean; title: string; sub?: string; num?: React.ReactNode; right?: React.ReactNode; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} aria-current={active ? 'true' : undefined} className={cn('flex items-center gap-3 rounded-xl px-3.5 py-3 text-left transition-colors', active ? 'bg-[#E4F1E9] dark:bg-[#12301F]' : 'hover:bg-muted')}>
@@ -174,6 +197,22 @@ export function SdrConversaV3() {
     const next = { ...config, qualificacao: { perguntas: perguntas.map((p) => (p.id === sel.id ? { ...p, ...patch } : p)) } };
     scheduleSave(next, `Editou pergunta "${sel.id}"`);
   };
+  const mutarCampoExtra = (i: number, patch: Partial<NonNullable<PerguntaQualificacao['campos_extra']>[number]>) => {
+    const sel = perguntas.find((p) => p.id === selQ); if (!sel) return;
+    const campos_extra = (sel.campos_extra ?? []).map((c, k) => (k === i ? { ...c, ...patch } : c));
+    mutarPergunta({ campos_extra });
+  };
+  const adicionarCampoExtra = () => {
+    const sel = perguntas.find((p) => p.id === selQ); if (!sel) return;
+    let n = (sel.campos_extra?.length ?? 0) + 1;
+    while (sel.campos_extra?.some((c) => c.campo === `${sel.campo}_extra_${n}`)) n++;
+    const novo = { campo: `${sel.campo}_extra_${n}`, label: 'Novo dado', tipo: 'texto' as const };
+    mutarPergunta({ campos_extra: [...(sel.campos_extra ?? []), novo] });
+  };
+  const removerCampoExtra = (i: number) => {
+    const sel = perguntas.find((p) => p.id === selQ); if (!sel) return;
+    mutarPergunta({ campos_extra: (sel.campos_extra ?? []).filter((_, k) => k !== i) });
+  };
   const removerPergunta = async () => {
     const sel = perguntas.find((p) => p.id === selQ); if (!sel) return;
     if (perguntas.length <= 1) { toast({ title: 'Precisa de pelo menos uma pergunta', variant: 'warning' }); return; }
@@ -279,14 +318,14 @@ export function SdrConversaV3() {
               <div className="flex flex-col gap-2"><h2 className="text-2xl font-semibold text-foreground">Como você quer montar as perguntas?</h2><p className="text-[15px] text-muted-foreground">Escolha um ponto de partida. Você edita, adiciona e remove pergunta depois, do jeito que quiser.</p></div>
               <div className="grid gap-5 md:grid-cols-3">
                 {([
-                  { tipo: 'zero' as const, nome: 'Do zero', desc: 'Monta a lista de perguntas você mesmo, sem ponto de partida.', tag: null as string | null },
+                  { tipo: 'zero' as const, nome: 'Do zero', desc: 'Monta a lista de perguntas você mesmo, sem ponto de partida.', tag: 'Lista em branco, você adiciona pergunta por pergunta.' },
                   { tipo: 'bant' as const, nome: 'BANT', desc: 'O clássico. Rápido, direto, ótimo pra qualificação de primeiro contato.', tag: 'Orçamento · Decisor · Necessidade · Prazo' },
                   { tipo: 'spiced' as const, nome: 'SPICED', desc: 'Mais fundo. Bom pra negócio de ticket mais alto ou ciclo mais longo.', tag: 'Situação · Dor · Impacto · Evento crítico · Decisão' },
                 ]).map((c) => (
-                  <div key={c.tipo} className={cn(CARD, 'flex flex-col gap-5 p-7', c.tipo === 'bant' && 'border-[#01573C] dark:border-[#96F63C]/50')}>
+                  <div key={c.tipo} className={cn(CARD, 'flex flex-col gap-5 p-7', c.tipo === 'bant' && 'border-[1.5px] border-[#01573C] dark:border-[#96F63C]/50')}>
                     <div className="flex flex-col gap-1.5"><h3 className="text-lg font-semibold text-foreground">{c.nome}</h3><p className="text-[13.5px] leading-[145%] text-muted-foreground">{c.desc}</p></div>
-                    <p className="flex-1 text-[13px] text-muted-foreground">{c.tag ?? ''}</p>
-                    <button type="button" onClick={() => void escolherFramework(c.tipo)} className={cn(c.tipo === 'bant' ? PILL_GREEN : PILL3D, 'w-full')}>{c.tipo === 'zero' ? 'Começar do zero' : `Usar ${c.nome}`}</button>
+                    <p className="flex-1 text-[13px] text-muted-foreground">{c.tag}</p>
+                    <button type="button" onClick={() => void escolherFramework(c.tipo)} className={cn(c.tipo === 'bant' ? PILL_GREEN : PILL3D, 'w-full', c.tipo === 'bant' && 'font-bold')}>{c.tipo === 'zero' ? 'Começar do zero' : `Usar ${c.nome}`}</button>
                   </div>
                 ))}
               </div>
@@ -317,18 +356,29 @@ export function SdrConversaV3() {
                     <Labeled label="Se o lead não responder direito" optional htmlFor="v3-reform" help="Usada quando a pergunta precisa ser refeita. Vazio: o agente reformula sozinho."><Area id="v3-reform" rows={2} value={selPergunta.reformulacao ?? ''} onChange={(v) => mutarPergunta({ reformulacao: v || undefined })} /></Labeled>
                     <div className="flex flex-col gap-3">
                       <p className="text-[15px] font-semibold text-foreground">O que o agente guarda no lead</p>
-                      <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/40 px-5 py-4 dark:border-[#2A2A2A] dark:bg-[#141414]">
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <Labeled label="Campo" htmlFor="v3-campo" help="Nome interno usado pelo motor pra saber se já foi respondida."><input id="v3-campo" className={INPUT} value={selPergunta.campo} onChange={(e) => mutarPergunta({ campo: e.target.value })} /></Labeled>
-                          <Labeled label="Tipo" htmlFor="v3-campo-tipo">
-                            <select id="v3-campo-tipo" className={INPUT} value={selPergunta.campo_tipo ?? 'texto'} onChange={(e) => mutarPergunta({ campo_tipo: e.target.value === 'texto' ? undefined : (e.target.value as 'sim_nao' | 'link_ou_print') })}>
-                              <option value="texto">Texto</option>
-                              <option value="sim_nao">Sim ou não</option>
-                              <option value="link_ou_print">Link ou print</option>
-                            </select>
-                          </Labeled>
-                        </div>
+                      <div className="flex flex-wrap gap-3">
+                        <CampoCard
+                          label={selPergunta.campo_label ?? ''} onLabel={(v) => mutarPergunta({ campo_label: v || undefined })} labelPlaceholder={selPergunta.campo}
+                          campo={selPergunta.campo} onCampo={(v) => mutarPergunta({ campo: v })}
+                          tipo={selPergunta.campo_tipo ?? 'texto'} onTipo={(v) => mutarPergunta({ campo_tipo: v === 'texto' ? undefined : v })}
+                          descricao={selPergunta.campo_descricao ?? ''} onDescricao={(v) => mutarPergunta({ campo_descricao: v || undefined })}
+                        />
+                        {(selPergunta.campos_extra ?? []).map((c, i) => (
+                          <CampoCard key={i}
+                            label={c.label} onLabel={(v) => mutarCampoExtra(i, { label: v })}
+                            campo={c.campo} onCampo={(v) => mutarCampoExtra(i, { campo: v })}
+                            tipo={c.tipo} onTipo={(v) => mutarCampoExtra(i, { tipo: v })}
+                            descricao={c.descricao ?? ''} onDescricao={(v) => mutarCampoExtra(i, { descricao: v || undefined })}
+                            opcional={!!c.opcional} onOpcional={(v) => mutarCampoExtra(i, { opcional: v || undefined })}
+                            onRemover={() => removerCampoExtra(i)}
+                          />
+                        ))}
+                        <button type="button" onClick={() => adicionarCampoExtra()} className="flex min-w-[220px] flex-1 items-center justify-center gap-2 rounded-xl border border-dashed border-border py-3.5 text-sm font-semibold text-muted-foreground hover:text-foreground"><Plus className="h-4 w-4" />Adicionar dado</button>
                       </div>
+                    </div>
+                    <div className="flex flex-col gap-2 rounded-xl border border-dashed border-border px-4.5 py-4">
+                      <p className="text-[15px] font-semibold text-foreground">Depois, se precisar</p>
+                      <p className="text-[14.5px] leading-[150%] text-foreground/90">Se não responder, pergunta de novo com outras palavras antes de seguir pro próximo passo.</p>
                     </div>
                     <div><button type="button" onClick={() => retest(selPergunta.id)} className={PILL_GREEN}>Testar a partir desta pergunta</button></div>
                   </>
