@@ -6,7 +6,7 @@ import { AutomationsNav } from '@/components/automacoes/AutomationsNav';
 import { SubNav } from '@/components/sdr/ui';
 import { SdrResumo, type SdrGo } from '@/components/sdr/SdrResumo';
 import { SdrConversa } from '@/components/sdr/SdrConversa';
-import { SdrPerguntasV3 } from '@/components/sdr/SdrPerguntasV3';
+import { SdrConversaV3 } from '@/components/sdr/SdrConversaV3';
 import { ConfirmHost } from '@/components/sdr/ConfirmHost';
 import { SdrConhecimento } from '@/components/sdr/SdrConhecimento';
 import { SdrConexoes, normalizeSub, type ConSub } from '@/components/sdr/SdrConexoes';
@@ -73,7 +73,7 @@ export default function SdrPage() {
 
       {tab === 'conversa' && (
         (company as any)?.features?.sdr_v3 === true
-          ? <SdrPerguntasV3 />
+          ? <SdrConversaV3 />
           : <SdrConversa persona={cfg.persona} funnelActive={funnelOn} onFunnelActive={setFunnelOn} onSavePersona={(p) => save({ prompt: JSON.stringify(p) })} />
       )}
 
