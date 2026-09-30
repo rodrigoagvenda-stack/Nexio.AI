@@ -256,6 +256,12 @@ const escopoUmaVez = est({
 d = decidir(ex({ intencoes: ['pergunta_fato'], pergunta_fato: 'Você podia fazer uma análise?' }), escopoUmaVez, config, ctx())
 ok('pergunta obrigatória feita só 1x ainda: NÃO escala (ainda tem tentativa)', !d.acao.handoff, JSON.stringify(d.acao.handoff))
 
+// pergunta_fato NÃO cola a próxima pergunta de qualificação por cima (achado real, 01/10/2026: lead
+// perguntou "quais serviços tem?", recebeu a resposta certa e já veio a próxima pergunta colada na mesma
+// respirada, sem pausa — parece bot). Responde só o que foi perguntado; a qualificação segue no turno seguinte.
+d = decidir(ex({ intencoes: ['pergunta_fato'], pergunta_fato: 'Quais serviços vocês têm?' }), est({ dados: { negocio: 'dentista' } }), config, ctx())
+ok('pergunta_fato: responde sem colar a próxima pergunta do roteiro', d.acao.tipo === 'responder_fato' && !d.acao.proxima_pergunta, JSON.stringify(d.acao.proxima_pergunta))
+
 // 7g objeção classificada mas sem id reconhecido na lista configurada: antes era ignorada em silêncio
 d = decidir(ex({ intencoes: ['objecao'], objecao_id: null }), est(), config, ctx())
 ok('objeção sem id reconhecido: escala em vez de ignorar', d.acao.tipo === 'escalar_duvida', d.acao.tipo)

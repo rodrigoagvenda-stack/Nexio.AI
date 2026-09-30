@@ -247,6 +247,16 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     return a
   }
 
+  /** Só a parte de "pergunta obrigatória travada" do comPergunta acima, sem colar a próxima pergunta:
+   * usado em respostas que não devem emendar o roteiro na mesma respirada (ex.: responder_fato), mas que
+   * ainda precisam escalar se a qualificação estiver presa há 2 tentativas sem resposta reconhecível. */
+  const handoffSeTravado = (a: Acao): Acao => {
+    if (completa || a.handoff) return a
+    const travada = perguntaObrigatoriaEmperrada(estado, config)
+    if (travada) a.handoff = { motivo: `pergunta obrigatória "${travada.id}" sem resposta reconhecível após 2 tentativas` }
+    return a
+  }
+
   const escalar = (motivo: string, duvida = false): Decisao => ({
     estado: { ...estado, etapa: 'escalado' },
     acao: base(duvida ? 'escalar_duvida' : 'escalar', {
@@ -461,12 +471,17 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   }
 
   // 8. pergunta sobre fato (o RAG é consultado pelo turno; sem resultado e sem fatos na config vira escalar_duvida)
+  // NÃO cola a próxima pergunta de qualificação em cima da resposta (achado real, 01/10/2026: lead perguntou
+  // "quais serviços tem?", recebeu a resposta certa e, na mesma respirada, já veio "você vive só de indicação
+  // e boca a boca?" colado — parece bot justamente por responder e emendar o roteiro sem pausa nenhuma). O
+  // lead perguntou algo fora do roteiro por conta própria: merece só a resposta. A qualificação segue normal
+  // na mensagem seguinte dele, sem perder nada, só sem forçar a virada na mesma respirada.
   if (I.has('pergunta_fato') && perguntaFato) {
     const a = base('responder_fato', {
       consulta_rag: perguntaFato,
       fatos: (config.fatos ?? []).map((f) => ({ id: f.id, texto: f.texto })),
     })
-    return { estado, acao: comPergunta(a) }
+    return { estado, acao: handoffSeTravado(a) }
   }
 
   // 10. já existe reunião marcada: nunca reabre qualificação a partir daqui, mesmo que falte campo obrigatório
