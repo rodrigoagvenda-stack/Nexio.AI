@@ -21,7 +21,14 @@ export const MODELO_V3_FALLBACK = 'gpt-4.1'
  * `temperature` diferente de 1, o padrão ("Only the default (1) value is supported") — mesmo padrão dos
  * modelos de raciocínio da OpenAI. O GPT-4.1 do fallback aceita os dois do jeito antigo normalmente. Sem
  * esse ajuste por modelo, toda chamada caía pro fallback e o Sol nunca rodava de verdade (o fallback segurou
- * a onda certinho, nenhum lead ficou sem resposta, mas o modelo novo nunca chegava a ser usado). */
+ * a onda certinho, nenhum lead ficou sem resposta, mas o modelo novo nunca chegava a ser usado).
+ *
+ * 01/10/2026, 2º achado real: mesmo com max_completion_tokens alto, o Sol ainda podia devolver content vazio
+ * ("Unexpected end of JSON input" no JSON.parse). Causa, confirmada na documentação da OpenAI: reasoning_effort
+ * por padrão é "medium" pra modelo de raciocínio, e o raciocínio invisível consome do MESMO orçamento de
+ * max_completion_tokens antes de gerar o JSON de resposta — em "medium" dá pra estourar o teto inteiro só
+ * pensando, sem sobrar nada pro output. O Sol não aceita "none"/"minimal" (erro 400), só aceita a partir de
+ * "low", que é o que usamos aqui: reduz o raciocínio invisível ao mínimo suportado por esse modelo. */
 export async function chatV3(
   openai: OpenAI,
   params: Omit<OpenAI.Chat.ChatCompletionCreateParamsNonStreaming, 'model' | 'max_tokens' | 'max_completion_tokens' | 'temperature'> & { max_tokens?: number; temperature?: number },
@@ -32,7 +39,7 @@ export async function chatV3(
     ({
       ...resto,
       model,
-      ...(model === MODELO_V3 ? { max_completion_tokens: max_tokens } : { max_tokens, temperature }),
+      ...(model === MODELO_V3 ? { max_completion_tokens: max_tokens, reasoning_effort: 'low' } : { max_tokens, temperature }),
     }) as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming
   try {
     return await openai.chat.completions.create(comModelo(MODELO_V3))
