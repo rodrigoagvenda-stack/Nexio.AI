@@ -10,7 +10,7 @@
  */
 import type OpenAI from 'openai'
 import type { createServiceClient } from '@/lib/supabase/server'
-import { MODELO_V3 } from './extractor'
+import { chatV3 } from './extractor'
 
 type Supabase = ReturnType<typeof createServiceClient>
 
@@ -32,8 +32,7 @@ export async function atualizarResumoIA(
 ): Promise<void> {
   try {
     const novidades = Object.entries(p.dadosNovos).filter(([, v]) => v?.trim())
-    const completion = await openai.chat.completions.create({
-      model: MODELO_V3,
+    const completion = await chatV3(openai, {
       temperature: 0,
       max_tokens: 400,
       response_format: { type: 'json_schema', json_schema: { name: 'resumo', strict: true, schema: SCHEMA as any } },
@@ -53,7 +52,7 @@ REGRAS:
           content: `RESUMO ATUAL:\n${p.resumoAtual?.trim() || '(nenhum ainda)'}\n\nNESTE TURNO:\nLead disse: ${p.mensagemLead}\nSDR respondeu: ${p.respostaSdr}\n${novidades.length ? `Dados novos capturados: ${novidades.map(([k, v]) => `${k}=${v}`).join(', ')}` : ''}`,
         },
       ],
-    })
+    }, 'resumo')
     onUsage?.(completion, 'v3_resumo_ia')
     const raw = JSON.parse(completion.choices[0]?.message?.content ?? '{}')
     if (!raw.tem_novidade || typeof raw.resumo_ia !== 'string' || !raw.resumo_ia.trim()) return

@@ -1,10 +1,46 @@
 import { GRUPO_VENDA_CONFIG } from '@/lib/sdr/v3/grupo-venda-config'
 import { decidir, valorDitoPeloLead, type DecisorCtx } from '@/lib/sdr/v3/decider'
+import { chatV3, MODELO_V3, MODELO_V3_FALLBACK } from '@/lib/sdr/v3/extractor'
 import { corrigirMecanico, validar } from '@/lib/sdr/v3/validator'
 import { validateCompanyConfig } from '@/lib/sdr/v3/config-validate'
 import { filtroDisponibilidade, passaFiltro } from '@/lib/sdr/v3/agenda'
 import { checarPassos } from '@/lib/sdr/v3/template-check'
 import { ESTADO_INICIAL, type Extracao, type Estado } from '@/lib/sdr/v3/types'
+
+// chatV3: rede de segurança do modelo. Sol falhando (nome mudou, indisponível, schema recusado) cai pro
+// GPT-4.1 na hora, sem derrubar o turno (achado real, 30/09/2026: troca de modelo sem essa rede arrisca
+// parar TUDO de uma vez se o modelo novo não bater 100% com o que o código espera).
+async function testarChatV3() {
+  let chamadas: string[] = []
+  const okClient: any = { chat: { completions: { create: async (p: any) => { chamadas.push(p.model); return { choices: [{ message: { content: '{"ok":true}' } }] } } } } }
+  let r = await chatV3(okClient, { messages: [] } as any, 'teste')
+  ok('chatV3: modelo principal funcionando, usa só o Sol', chamadas.length === 1 && chamadas[0] === MODELO_V3, JSON.stringify(chamadas))
+
+  chamadas = []
+  const falhaUmaVez: any = {
+    chat: {
+      completions: {
+        create: async (p: any) => {
+          chamadas.push(p.model)
+          if (p.model === MODELO_V3) throw new Error('modelo indisponível')
+          return { choices: [{ message: { content: '{"ok":true}' } }] }
+        },
+      },
+    },
+  }
+  r = await chatV3(falhaUmaVez, { messages: [] } as any, 'teste')
+  ok('chatV3: Sol falha, cai pro fallback automaticamente', chamadas.length === 2 && chamadas[0] === MODELO_V3 && chamadas[1] === MODELO_V3_FALLBACK, JSON.stringify(chamadas))
+  ok('chatV3: resposta do fallback chega normal, sem derrubar o turno', JSON.parse(r.choices[0]?.message?.content ?? '{}').ok === true)
+
+  const falhaSempre: any = { chat: { completions: { create: async () => { throw new Error('conta sem crédito') } } } }
+  let lancou = false
+  try {
+    await chatV3(falhaSempre, { messages: [] } as any, 'teste')
+  } catch {
+    lancou = true
+  }
+  ok('chatV3: os dois modelos falham, propaga o erro (não finge sucesso)', lancou)
+}
 
 const config: any = { ...GRUPO_VENDA_CONFIG, version: 3, agendamento: { ativo: true, calendario_id: 'x' } }
 let falhas = 0
@@ -224,6 +260,13 @@ ok('pergunta obrigatória feita só 1x ainda: NÃO escala (ainda tem tentativa)'
 d = decidir(ex({ intencoes: ['objecao'], objecao_id: null }), est(), config, ctx())
 ok('objeção sem id reconhecido: escala em vez de ignorar', d.acao.tipo === 'escalar_duvida', d.acao.tipo)
 
+// 7g2 objecao_id preenchido mas SEM a tag "objecao" na lista de intenções (achado real, lead Roberto/conv941,
+// 30/09/2026: a IA reconheceu "tem uma agência que cuida das otimizações" = ja_uso_outra_coisa, mas esqueceu
+// de marcar objecao em intencoes; a regra inteira era pulada e o lead seguia pro roteiro como se não tivesse
+// dito nada relevante). objecao_id sozinho já precisa disparar a regra.
+d = decidir(ex({ intencoes: ['resposta_qualificacao'], objecao_id: 'ja_uso_outra_coisa' }), est(), config, ctx())
+ok('objecao_id preenchido sem a tag "objecao": ainda assim responde a objeção', d.acao.tipo === 'responder_objecao', d.acao.tipo)
+
 d = decidir(ex({ intencoes: ['pede_pagamento'] }), est(), config, ctx())
 ok('pagamento sem cobrança ativa escala', d.acao.tipo === 'escalar')
 d = decidir(ex({ intencoes: ['pede_pagamento'] }), est({ dados: { nome: 'Ana' } }), config, ctx({ cobrancaAtiva: true }))
@@ -431,5 +474,7 @@ const cfgEscopoOrfao: any = { ...config, preco: { ...config.preco, por_escopo: {
 const vEscopoOrfao = validateCompanyConfig(cfgEscopoOrfao)
 ok('config-validate: acusa erro quando o campo do escopo não bate com nenhuma pergunta', vEscopoOrfao.erros.some((e) => e.includes('não corresponde a nenhuma pergunta')), vEscopoOrfao.erros.join(' | '))
 
-console.log(falhas === 0 ? '\nTODOS OK' : `\n${falhas} FALHA(S)`)
-process.exit(falhas === 0 ? 0 : 1)
+testarChatV3().then(() => {
+  console.log(falhas === 0 ? '\nTODOS OK' : `\n${falhas} FALHA(S)`)
+  process.exit(falhas === 0 ? 0 : 1)
+})

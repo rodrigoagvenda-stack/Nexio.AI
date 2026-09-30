@@ -38,7 +38,10 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
         obrigatoria: true,
         campo: 'orcamento_declarado',
         titulo: 'Orçamento',
-        texto: '{nome}, hoje você tem orçamento reservado pra resolver isso, ou ainda não pensou nesse investimento?',
+        // "isso" sozinho sem nomear o assunto confundiu um lead mais avançado, já com boa presença no Google
+        // (achado real, lead Roberto/conv941, 30/09/2026: "Qual investimento? Seja mais clara"). Nomeia o
+        // assunto explicitamente, pra valer pra qualquer lead, independente do que veio antes na conversa.
+        texto: '{nome}, pra melhorar sua presença no Google, você já tem orçamento reservado pra isso, ou ainda não avaliou esse investimento?',
         valor_minimo_aceitavel: { valor: 1199, frase_recusa: 'Poxa {nome}, entendo. No momento não consigo te ajudar, mas se isso mudar é só me chamar por aqui.' },
       },
       // Mesmo texto de preco.por_escopo.pergunta (se mudar um, muda o outro). Por último: só decide o plano exato

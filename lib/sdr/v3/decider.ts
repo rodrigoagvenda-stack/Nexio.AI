@@ -391,7 +391,13 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   }
 
   // 5. objeção
-  if (I.has('objecao')) {
+  // Dispara por I.has('objecao') OU por objecao_id sozinho: achado real (lead Roberto/conv941, 30/09/2026) —
+  // a IA reconheceu certinho a objeção ("tem uma agência que cuida das otimizações" = ja_uso_outra_coisa,
+  // objecao_id preenchido), mas esqueceu de marcar "objecao" na lista de intenções. Sem esse OR, a regra
+  // inteira nunca rodava, a resposta configurada pra essa objeção nunca saía, e o SDR seguia pra próxima
+  // pergunta do roteiro como se o lead não tivesse dito nada relevante. objecao_id preenchido já é prova
+  // suficiente: o extrator só deixa passar quando bate com um id real da lista configurada.
+  if (I.has('objecao') || ex.objecao_id) {
     // Classificou como objeção mas não bateu com nenhum id configurado (extractor.ts só deixa objecao_id
     // passar quando está na lista): sem isso, a regra inteira era pulada em silêncio e a objeção real do
     // lead nunca recebia resposta nenhuma. Escala em vez de ignorar.

@@ -6,7 +6,27 @@ import type OpenAI from 'openai'
 import type { CompanyConfig } from './config-types'
 import { INTENCOES, type Estado, type Extracao } from './types'
 
-export const MODELO_V3 = 'gpt-4.1'
+// Trocado de gpt-4.1 pra gpt-5.6-sol (30/09/2026, a pedido do Rodrigo): confirmado à mão no Playground da
+// OpenAI (nome do modelo existe na conta, structured output com schema estrito aceito sem erro) antes de
+// subir. MODELO_V3_FALLBACK é a rede de segurança: se o Sol falhar por qualquer motivo (nome mudar, ficar
+// indisponível, parar de aceitar o schema), o turno cai pro modelo antigo na hora, sem derrubar o lead.
+export const MODELO_V3 = 'gpt-5.6-sol'
+export const MODELO_V3_FALLBACK = 'gpt-4.1'
+
+/** Chama o modelo principal do v3; se falhar, cai pro fallback automaticamente, sem derrubar o turno.
+ * `params` é tudo que chat.completions.create espera, menos o `model` (isso quem decide é esta função). */
+export async function chatV3(
+  openai: OpenAI,
+  params: Omit<OpenAI.Chat.ChatCompletionCreateParamsNonStreaming, 'model'>,
+  agente: string,
+): Promise<OpenAI.Chat.ChatCompletion> {
+  try {
+    return await openai.chat.completions.create({ ...params, model: MODELO_V3 } as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming)
+  } catch (err: any) {
+    console.error(`[SDR v3] ${agente}: ${MODELO_V3} falhou, caindo pro fallback (${MODELO_V3_FALLBACK}):`, err?.message)
+    return await openai.chat.completions.create({ ...params, model: MODELO_V3_FALLBACK } as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming)
+  }
+}
 
 export interface MsgHist {
   role: 'user' | 'assistant' | 'system'
@@ -114,6 +134,7 @@ ${perguntas}
 ${escopo}
 REGRAS
 - "dados" recebe SOMENTE o que o LEAD disse em qualquer mensagem do trecho abaixo. Nada inferido, nada que o agente tenha escrito, nada do nome de perfil do WhatsApp. Uma resposta curta ("sim", "não", "sou eu") vale para a pergunta que o agente acabou de fazer. Campo sem informação = null.
+- A primeira mensagem do lead costuma ser o texto fixo do próprio anúncio (ex.: "Vi o anúncio e quero saber por que meu negócio não aparece no Google"), igual para todo mundo que clicou, não uma frase que ele escreveu sobre a empresa dele. NUNCA preencha nenhum campo de dados a partir dessa frase de gancho (ex.: NÃO preencha "aparece no Google" como "nao" só porque essa é a frase padrão do anúncio): só preenche quando o lead disser isso com as próprias palavras, fora do gancho do anúncio.
 - Para o campo "negocio": preencha com o que o lead disse do negócio (nome, ramo, cidade) em uma frase curta. Preencha também segmento e cidade quando ele disse.
 - Para os campos de sim ou não (perfil no Google, decisor, site, anúncio, indicação): responda "sim" ou "nao" e, se ele deu detalhe (link, print, nome da pessoa), acrescente depois de dois-pontos. Print ou link enviado como resposta a "tem perfil no Google?" vale "sim".
 - nome_completo só quando o lead deu nome e sobrenome.
@@ -137,8 +158,7 @@ export async function extrair(
   onUsage?: (c: OpenAI.Chat.ChatCompletion, agent: string) => void,
 ): Promise<Extracao> {
   const agoraSp = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
-  const completion = await openai.chat.completions.create({
-    model: MODELO_V3,
+  const completion = await chatV3(openai, {
     temperature: 0,
     max_tokens: 700,
     response_format: { type: 'json_schema', json_schema: { name: 'extracao', strict: true, schema: schemaExtracao(p.config) as any } },
@@ -146,7 +166,7 @@ export async function extrair(
       { role: 'system', content: promptSistema(p.config, p.estado, agoraSp, p.contextoAutomacao ?? null) },
       { role: 'user', content: `TRECHO DA CONVERSA:\n${fmtHist(p.historico)}\n\nMENSAGEM ATUAL DO LEAD (é a que você classifica):\n${p.mensagemAtual}` },
     ],
-  })
+  }, 'extrator')
   onUsage?.(completion, 'v3_extrator')
   const raw = JSON.parse(completion.choices[0]?.message?.content ?? '{}')
   const dados: Record<string, string> = {}

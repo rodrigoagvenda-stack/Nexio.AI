@@ -4,7 +4,7 @@
  */
 import type OpenAI from 'openai'
 import type { CompanyConfig } from './config-types'
-import { MODELO_V3, type MsgHist } from './extractor'
+import { chatV3, type MsgHist } from './extractor'
 import type { Acao } from './types'
 import type { Violacao } from './validator'
 
@@ -123,8 +123,7 @@ export async function redigir(
     (p.violacoes?.length
       ? `\nSua versão anterior foi recusada:\n${(p.anterior ?? []).map((b) => `> ${b}`).join('\n')}\nMotivos: ${p.violacoes.map((v) => `${v.regra} (${v.detalhe})`).join('; ')}.\nReescreva corrigindo isso.`
       : '')
-  const completion = await openai.chat.completions.create({
-    model: MODELO_V3,
+  const completion = await chatV3(openai, {
     temperature: 0.7,
     max_tokens: 700,
     response_format: {
@@ -144,7 +143,7 @@ export async function redigir(
       { role: 'system', content: promptRedator(p.config, p.acao, p.soReacao === true) },
       { role: 'user', content: user },
     ],
-  })
+  }, 'redator')
   onUsage?.(completion, 'v3_redator')
   const raw = JSON.parse(completion.choices[0]?.message?.content ?? '{}')
   const blocos = (Array.isArray(raw.blocos) ? raw.blocos : []).map((b: unknown) => String(b).trim()).filter(Boolean)
