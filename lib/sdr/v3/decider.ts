@@ -139,6 +139,16 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   const campoDe = (id: string) => config.qualificacao.perguntas.find((q) => q.id === id)?.campo
   for (const p of estado.perguntas_feitas) if (!p.respondida && campoDe(p.id) && filled(estado.dados, campoDe(p.id)!)) p.respondida = true
 
+  // Desiste de uma pergunta obrigatória travada depois de escalar por causa dela uma vez: sem isso, toda vez que
+  // o resto da qualificação fica completo em volta desse buraco, a mesma trava dispara handoff de novo, pausando
+  // a conversa repetidamente pro sempre a cada novo turno (achado real, lead Rodrigo/conv530, 30/09/2026: "aparece
+  // no Google?" nunca respondida escalou 2x seguidas, uma a cada vez que o resto do funil terminava de novo).
+  // Uma escalada por pergunta travada já avisa o humano; não precisa repetir pra sempre.
+  const desistirDe = (id: string) => {
+    const campo = campoDe(id)
+    if (campo && !filled(estado.dados, campo)) estado.dados[campo] = '(sem resposta)'
+  }
+
   // Travas de orçamento: rodam antes de qualquer outra regra, não faz sentido continuar qualificando quem já
   // deixou claro que não cabe no bolso. As duas só disparam no turno em que o campo é preenchido pela primeira
   // vez: nunca reabrem sozinhas depois, mesmo que o campo continue com o mesmo valor.
@@ -242,7 +252,10 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
       if (q.reformulada && !q.reformulacaoFixa) a.contexto.push('Esta pergunta já foi feita antes e não foi respondida: reformule com outras palavras, sem cobrar.')
     } else if (!a.handoff) {
       const travada = perguntaObrigatoriaEmperrada(estado, config)
-      if (travada) a.handoff = { motivo: `pergunta obrigatória "${travada.id}" sem resposta reconhecível após 2 tentativas` }
+      if (travada) {
+        a.handoff = { motivo: `pergunta obrigatória "${travada.id}" sem resposta reconhecível após 2 tentativas` }
+        desistirDe(travada.id)
+      }
     }
     return a
   }
@@ -253,7 +266,10 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   const handoffSeTravado = (a: Acao): Acao => {
     if (completa || a.handoff) return a
     const travada = perguntaObrigatoriaEmperrada(estado, config)
-    if (travada) a.handoff = { motivo: `pergunta obrigatória "${travada.id}" sem resposta reconhecível após 2 tentativas` }
+    if (travada) {
+      a.handoff = { motivo: `pergunta obrigatória "${travada.id}" sem resposta reconhecível após 2 tentativas` }
+      desistirDe(travada.id)
+    }
     return a
   }
 
@@ -606,7 +622,10 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     if (q.reformulada && !q.reformulacaoFixa) a.contexto.push('Esta pergunta já foi feita antes e não foi respondida: reformule com outras palavras, sem cobrar.')
   } else if (!abertura) {
     const travada = perguntaObrigatoriaEmperrada(estado, config)
-    if (travada) a.handoff = { motivo: `pergunta obrigatória "${travada.id}" sem resposta reconhecível após 2 tentativas` }
+    if (travada) {
+      a.handoff = { motivo: `pergunta obrigatória "${travada.id}" sem resposta reconhecível após 2 tentativas` }
+      desistirDe(travada.id)
+    }
   }
   if (abertura) {
     a.contexto.push(`Primeira mensagem da conversa: apresente-se pelo nome (${config.persona.nome_agente}) e pela empresa (${config.persona.empresa}).`)

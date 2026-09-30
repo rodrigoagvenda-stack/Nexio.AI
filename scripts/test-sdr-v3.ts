@@ -256,6 +256,17 @@ const escopoUmaVez = est({
 d = decidir(ex({ intencoes: ['pergunta_fato'], pergunta_fato: 'Você podia fazer uma análise?' }), escopoUmaVez, config, ctx())
 ok('pergunta obrigatória feita só 1x ainda: NÃO escala (ainda tem tentativa)', !d.acao.handoff, JSON.stringify(d.acao.handoff))
 
+// regressão real (lead Rodrigo/conv530, 30/09/2026): depois de escalar 1x por pergunta travada, nada desistia
+// dela — toda vez que o resto do funil terminava de novo (outras respostas chegando normal), a MESMA trava
+// disparava handoff de novo, pausando a conversa repetidamente pro sempre a cada novo turno.
+{
+  d = decidir(ex({ intencoes: ['pergunta_fato'], pergunta_fato: 'Você podia fazer uma análise?' }), escopoTravado, config, ctx())
+  ok('escalou 1x: desiste do campo travado (marca preenchido, não fica pra sempre com buraco)', d.estado.dados.escopo === '(sem resposta)', d.estado.dados.escopo)
+  // próximo turno, com o estado já "desistido": mesmo sem o lead ter respondido nada de novo, NÃO escala de novo
+  const d2 = decidir(ex({ intencoes: ['social'], social: { tipo: 'cumprimento', texto_do_lead: 'oi' } }), d.estado, config, ctx())
+  ok('turno seguinte, mesmo buraco: NÃO escala de novo (já desistiu, já avisou 1x)', !d2.acao.handoff, JSON.stringify(d2.acao.handoff))
+}
+
 // pergunta_fato NÃO cola a próxima pergunta de qualificação por cima (achado real, 01/10/2026: lead
 // perguntou "quais serviços tem?", recebeu a resposta certa e já veio a próxima pergunta colada na mesma
 // respirada, sem pausa — parece bot). Responde só o que foi perguntado; a qualificação segue no turno seguinte.
