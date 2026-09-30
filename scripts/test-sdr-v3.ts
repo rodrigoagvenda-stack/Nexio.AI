@@ -109,6 +109,16 @@ if (config.preco.por_escopo) {
   }
 }
 
+// 7a-bug: escolheu horário + perguntou como funciona na mesma mensagem: agendamento tem prioridade sobre
+// como_funciona/preço, não pode virar explicação de novo com pergunta de qualificação colada por cima
+// (achado real, lead Simone/conv923, 30/09/2026)
+{
+  const simone = est({ dados: { negocio: 'turismo', tem_perfil_google: 'sim', decisor: 'sim', escopo: 'gmn' }, etapa: 'oferta_horario', contadores: { ...ESTADO_INICIAL(2).contadores, horarios_ofertados: true } })
+  const d = decidir(ex({ intencoes: ['escolheu_horario', 'pergunta_como_funciona'], horario_escolhido: '2026-10-01T17:00:00' }), simone, config, ctx())
+  ok('escolheu horário + "como funciona" junto: prioriza o agendamento, não reabre como_funciona', d.acao.tipo === 'pedir_dados_agendamento', d.acao.tipo)
+  ok('não cola pergunta de qualificação (ex.: impacto) no meio disso', !d.acao.proxima_pergunta, JSON.stringify(d.acao.proxima_pergunta))
+}
+
 // 7a'' comentário curto a cada 2 respostas (spec seção 4)
 {
   const feitas = [{ id: config.qualificacao.perguntas[0].id, turno: 1, respondida: true }, { id: config.qualificacao.perguntas[1].id, turno: 2, respondida: false }]

@@ -256,6 +256,37 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     return encerrar(config.encerramento_recusas?.frase ?? config.escala.frase)
   }
 
+  // 2d. atalho de agendamento: horário e/ou e-mail informados. Prioridade alta, ANTES de como_funciona/preço/fato
+  // (achado real, lead Simone/conv923, 30/09/2026: ela escolheu "hoje às 17h" e perguntou "como funciona" na
+  // mesma mensagem; a regra de como_funciona rodava primeiro, respondia a explicação de novo e colava por cima
+  // uma pergunta de qualificação sem relação nenhuma com o que ela pediu, ignorando o horário que ela tinha
+  // acabado de escolher. Confirmar/pedir o que falta pro agendamento vale mais que responder uma pergunta a
+  // mais: quem já escolheu horário está a um passo de marcar, não é hora de reabrir explicação.
+  // Vale também com reunião já marcada: é uma remarcação. O turno cancela o evento antigo antes de criar o novo,
+  // nunca cria os dois sem cancelar; ver eventoParaCancelar em agenda.ts.
+  if (ctx.temCalendario && (I.has('escolheu_horario') || I.has('informou_email'))) {
+    const nomeCompleto = estado.dados.nome_completo || (estado.dados.nome?.trim().split(/\s+/).length >= 2 ? estado.dados.nome : '')
+    const horario = estado.dados.horario_escolhido
+    const email = estado.dados.email
+    if (horario && email && nomeCompleto) {
+      estado.etapa = 'confirmando'
+      return { estado, acao: base('agendar', { etapa_depois: 'agendado' }) }
+    }
+    if (horario || I.has('informou_email')) {
+      estado.etapa = 'confirmando'
+      const falta = [!nomeCompleto ? 'nome completo' : '', !email ? 'e-mail' : ''].filter(Boolean)
+      if (falta.length > 0) {
+        return {
+          estado,
+          acao: base('pedir_dados_agendamento', {
+            conteudo: { modo: 'livre', texto: `Pra enviar o convite, preciso do seu ${falta.join(' e ')}.` },
+            etapa_depois: 'confirmando',
+          }),
+        }
+      }
+    }
+  }
+
   // 3. fora do escopo
   if (I.has('fora_do_escopo')) {
     return { estado, acao: comPergunta(base('responder_fora_escopo', { conteudo: { modo: 'literal', texto: config.fora_escopo.frase } })) }
@@ -376,33 +407,6 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
       fatos: (config.fatos ?? []).map((f) => ({ id: f.id, texto: f.texto })),
     })
     return { estado, acao: comPergunta(a) }
-  }
-
-  // 9. atalhos de agendamento: horário e/ou e-mail informados
-  // (vale também com reunião já marcada: é uma remarcação. O turno cancela o evento antigo antes de criar o novo,
-  // nunca cria os dois sem cancelar; ver eventoParaCancelar em agenda.ts)
-  if (ctx.temCalendario && (I.has('escolheu_horario') || I.has('informou_email'))) {
-    const nomeCompleto = estado.dados.nome_completo || (estado.dados.nome?.trim().split(/\s+/).length >= 2 ? estado.dados.nome : '')
-    if (ex.horario_escolhido) estado.dados.horario_escolhido = ex.horario_escolhido
-    const horario = estado.dados.horario_escolhido
-    const email = estado.dados.email
-    if (horario && email && nomeCompleto) {
-      estado.etapa = 'confirmando'
-      return { estado, acao: base('agendar', { etapa_depois: 'agendado' }) }
-    }
-    if (horario || I.has('informou_email')) {
-      estado.etapa = 'confirmando'
-      const falta = [!nomeCompleto ? 'nome completo' : '', !email ? 'e-mail' : ''].filter(Boolean)
-      if (falta.length > 0) {
-        return {
-          estado,
-          acao: base('pedir_dados_agendamento', {
-            conteudo: { modo: 'livre', texto: `Pra enviar o convite, preciso do seu ${falta.join(' e ')}.` },
-            etapa_depois: 'confirmando',
-          }),
-        }
-      }
-    }
   }
 
   // 10. já existe reunião marcada: nunca reabre qualificação a partir daqui, mesmo que falte campo obrigatório

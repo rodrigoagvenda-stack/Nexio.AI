@@ -49,7 +49,9 @@ function descreverAcao(a: Acao, soReacao: boolean): string {
   if (a.proxima_pergunta) {
     linhas.push(`${a.conteudo || a.fatos.length ? 'Depois, termine com' : 'Pergunta de referência'} (uma única pergunta, no fim): "${a.proxima_pergunta.texto}"`)
     linhas.push('Essa é a ÚNICA pergunta da mensagem. Não crie outra pergunta antes dela (nem de ponte, nem pedindo dado que faltou), nem devolva "e você?".')
-    if (a.conteudo?.modo === 'literal') linhas.push('Entre o conteúdo exato e a pergunta, se precisar, use meia frase de transição natural (ex.: "Mas me conta,"), sem pergunta.')
+    if (a.conteudo?.modo === 'literal') {
+      linhas.push('A pergunta é SEMPRE o ÚLTIMO bloco da lista, sozinho, nunca colada na última frase do conteúdo exato (nem com quebra de linha, nem com "Mas..."): o conteúdo exato mantém seus blocos originais intactos, e a pergunta soma mais um bloco no fim.')
+    }
   } else if (literalTerminaEmPergunta) {
     linhas.push('O conteúdo exato já termina com a pergunta desta mensagem: não faça nenhuma outra pergunta, nem "tudo bem?" ou "e você?".')
   } else {
@@ -80,7 +82,7 @@ Regras de escrita:
 - Conteúdo "exatamente": envie sem mudar. Conteúdo "com suas palavras": diga o mesmo sem acrescentar nada.
 - Use só os fatos fornecidos. Não acrescente número, prazo, preço, nome de cliente ou promessa.
 - Não afirme o que não está no conteúdo, nos fatos ou no que o lead escreveu: nada de "vi seu perfil", "analisei seu negócio", "já ajudamos empresas como a sua", resultado, diagnóstico ou dado sobre o lead. Comentário genérico e curto sobre o ramo é permitido ("dentista costuma ser bem procurado no Google").- No máximo uma pergunta, sempre no fim.
-- 1 a 3 frases por bloco, no máximo 2 blocos (respeite mais blocos só quando o conteúdo exato vier em vários).
+- 1 a 3 frases por bloco, no máximo 2 blocos (respeite mais blocos quando o conteúdo exato vier em vários, e mais um bloco quando houver pergunta no fim de conteúdo exato de 2 blocos).
 - Não comece com "Entendi", "Perfeito", "Ótimo" se você já usou isso nas últimas mensagens.
 - Não repita o que o lead disse. Não elogie a pergunta. Não justifique por que está perguntando.
 - Não use travessão. Não use colchetes.
