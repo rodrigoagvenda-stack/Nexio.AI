@@ -14,17 +14,25 @@ export const MODELO_V3 = 'gpt-5.6-sol'
 export const MODELO_V3_FALLBACK = 'gpt-4.1'
 
 /** Chama o modelo principal do v3; se falhar, cai pro fallback automaticamente, sem derrubar o turno.
- * `params` é tudo que chat.completions.create espera, menos o `model` (isso quem decide é esta função). */
+ * `params` é tudo que chat.completions.create espera, menos o `model` (isso quem decide é esta função).
+ * `max_tokens` também sai de fora: quem chama sempre passa o nome antigo, e esta função troca pro nome
+ * certo conforme o modelo — achado real, 01/10/2026, log de produção: o Sol (gpt-5.6) rejeita `max_tokens`
+ * ("Unsupported parameter... Use max_completion_tokens instead"), o GPT-4.1 do fallback ainda usa o nome
+ * antigo. Sem essa troca, toda chamada caía pro fallback, nunca usava o Sol de verdade (o fallback segurou
+ * a onda certinho, nenhum lead ficou sem resposta, mas o modelo novo nunca chegava a rodar). */
 export async function chatV3(
   openai: OpenAI,
-  params: Omit<OpenAI.Chat.ChatCompletionCreateParamsNonStreaming, 'model'>,
+  params: Omit<OpenAI.Chat.ChatCompletionCreateParamsNonStreaming, 'model' | 'max_tokens' | 'max_completion_tokens'> & { max_tokens?: number },
   agente: string,
 ): Promise<OpenAI.Chat.ChatCompletion> {
+  const { max_tokens, ...resto } = params
+  const comModelo = (model: string): OpenAI.Chat.ChatCompletionCreateParamsNonStreaming =>
+    ({ ...resto, model, ...(model === MODELO_V3 ? { max_completion_tokens: max_tokens } : { max_tokens }) }) as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming
   try {
-    return await openai.chat.completions.create({ ...params, model: MODELO_V3 } as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming)
+    return await openai.chat.completions.create(comModelo(MODELO_V3))
   } catch (err: any) {
     console.error(`[SDR v3] ${agente}: ${MODELO_V3} falhou, caindo pro fallback (${MODELO_V3_FALLBACK}):`, err?.message)
-    return await openai.chat.completions.create({ ...params, model: MODELO_V3_FALLBACK } as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming)
+    return await openai.chat.completions.create(comModelo(MODELO_V3_FALLBACK))
   }
 }
 
