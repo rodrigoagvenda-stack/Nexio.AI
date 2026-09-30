@@ -1,6 +1,8 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
+import { getActiveConfig } from '@/lib/sdr/v3/config-store'
+import { checarPassos } from '@/lib/sdr/v3/template-check'
 
 export async function GET(request: NextRequest) {
   const { context, error: authError } = await requireAuth(request);
@@ -65,6 +67,12 @@ export async function POST(request: NextRequest) {
     }
     if (['follow_geral', 'follow_proposta', 'webhook_seq'].includes(tipo) && features.follow_up === false) {
       return NextResponse.json({ error: 'Follow-up está disponível no plano Growth.' }, { status: 403 })
+    }
+
+    if (steps.length > 0) {
+      const cfg = await getActiveConfig(context.companyId, service)
+      const erro = cfg ? checarPassos(steps, cfg.config) : null
+      if (erro) return NextResponse.json({ error: erro }, { status: 422 })
     }
 
     const { data: sequence, error: seqErr } = await service

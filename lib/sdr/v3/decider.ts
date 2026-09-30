@@ -170,11 +170,21 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     ...extra,
   })
 
+  // Spec seção 4 ("qualificação enxuta"): a cada 2 perguntas respondidas, um comentário curto sobre a resposta
+  // antes da próxima, pra não virar interrogatório. Só quando o lead acabou de responder uma pergunta nossa.
+  const respondidas = estado.perguntas_feitas.filter((p) => p.respondida).length
+  const comentar = (a: Acao) => {
+    if (I.has('resposta_qualificacao') && respondidas > 0 && respondidas % 2 === 0) {
+      a.contexto.push('Antes da pergunta, faça um comentário curto (meia frase) sobre o que o lead acabou de responder, como uma pessoa faria. Sem inventar fato, número, resultado nem dizer que viu ou analisou algo dele.')
+    }
+  }
+
   const comPergunta = (a: Acao, permitir = true): Acao => {
     if (!permitir || completa) return a
     const q = proximaPergunta(estado, config, false)
     if (q) {
       a.proxima_pergunta = { id: q.id, texto: q.texto }
+      comentar(a)
       if (q.reformulada && !q.reformulacaoFixa) a.contexto.push('Esta pergunta já foi feita antes e não foi respondida: reformule com outras palavras, sem cobrar.')
     } else if (!a.handoff) {
       const travada = perguntaObrigatoriaEmperrada(estado, config)
@@ -224,7 +234,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   if (I.has('pergunta_se_e_robo')) {
     return {
       estado,
-      acao: base('responder_identidade', { conteudo: { modo: config.identidade.modo ?? 'literal', texto: config.identidade.frase_robo } }),
+      acao: comPergunta(base('responder_identidade', { conteudo: { modo: config.identidade.modo ?? 'literal', texto: config.identidade.frase_robo } })),
     }
   }
 
@@ -248,7 +258,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
 
   // 3. fora do escopo
   if (I.has('fora_do_escopo')) {
-    return { estado, acao: base('responder_fora_escopo', { conteudo: { modo: 'literal', texto: config.fora_escopo.frase } }) }
+    return { estado, acao: comPergunta(base('responder_fora_escopo', { conteudo: { modo: 'literal', texto: config.fora_escopo.frase } })) }
   }
 
   // 3b. preço por escopo e "como funciona": o valor e a explicação saem como texto fixo da config, nunca escritos pela IA
@@ -274,6 +284,14 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   if ((I.has('pergunta_preco') && pedeuPrecoDeVerdade) || (pe && escopoMudouAgora && estado.contadores.escopo_perguntado)) {
     if (pe && opcao) {
       estado.pedidos_de_preco += 1
+      // Mesmo escopo, valor já enviado: não despeja o texto inteiro de novo (achado real, conv 530, 28/09: preço
+      // idêntico 2x seguidas). Relembra curto, com os mesmos números (o validador confere que não mudou nada).
+      if (estado.contadores.preco_enviado === opcao.valor) {
+        const a = base('responder_preco', { conteudo: { modo: 'livre', texto: asArr(blocosDe(opcao.texto))[0] } })
+        a.contexto.push('Você já passou esse valor nesta conversa. Relembre em uma frase curta, começando com algo como "Como te passei", sem repetir o texto todo e sem mudar nenhum número.')
+        return { estado, acao: comPergunta(a) }
+      }
+      estado.contadores.preco_enviado = opcao.valor
       return { estado, acao: comPergunta(base('responder_preco', { conteudo: { modo: 'literal', texto: blocosDe(opcao.texto) } })) }
     }
     estado.pedidos_de_preco += 1
@@ -481,6 +499,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   const a = base('perguntar')
   if (q) {
     a.proxima_pergunta = { id: q.id, texto: q.texto }
+    if (!abertura) comentar(a)
     if (q.reformulada && !q.reformulacaoFixa) a.contexto.push('Esta pergunta já foi feita antes e não foi respondida: reformule com outras palavras, sem cobrar.')
   } else if (!abertura) {
     const travada = perguntaObrigatoriaEmperrada(estado, config)

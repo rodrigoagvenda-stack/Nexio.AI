@@ -27,7 +27,7 @@ export interface ValidadorCtx {
   eventoConfirmadoNoTurno: boolean
 }
 
-const VALOR_RE = /R\$\s?\d|\d[\d.,]*\s*reais\b|\bmil\s+reais\b/i
+export const VALOR_RE =/R\$\s?\d|\d[\d.,]*\s*reais\b|\bmil\s+reais\b/i
 const AGENDAMENTO_RE = /\b(vou\s+agendar|j[aá]\s+agendei|agendei|(?:est[aá]|t[aá]|ficou|fica)\s+(?:agendad[oa]|marcad[oa])|reuni[aã]o\s+(?:est[aá]\s+)?confirmada|te\s+mando\s+o\s+link|vou\s+te\s+mandar\s+o\s+link|te\s+enviei\s+o\s+convite|convite\s+(?:foi\s+)?enviado)\b/i
 const ABERTURAS = ['entendi', 'perfeito', 'otimo', 'show', 'claro', 'legal', 'beleza']
 const ELOGIO_RE = /\b(?:boa|[oó]tima|excelente|[oó]timo)\s+pergunta\b/i

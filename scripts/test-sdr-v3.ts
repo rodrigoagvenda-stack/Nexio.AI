@@ -3,6 +3,7 @@ import { decidir, type DecisorCtx } from '@/lib/sdr/v3/decider'
 import { corrigirMecanico, validar } from '@/lib/sdr/v3/validator'
 import { validateCompanyConfig } from '@/lib/sdr/v3/config-validate'
 import { filtroDisponibilidade, passaFiltro } from '@/lib/sdr/v3/agenda'
+import { checarPassos } from '@/lib/sdr/v3/template-check'
 import { ESTADO_INICIAL, type Extracao, type Estado } from '@/lib/sdr/v3/types'
 
 const config: any = { ...GRUPO_VENDA_CONFIG, version: 3, agendamento: { ativo: true, calendario_id: 'x' } }
@@ -51,7 +52,7 @@ ok('agradecimento depois de encerrar: frase única', dAgr.acao.tipo === 'agradec
 d = decidir(ex({ intencoes: ['pede_humano'] }), est(), config, ctx())
 ok('pede humano escala', d.acao.tipo === 'escalar' && d.estado.etapa === 'escalado')
 d = decidir(ex({ intencoes: ['pergunta_se_e_robo'] }), est(), config, ctx())
-ok('robô: frase literal sem pergunta colada', d.acao.tipo === 'responder_identidade' && d.acao.conteudo?.modo === 'literal' && !d.acao.proxima_pergunta)
+ok('robô: frase literal + próxima pergunta (spec seção 4, regra 2 "depois segue")', d.acao.tipo === 'responder_identidade' && d.acao.conteudo?.modo === 'literal' && !!d.acao.proxima_pergunta)
 d = decidir(ex({ intencoes: ['pede_espera'] }), est(), config, ctx())
 ok('pede espera: aguardar sem pergunta', d.acao.tipo === 'aguardar' && !d.acao.proxima_pergunta)
 let e2 = decidir(ex({ intencoes: ['outro'] }), est(), config, ctx())
@@ -92,13 +93,42 @@ ok('horários enviados + "vou ver minha agenda": aguarda', d.acao.tipo === 'agua
   ok('filtro aplica: "hoje não" tira hoje', !passaFiltro(new Date('2026-10-01T15:00:00-03:00'), filtroDisponibilidade('hoje não consigo'), hojeIso, amanhaIso))
 }
 
+// preço já enviado pro mesmo escopo: lembrete curto, não o texto inteiro de novo (conv 530)
+if (config.preco.por_escopo) {
+  const pe = config.preco.por_escopo
+  const op = pe.opcoes[0]
+  const comEscopo = est({ dados: { [pe.campo]: op.valor }, contadores: { ...ESTADO_INICIAL(2).contadores, escopo_perguntado: true } })
+  let p1 = decidir(ex({ intencoes: ['pergunta_preco'] }), comEscopo, config, ctx())
+  ok('1º pedido de preço: texto literal inteiro', p1.acao.tipo === 'responder_preco' && p1.acao.conteudo?.modo === 'literal')
+  p1 = decidir(ex({ intencoes: ['pergunta_preco'] }), p1.estado, config, ctx())
+  ok('2º pedido, mesmo escopo: lembrete curto (livre)', p1.acao.tipo === 'responder_preco' && p1.acao.conteudo?.modo === 'livre', p1.acao.tipo)
+  const outra = pe.opcoes[1]
+  if (outra) {
+    p1 = decidir(ex({ intencoes: ['pergunta_preco'], dados: { [pe.campo]: outra.valor } }), { ...p1.estado, pedidos_de_preco: 0 }, config, ctx())
+    ok('escopo mudou: manda o valor novo inteiro', p1.acao.conteudo?.modo === 'literal', p1.acao.tipo)
+  }
+}
+
+// 7a'' comentário curto a cada 2 respostas (spec seção 4)
+{
+  const feitas = [{ id: config.qualificacao.perguntas[0].id, turno: 1, respondida: true }, { id: config.qualificacao.perguntas[1].id, turno: 2, respondida: false }]
+  const campo2 = config.qualificacao.perguntas[1].campo
+  d = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { [campo2]: 'dentista' } }), est({ perguntas_feitas: feitas, turno: 3 }), config, ctx())
+  ok('2ª resposta: pede comentário curto antes da próxima pergunta', d.acao.contexto.some((c) => c.includes('comentário curto')), d.acao.contexto.join(' | '))
+  d = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { [config.qualificacao.perguntas[0].campo]: 'x' } }), est({ perguntas_feitas: [{ ...feitas[0], respondida: false }], turno: 2 }), config, ctx())
+  ok('1ª resposta: sem comentário', !d.acao.contexto.some((c) => c.includes('comentário curto')))
+}
+// 7a''' templates de automação passam pelo validador ao salvar (spec seção 6)
+ok('template com palavra proibida bloqueia', !!checarPassos([{ mensagem: 'A análise é gratuita, sem compromisso' }], config))
+ok('template com palavra proibida no pool bloqueia', !!checarPassos([{ mensagem: null, pool_mensagens: [{ texto: 'é grátis' }] }], config))
+ok('template limpo passa', checarPassos([{ mensagem: '{nome}, conseguiu ver minha última mensagem?' }], config) === null)
+ok('template com R$ bloqueia quando a empresa não informa preço', !!checarPassos([{ mensagem: 'Sai por R$ 1.125' }], { ...config, preco: { ...config.preco, pode_informar: false } }))
+
 // 7a' resposta automática da empresa do lead: não responde (robô com robô)
 d = decidir(ex({ intencoes: ['social'], resposta_automatica: true }), est(), config, ctx())
 ok('resposta automática sem conteúdo: silêncio', d.acao.tipo === 'aguardar' && d.acao.silencio === true, d.acao.tipo)
 d = decidir(ex({ intencoes: ['resposta_qualificacao'], resposta_automatica: true, dados: { negocio: 'clínica de estética' } }), est(), config, ctx())
 ok('marcado automático mas trouxe dado do negócio: responde normal', !d.acao.silencio, d.acao.tipo)
-d = decidir(ex({ intencoes: ['pergunta_se_e_robo'] }), est(), config, ctx())
-ok('fora de escopo/identidade não colam pergunta', !d.acao.proxima_pergunta)
 
 // 7b já existe reunião marcada: nunca reabre qualificação (caso do lead que confirma presença no lembrete de anti no-show, mesmo com campo obrigatório faltando)
 d = decidir(ex({ intencoes: ['social'], social: { tipo: 'retribuicao_pedida', texto_do_lead: 'Sim' } }), est({ dados: { decisor: 'sim' } }), config, ctx({ reuniaoExistente: 'quinta-feira, 01/10, às 14h' }))

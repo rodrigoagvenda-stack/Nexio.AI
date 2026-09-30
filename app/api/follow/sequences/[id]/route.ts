@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
+import { getActiveConfig } from '@/lib/sdr/v3/config-store'
+import { checarPassos } from '@/lib/sdr/v3/template-check'
 
 export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -21,6 +23,12 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
     if (tipo !== undefined) updates.tipo = tipo
     if (ativo !== undefined) updates.ativo = ativo
     if (staging !== undefined) updates.staging = staging
+
+    if (Array.isArray(steps)) {
+      const cfg = await getActiveConfig(context.companyId, service)
+      const erro = cfg ? checarPassos(steps, cfg.config) : null
+      if (erro) return NextResponse.json({ error: erro }, { status: 422 })
+    }
 
     if (Object.keys(updates).length > 0) {
       await service.from('follow_sequences').update(updates).eq('id', params.id)

@@ -69,6 +69,8 @@ export interface Contadores {
   como_funciona_explicado?: boolean
   /** Quantas vezes já mandamos horários nesta conversa: passou do limite sem escolher, vai pra pessoa (evita disco riscado). */
   ofertas_horario?: number
+  /** Escopo cujo valor já foi enviado por inteiro: pedido repetido recebe só um lembrete curto. */
+  preco_enviado?: string
 }
 
 export interface Estado {
