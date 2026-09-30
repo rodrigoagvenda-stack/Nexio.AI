@@ -79,6 +79,9 @@ export interface V3TurnLogInput {
   tokens: number
   latenciaMs: number
   configVersion: number
+  /** Modelo(s) que realmente responderam neste turno, lido da resposta da API. Sem isso o campo ficava
+   * hardcoded 'gpt-4.1', escondendo quando o Sol falhava e caía pro fallback. */
+  modelo?: string
 }
 
 /** Log de turno da v3 (engine='v3'). Nunca derruba o turno. */
@@ -99,7 +102,7 @@ export async function writeV3TurnLog(supabase: Supabase, i: V3TurnLogInput): Pro
       validador_violacoes: i.violacoes,
       regenerou: i.regenerou,
       blocos_enviados: i.blocosEnviados,
-      modelo: 'gpt-4.1',
+      modelo: i.modelo || 'gpt-4.1',
       tokens: i.tokens,
       latencia_ms: i.latenciaMs,
       config_version: i.configVersion,

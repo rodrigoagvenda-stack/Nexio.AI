@@ -3898,6 +3898,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
             search: (q) => searchDocuments(q, companyId, openai, supabase, 'conhecimento'),
             onUsage: (completion, agent) => pushUsage(acc, completion, agent),
             tokensDoTurno: () => acc.filter((u) => u.agent.startsWith('v3_')).reduce((s, u) => s + u.totalTokens, 0),
+            modelosDoTurno: () => [...new Set(acc.filter((u) => u.agent.startsWith('v3_')).map((u) => u.model))],
           },
         })
         if (v3.handled) {

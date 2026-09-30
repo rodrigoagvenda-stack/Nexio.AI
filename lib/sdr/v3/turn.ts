@@ -42,6 +42,11 @@ export interface V3Deps {
   search: (query: string) => Promise<string>
   onUsage: (c: OpenAI.Chat.ChatCompletion, agent: string) => void
   tokensDoTurno: () => number
+  /** Modelo que REALMENTE respondeu em cada chamada deste turno (extrator/redator/resumo), lido direto da
+   * resposta da API, não um texto fixo: acusa na hora quando o Sol falha e cai pro fallback (achado real,
+   * 01/10/2026: o campo do log estava hardcoded 'gpt-4.1' desde antes da troca pro Sol, então nem eu nem o
+   * Rodrigo conseguia confirmar pelo banco se o modelo novo estava rodando de verdade ou sempre caindo). */
+  modelosDoTurno: () => string[]
 }
 
 export interface V3Params {
@@ -384,6 +389,7 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
       tokens: deps.tokensDoTurno(),
       latenciaMs: Date.now() - t0,
       configVersion: cfgRow.version,
+      modelo: deps.modelosDoTurno().join(', ') || undefined,
     })
     await deps.log('v3_turno', { turno: estado.turno, acao: acao.tipo, etapa: estado.etapa, violacoes: violacoes.map((v) => `${v.regra}:${v.modo}`) })
 
