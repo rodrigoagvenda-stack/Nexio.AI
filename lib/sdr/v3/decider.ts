@@ -103,12 +103,6 @@ function etapaAvanca(atual: Etapa, alvo: Etapa): Etapa {
 
 const asArr = (v: string | string[]) => (Array.isArray(v) ? v : [v])
 
-function novoPalpiteNome(pushName: string | null): string | null {
-  if (!pushName) return null
-  const p = pushName.trim()
-  if (p.length < 2 || /[\d@_]/.test(p) || /[^\p{L}\s.'-]/u.test(p)) return null
-  return firstName(p)
-}
 
 export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ctx: DecisorCtx): Decisao {
   const estado: Estado = JSON.parse(JSON.stringify(entrada))
@@ -467,9 +461,8 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     a.contexto.push(`Primeira mensagem da conversa: apresente-se pelo nome (${config.persona.nome_agente}) e pela empresa (${config.persona.empresa}).`)
     if (ctx.contextoOutbound) a.contexto.push(`O lead recebeu um disparo nosso antes: "${ctx.contextoOutbound}". Não se reapresente como se fosse o primeiro contato.`)
     if (ctx.origemAnuncio) a.contexto.push(`O lead chegou pelo anúncio: "${ctx.origemAnuncio}".`)
-    const palpite = novoPalpiteNome(ctx.pushName)
-    if (palpite && !filled(estado.dados, 'nome')) {
-      a.contexto.push(`O nome no perfil do WhatsApp é "${palpite}", mas não é confiável: NÃO afirme. Se for perguntar o nome, confirme com "Falo com ${palpite}?".`)
+    if (!filled(estado.dados, 'nome')) {
+      a.contexto.push('Pergunte o nome de forma direta ("Qual o seu nome?"). Nunca adivinhe nem confirme um nome a partir do perfil do WhatsApp, nem escreva "Falo com fulano?".')
     }
   } else if (!q) {
     a.tipo = 'aguardar'

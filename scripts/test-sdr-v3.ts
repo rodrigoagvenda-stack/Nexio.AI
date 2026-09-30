@@ -18,7 +18,7 @@ const txt = (a: any) => [a.conteudo?.texto ?? ''].flat().join('\n')
 // 1 abertura com pushName como palpite
 let d = decidir(ex({ intencoes: ['social'], social: { tipo: 'cumprimento', texto_do_lead: 'boa tarde, vi o anúncio' } }), ESTADO_INICIAL(2), config, ctx({ primeiraMensagemNossa: true, pushName: 'Carla Souza' }))
 ok('abertura pergunta o nome (intro na pergunta)', d.acao.tipo === 'perguntar' && d.acao.proxima_pergunta?.id === 'nome', d.acao.contexto.join(' | '))
-ok('abertura: pushName só como palpite, nunca como dado', !d.estado.dados.nome && d.acao.contexto.some((c) => c.includes('Falo com Carla?')))
+ok('abertura: pergunta o nome direto, sem chute a partir do pushName', !d.estado.dados.nome && d.acao.contexto.some((c) => c.includes('Qual o seu nome?')) && !d.acao.contexto.some((c) => c.includes('Carla')))
 ok('abertura: reação social ligada', d.acao.reacao_social === true)
 
 // 2 social + resposta
