@@ -293,11 +293,11 @@ ok('volta depois de encerrar: zera objeções já respondidas', d.estado.objecoe
 function regrasPrime(b: string[]) { return validar(b, { config, estado: est(), acao: { tipo: 'perguntar', conteudo: null, fatos: [], proxima_pergunta: null, contexto: [] } as any, mensagensDoLead: [], ultimasNossas: [], eventoConfirmadoNoTurno: false }).map((x) => `${x.regra}:${x.modo}`).join(',') }
 // 7b como funciona e preço por escopo (Start e Essencial; Prime nunca aparece)
 d = decidir(ex({ intencoes: ['pergunta_preco', 'pergunta_como_funciona'] }), est({ dados: { nome: 'Luciano' } }), config, ctx())
-ok('como funciona: texto fixo, chama pelo nome', d.acao.tipo === 'responder_como_funciona' && d.acao.conteudo?.modo === 'literal' && txt(d.acao).startsWith('Luciano, a gente arruma'), txt(d.acao).slice(0, 60))
+ok('como funciona: texto fixo, chama pelo nome', d.acao.tipo === 'responder_como_funciona' && d.acao.conteudo?.modo === 'literal' && txt(d.acao).startsWith('Luciano, a gente cuida'), txt(d.acao).slice(0, 60))
 ok('como funciona sem escopo: termina perguntando o escopo e não empilha outra pergunta', txt(d.acao).trim().endsWith('ou precisa de um site também?') && !d.acao.proxima_pergunta && d.estado.contadores.escopo_perguntado === true)
 ok('como funciona não solta valor antes de saber o escopo', !txt(d.acao).includes('R$'))
 const dComoSemNome = decidir(ex({ intencoes: ['pergunta_como_funciona'] }), est(), config, ctx())
-ok('como funciona sem nome conhecido: sem buraco no texto', txt(dComoSemNome.acao).startsWith('A gente arruma a sua presença no Google'), txt(dComoSemNome.acao).slice(0, 50))
+ok('como funciona sem nome conhecido: sem buraco no texto', txt(dComoSemNome.acao).startsWith('A gente cuida da presença digital'), txt(dComoSemNome.acao).slice(0, 50))
 const aposComo = d.estado
 d = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), aposComo, config, ctx())
 ok('escopo gmn (depois de perguntado): sai o Start, Pix e 3x sem juros', d.acao.tipo === 'responder_preco' && txt(d.acao).includes('R$ 1.199') && txt(d.acao).includes('3x de R$ 399,67') && txt(d.acao).includes('sem juros'), txt(d.acao).slice(0, 80))
@@ -307,7 +307,7 @@ ok('escopo site: sai o Essencial, 2.200 no Pix e 6x com juros', txt(d.acao).incl
 d = decidir(ex({ intencoes: ['pergunta_preco'] }), est({ dados: { escopo: 'gmn' } }), config, ctx())
 ok('preço com escopo já conhecido: responde direto', d.acao.tipo === 'responder_preco' && txt(d.acao).includes('R$ 1.199'))
 d = decidir(ex({ intencoes: ['pergunta_preco', 'pergunta_como_funciona'] }), est({ dados: { escopo: 'site' } }), config, ctx())
-ok('valor + como funciona com escopo conhecido: explica e já dá o valor, sem re-perguntar', txt(d.acao).toLowerCase().includes('a gente arruma a sua presença no google') && txt(d.acao).includes('R$ 2.200') && !txt(d.acao).includes('ou precisa de um site também?'))
+ok('valor + como funciona com escopo conhecido: explica e já dá o valor, sem re-perguntar', txt(d.acao).toLowerCase().includes('a gente cuida da presença digital') && txt(d.acao).includes('R$ 2.200') && !txt(d.acao).includes('ou precisa de um site também?'))
 d = decidir(ex({ intencoes: ['pergunta_preco'] }), est({ dados: { nome: 'Ana' }, pedidos_de_preco: 1, contadores: { ...ESTADO_INICIAL(3).contadores, escopo_perguntado: true } }), config, ctx())
 ok('insistiu no valor sem responder o escopo: chama o Bruno (não fica sem resposta)', d.acao.tipo === 'escalar')
 ok('escopo dito sem ninguém ter perguntado: só guarda, não solta valor', decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), est(), config, ctx()).acao.tipo !== 'responder_preco')

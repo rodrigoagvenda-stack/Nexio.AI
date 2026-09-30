@@ -125,7 +125,7 @@ export async function redigir(
       : '')
   const completion = await chatV3(openai, {
     temperature: 0.7,
-    max_tokens: 700,
+    max_tokens: 2000,
     response_format: {
       type: 'json_schema',
       json_schema: {
@@ -145,7 +145,7 @@ export async function redigir(
     ],
   }, 'redator')
   onUsage?.(completion, 'v3_redator')
-  const raw = JSON.parse(completion.choices[0]?.message?.content ?? '{}')
+  const raw = JSON.parse(completion.choices[0]?.message?.content || '{}')
   const blocos = (Array.isArray(raw.blocos) ? raw.blocos : []).map((b: unknown) => String(b).trim()).filter(Boolean)
   return { blocos, fatos_usados: Array.isArray(raw.fatos_usados) ? raw.fatos_usados.map(String) : [] }
 }

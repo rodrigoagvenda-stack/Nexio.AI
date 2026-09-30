@@ -34,7 +34,7 @@ export async function atualizarResumoIA(
     const novidades = Object.entries(p.dadosNovos).filter(([, v]) => v?.trim())
     const completion = await chatV3(openai, {
       temperature: 0,
-      max_tokens: 400,
+      max_tokens: 1200,
       response_format: { type: 'json_schema', json_schema: { name: 'resumo', strict: true, schema: SCHEMA as any } },
       messages: [
         {
@@ -54,7 +54,7 @@ REGRAS:
       ],
     }, 'resumo')
     onUsage?.(completion, 'v3_resumo_ia')
-    const raw = JSON.parse(completion.choices[0]?.message?.content ?? '{}')
+    const raw = JSON.parse(completion.choices[0]?.message?.content || '{}')
     if (!raw.tem_novidade || typeof raw.resumo_ia !== 'string' || !raw.resumo_ia.trim()) return
     await supabase.from('leads').update({ resumo_ia: raw.resumo_ia.trim(), updated_at: new Date().toISOString() }).eq('id', p.leadId).eq('company_id', p.companyId)
   } catch (err: any) {

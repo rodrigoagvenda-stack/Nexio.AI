@@ -174,7 +174,7 @@ export async function extrair(
   const agoraSp = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
   const completion = await chatV3(openai, {
     temperature: 0,
-    max_tokens: 700,
+    max_tokens: 2000,
     response_format: { type: 'json_schema', json_schema: { name: 'extracao', strict: true, schema: schemaExtracao(p.config) as any } },
     messages: [
       { role: 'system', content: promptSistema(p.config, p.estado, agoraSp, p.contextoAutomacao ?? null) },
@@ -182,7 +182,7 @@ export async function extrair(
     ],
   }, 'extrator')
   onUsage?.(completion, 'v3_extrator')
-  const raw = JSON.parse(completion.choices[0]?.message?.content ?? '{}')
+  const raw = JSON.parse(completion.choices[0]?.message?.content || '{}')
   const dados: Record<string, string> = {}
   for (const [k, v] of Object.entries((raw.dados ?? {}) as Record<string, string | null>)) if (typeof v === 'string' && v.trim()) dados[k] = v.trim()
   const ids = new Set(p.config.objecoes.map((o) => o.id))

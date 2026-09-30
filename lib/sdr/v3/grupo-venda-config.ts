@@ -253,8 +253,8 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
 
   como_funciona: {
     texto: [
-      '{nome}, a gente arruma a sua presença no Google: vê por que o seu perfil não aparece e cria ou corrige o Google Meu Negócio do zero, até a verificação. É pagamento único, sem mensalidade.',
-      'E se você precisar, a gente também faz o site com SEO local pra aparecer na sua cidade.',
+      '{nome}, a gente cuida da presença digital do seu negócio. A frente principal é o Google: vê por que o seu perfil não aparece e cria ou corrige o Google Meu Negócio do zero, até a verificação, com pagamento único, sem mensalidade. Se você precisar, também fazemos o site com SEO local pra aparecer na sua cidade.',
+      'A gente também atua com tráfego pago, social media e produção audiovisual, mas isso o Bruno adapta direitinho pro seu caso na nossa conversa.',
     ],
   },
 
