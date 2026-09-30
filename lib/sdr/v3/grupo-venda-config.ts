@@ -268,7 +268,9 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
 
   identidade: { frase_robo: 'Sou a assistente virtual do Grupo Venda! O Bruno acompanha tudo e entra na conversa quando precisar.', modo: 'literal' },
 
-  fora_escopo: { frase: 'A gente trabalha só com presença no Google e Google Ads, então isso não é com a gente.' },
+  // Achado real, 01/10/2026: essa frase dizia "só Google e Google Ads", falso — a empresa também faz tráfego
+  // pago (Meta/TikTok Ads), social media e audiovisual. Generalizada pra não negar serviço que a empresa presta.
+  fora_escopo: { frase: 'Isso não é algo que a gente atende. A gente trabalha com presença digital: Google, site, tráfego pago, social media e audiovisual.' },
 
   palavras_proibidas: ['gratuito', 'gratuita', 'grátis', 'gratis', 'sem custo', '=prime'],
 
@@ -293,7 +295,18 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
       id: 'empresa',
       titulo: 'A empresa',
       texto:
-        'O Grupo Venda Marketing Digital cuida da presença digital de negócios, com foco em Google Meu Negócio, site e Google Ads. O produto se chama Fundação Digital. Razão social: BZ Publicidade e Serviços Botucatu LTDA. CNPJ: 47.883.706/0001-02. Escritório físico em Botucatu-SP. Instagram oficial: @grupovenda. O Bruno é o CEO e especialista em Google Meu Negócio. Tem mais de 7 anos de mercado e mais de 200 clientes atendidos em todo o Brasil.',
+        'O Grupo Venda Marketing Digital é uma assessoria de marketing e growth com 4 frentes: presença no Google (produto Fundação Digital: Google Meu Negócio, site, SEO local), tráfego e performance (Meta Ads, Google Ads, TikTok Ads), social media (calendário editorial, copy e gestão de comunidade) e produção audiovisual (vídeo, reels, fotografia). Razão social: BZ Publicidade e Serviços Botucatu LTDA. CNPJ: 47.883.706/0001-02. Escritório físico em Botucatu-SP. Instagram oficial: @grupovenda. O Bruno é o CEO. Tem mais de 7 anos de mercado e mais de 200 clientes atendidos em todo o Brasil.',
+    },
+    {
+      // Achado real, 01/10/2026: lead perguntou "quais serviços vocês têm?" e a resposta só citava GMN, site
+      // e Google Ads, porque a config só tinha detalhe dessa frente. A empresa faz mais (confirmado no site
+      // oficial, https://agenciavenda.com.br/), mas SEM detalhe/preço confirmado das outras 3 aqui, então o
+      // fato fica só descritivo: existe, mas escopo e valor são sempre conversa com o Bruno, igual já funciona
+      // pra GMN/site. Nunca inventar entregável ou preço dessas frentes além do que está escrito aqui.
+      id: 'outras_frentes',
+      titulo: 'Outras frentes além da Fundação Digital',
+      texto:
+        'Além da Fundação Digital (presença no Google), o Grupo Venda também atua em: tráfego e performance (gestão de anúncios em Meta Ads, Google Ads e TikTok Ads), social media (calendário editorial, copy e gestão de comunidade pro nicho do cliente) e produção audiovisual (vídeo, reels e fotografia). O escopo e o valor de cada uma dessas frentes são definidos numa conversa com o Bruno, olhando o caso do lead: nunca cite entregável específico ou preço dessas 3 frentes além do que está escrito aqui.',
     },
     {
       id: 'plano_essencial',
@@ -338,7 +351,7 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
   validador: {
     terminologia: [{ evitar: 'diagnóstico', usar: 'análise com o Bruno', excecao: 'diagnóstico do perfil (item pago dos planos)' }],
     nomear_humano: true,
-    escopo_permitido: ['presença digital (Google Meu Negócio, site, SEO local)', 'Google Ads'],
+    escopo_permitido: ['presença digital (Google Meu Negócio, site, SEO local)', 'tráfego e performance (Meta Ads, Google Ads, TikTok Ads)', 'social media', 'produção audiovisual'],
   },
 
 }
