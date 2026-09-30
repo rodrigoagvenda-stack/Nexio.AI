@@ -50,7 +50,7 @@ ok('agradecimento depois de encerrar: frase única', dAgr.acao.tipo === 'agradec
 d = decidir(ex({ intencoes: ['pede_humano'] }), est(), config, ctx())
 ok('pede humano escala', d.acao.tipo === 'escalar' && d.estado.etapa === 'escalado')
 d = decidir(ex({ intencoes: ['pergunta_se_e_robo'] }), est(), config, ctx())
-ok('robô: frase literal + próxima pergunta', d.acao.tipo === 'responder_identidade' && d.acao.conteudo?.modo === 'literal' && !!d.acao.proxima_pergunta)
+ok('robô: frase literal sem pergunta colada', d.acao.tipo === 'responder_identidade' && d.acao.conteudo?.modo === 'literal' && !d.acao.proxima_pergunta)
 d = decidir(ex({ intencoes: ['pede_espera'] }), est(), config, ctx())
 ok('pede espera: aguardar sem pergunta', d.acao.tipo === 'aguardar' && !d.acao.proxima_pergunta)
 let e2 = decidir(ex({ intencoes: ['outro'] }), est(), config, ctx())

@@ -211,7 +211,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   if (I.has('pergunta_se_e_robo')) {
     return {
       estado,
-      acao: comPergunta(base('responder_identidade', { conteudo: { modo: config.identidade.modo ?? 'literal', texto: config.identidade.frase_robo } })),
+      acao: base('responder_identidade', { conteudo: { modo: config.identidade.modo ?? 'literal', texto: config.identidade.frase_robo } }),
     }
   }
 
@@ -235,7 +235,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
 
   // 3. fora do escopo
   if (I.has('fora_do_escopo')) {
-    return { estado, acao: comPergunta(base('responder_fora_escopo', { conteudo: { modo: 'literal', texto: config.fora_escopo.frase } })) }
+    return { estado, acao: base('responder_fora_escopo', { conteudo: { modo: 'literal', texto: config.fora_escopo.frase } }) }
   }
 
   // 3b. preço por escopo e "como funciona": o valor e a explicação saem como texto fixo da config, nunca escritos pela IA
@@ -397,6 +397,11 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
         etapa_depois: 'agendado',
       }),
     }
+  }
+  // Lead pediu um minuto e não escolheu nada: espera, sem reoferecer horário por cima (achado real: loop de oferta
+  // repetida porque `completa` vinha antes de `pede_espera`).
+  if (I.has('pede_espera') && !I.has('quer_agendar') && !I.has('escolheu_horario') && !I.has('informou_email') && !ex.horario_escolhido) {
+    return { estado, acao: base('aguardar') }
   }
   if (I.has('quer_agendar') || completa) {
     if (!completa) {

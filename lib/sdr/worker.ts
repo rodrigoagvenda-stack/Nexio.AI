@@ -5,9 +5,9 @@ import { ConversationQueue, conversationKey } from '@/lib/sdr/conversation-queue
 // Um turno por vez em cada conversa: mensagem que chega durante um turno espera na fila (job PENDING).
 const queue = new ConversationQueue()
 
-const BUFFER_SECONDS = 30
+const BUFFER_SECONDS = 15
 const STUCK_MINUTES = 2
-const POLL_INTERVAL_MS = 5_000
+const POLL_INTERVAL_MS = 2_000
 const MAX_PARALLEL = 3
 
 export function startSdrWorker() {
@@ -24,7 +24,7 @@ export function startSdrWorker() {
   }, POLL_INTERVAL_MS)
 
   interval.unref()
-  console.log('[sdr-worker] iniciado : poll a cada 5s, buffer=30s')
+  console.log('[sdr-worker] iniciado : poll a cada 2s, buffer=15s')
 }
 
 async function recoverInterruptedJobs() {
