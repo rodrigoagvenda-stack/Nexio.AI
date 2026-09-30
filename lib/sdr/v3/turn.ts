@@ -84,7 +84,12 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
   const { data: lead } = await supabase.from('leads').select('*').eq('id', ctx.leadId).eq('company_id', ctx.companyId).maybeSingle()
   const { estado: estadoIn, novo } = await carregarEstado(supabase, ctx.companyId, conv, cfgRow.version)
   const primeiraMensagemNossa = !historico.some((m) => m.role === 'assistant')
-  const agendada = lead?.call_status === 'agendada' && !!lead?.calendar_event_id
+  // Reunião existe quando call_status diz que existe, ponto: nunca exige calendar_event_id pra isso (achado real,
+  // lead Elane/conv883, 30/09/2026 — reunião marcada NA MÃO pelo Bruno, sem passar pelo agendarReuniao() do bot,
+  // ficou sem calendar_event_id; o gate de "já existe reunião" nunca reconheceu, e o v3 tratou a resposta dela
+  // sobre a reunião como lead novo, caindo direto numa pergunta de qualificação). calendar_event_id continua
+  // exigido só na hora de CANCELAR de verdade no Google Calendar (a chamada de API precisa do id real).
+  const agendada = lead?.call_status === 'agendada'
   if (novo) {
     estadoIn.etapa = agendada ? 'agendado' : primeiraMensagemNossa ? 'abertura' : 'qualificando'
     if (typeof lead?.segment === 'string' && lead.segment.trim()) estadoIn.dados.segmento = lead.segment.trim()
@@ -250,9 +255,16 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
   }
   if (acao.tipo === 'cancelar_reuniao') {
     if (!lead?.calendar_event_id) {
-      // Já não tem evento de verdade pra cancelar (banco desatualizado ou já cancelado antes): não erra,
-      // só confirma o que já é fato.
-      acao.bloco_fixo = 'Já está cancelado por aqui. Se quiser marcar de novo depois, é só me chamar.'
+      if (reuniaoExistente) {
+        // Reunião real e confirmada (call_status='agendada'), mas sem calendar_event_id pra cancelar de
+        // verdade no Google Calendar (ex.: marcada na mão pelo Bruno, fora do fluxo do bot: achado real,
+        // lead Elane/conv883, 30/09/2026). NUNCA diz "já está cancelado" quando não está: chama alguém.
+        virarEscalar('lead pediu para cancelar reunião que não tem calendar_event_id (marcada fora do fluxo do bot)')
+      } else {
+        // Não tem evento de verdade nem reunião ativa registrada (banco desatualizado ou já cancelado antes):
+        // não erra, só confirma o que já é fato.
+        acao.bloco_fixo = 'Já está cancelado por aqui. Se quiser marcar de novo depois, é só me chamar.'
+      }
     } else {
       const r = await cancelarReuniao(agendaCtx!, supabase, lead.calendar_event_id)
       if (r.ok) {
