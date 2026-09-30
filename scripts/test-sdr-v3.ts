@@ -401,6 +401,27 @@ const cfgSemComo: any = { ...config, como_funciona: undefined }
 d = decidir(ex({ intencoes: ['pergunta_como_funciona'] }), est(), cfgSemComo, ctx())
 ok('sem texto fixo de como funciona: cai na dúvida sobre fato (com RAG)', d.acao.tipo === 'responder_fato' && !!d.acao.consulta_rag)
 
+// 7f interesse em outra frente (tráfego/social/audiovisual): achado real, Rodrigo testando, 30/09/2026 — "Estou
+// precisando de leads" foi ignorado e o funil seguiu perguntando sobre Google Meu Negócio, porque o funil
+// inteiro (dor_central, perfil_google, escopo) só existia pra Fundação Digital. Agora reconhece e desvia.
+{
+  const semGmn = est({ dados: { negocio: 'clínica odontológica' } })
+  d = decidir(ex({ intencoes: ['interesse_outra_frente'] }), semGmn, config, ctx())
+  ok('interesse em outra frente: responde com o fato outras_frentes (não ignora)', d.acao.tipo === 'responder_fato' && d.acao.fatos.some((f) => f.id === 'outras_frentes'), d.acao.tipo)
+  ok('marca escopo como outra_frente (não trava esperando resposta sobre GMN/site)', d.estado.dados.escopo === 'outra_frente', d.estado.dados.escopo)
+  ok('marca dor_central e perfil_google como n/a (perguntas de GMN não fazem sentido aqui)', d.estado.dados.aparece_no_google === 'n/a' && d.estado.dados.tem_perfil_google === 'n/a')
+  ok('próxima pergunta colada não é a de escopo GMN/site', !txt(d.acao).includes('configuração do Google Meu Negócio ou precisa de um site'), txt(d.acao))
+
+  // 2ª vez: não repete o fato de novo, só deixa o funil seguir (evita o "oi de novo" a cada mensagem)
+  const d2 = decidir(ex({ intencoes: ['interesse_outra_frente'] }), d.estado, config, ctx())
+  ok('interesse repetido: não repete o texto do fato de novo', d2.acao.tipo !== 'responder_fato' || !d2.acao.fatos.some((f) => f.id === 'outras_frentes'), d2.acao.tipo)
+
+  // pediu preço depois de marcado como outra_frente: nunca solta o preço do GMN/site, defere pro Bruno
+  const comOutraFrente = est({ dados: { negocio: 'clínica odontológica', escopo: 'outra_frente' } })
+  const d3 = decidir(ex({ intencoes: ['pergunta_preco'] }), comOutraFrente, config, ctx())
+  ok('pediu preço com escopo=outra_frente: defere pro Bruno, nunca solta R$ do plano GMN/site', d3.acao.tipo === 'responder_preco' && !txt(d3.acao).includes('R$'), txt(d3.acao))
+}
+
 // 7c config e Prime
 const vcfg = validateCompanyConfig(config)
 ok('config v3 da Grupo Venda é válida', vcfg.erros.length === 0, vcfg.erros.join(' | '))

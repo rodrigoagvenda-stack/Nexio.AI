@@ -356,27 +356,51 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     return { estado, acao: comPergunta(base('responder_fora_escopo', { conteudo: { modo: 'literal', texto: config.fora_escopo.frase } })) }
   }
 
+  // 3a. interesse em outra frente (tráfego pago, social media, produção audiovisual): o funil inteiro (dor_central,
+  // perfil_google, escopo) foi desenhado só pra Fundação Digital (GMN/site) e nunca oferecia essas 3 frentes pro
+  // lead, mesmo quando ele pedia direto (achado real, Rodrigo testando, 30/09/2026: "Estou precisando de leads"
+  // foi ignorado e o funil seguiu perguntando sobre Google Meu Negócio). Quando reconhecido, marca escopo como
+  // 'outra_frente' (sem preço fixo, sempre conversa com o Bruno) e os campos específicos de GMN como n/a, pra não
+  // travar a qualificação nem seguir perguntando coisa sem relação com o que o lead pediu. Só dispara uma vez
+  // (guard no valor de escopo): das próximas vezes só deixa o funil seguir adiante normalmente.
+  if (I.has('interesse_outra_frente') && (estado.dados.escopo ?? '').trim() !== 'outra_frente') {
+    estado.dados.escopo = 'outra_frente'
+    if (!filled(estado.dados, 'aparece_no_google')) estado.dados.aparece_no_google = 'n/a'
+    if (!filled(estado.dados, 'tem_perfil_google')) estado.dados.tem_perfil_google = 'n/a'
+    const fatoOutrasFrentes = config.fatos?.find((f) => f.id === 'outras_frentes')
+    if (fatoOutrasFrentes) {
+      return { estado, acao: comPergunta(base('responder_fato', { fatos: [{ id: fatoOutrasFrentes.id, texto: fatoOutrasFrentes.texto }] })) }
+    }
+  }
+
   // 3b. preço por escopo e "como funciona": o valor e a explicação saem como texto fixo da config, nunca escritos pela IA
   const pe = config.preco.pode_informar ? config.preco.por_escopo : undefined
   const escopo = pe ? (estado.dados[pe.campo] ?? '').trim() : ''
-  const opcao = pe ? pe.opcoes.find((o) => o.valor === escopo) : undefined
+  const ehOutraFrente = escopo === 'outra_frente'
+  const opcao = pe && !ehOutraFrente ? pe.opcoes.find((o) => o.valor === escopo) : undefined
   const escopoMudouAgora = !!pe && !!ex.dados?.[pe.campo]?.trim() && ex.dados[pe.campo].trim() !== (entrada.dados[pe.campo] ?? '').trim()
   const blocosDe = (t: string | string[]) => asArr(preencher2(t, estado.dados))
 
   if (I.has('pergunta_como_funciona') && config.como_funciona && pedeuComoFuncionaDeVerdade && !estado.contadores.como_funciona_explicado) {
     let blocos = blocosDe(config.como_funciona.texto)
     if (pe && opcao && I.has('pergunta_preco')) blocos = [...blocos, ...blocosDe(opcao.texto)]
-    else if (pe && !opcao) {
+    else if (pe && !opcao && !ehOutraFrente) {
       blocos = [...blocos, preencher(pe.pergunta, estado.dados)]
       estado.contadores.escopo_perguntado = true
     }
     estado.contadores.como_funciona_explicado = true
     const a = base('responder_como_funciona', { conteudo: { modo: 'literal', texto: blocos } })
-    return { estado, acao: pe && !opcao ? a : comPergunta(a) }
+    return { estado, acao: pe && !opcao && !ehOutraFrente ? a : comPergunta(a) }
   }
 
   // 4. preço
   if ((I.has('pergunta_preco') && pedeuPrecoDeVerdade) || (pe && escopoMudouAgora && estado.contadores.escopo_perguntado)) {
+    if (ehOutraFrente) {
+      return {
+        estado,
+        acao: comPergunta(base('responder_preco', { conteudo: { modo: 'literal', texto: 'Pra essa frente, o valor certinho o Bruno define junto com você, olhando o seu caso.' } })),
+      }
+    }
     if (pe && opcao) {
       estado.pedidos_de_preco += 1
       // Mesmo escopo, valor já enviado: não despeja o texto inteiro de novo (achado real, conv 530, 28/09: preço
