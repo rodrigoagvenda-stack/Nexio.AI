@@ -1,5 +1,5 @@
 import { GRUPO_VENDA_CONFIG } from '@/lib/sdr/v3/grupo-venda-config'
-import { decidir, type DecisorCtx } from '@/lib/sdr/v3/decider'
+import { decidir, valorDitoPeloLead, type DecisorCtx } from '@/lib/sdr/v3/decider'
 import { corrigirMecanico, validar } from '@/lib/sdr/v3/validator'
 import { validateCompanyConfig } from '@/lib/sdr/v3/config-validate'
 import { filtroDisponibilidade, passaFiltro } from '@/lib/sdr/v3/agenda'
@@ -60,7 +60,7 @@ e2 = decidir(ex({ intencoes: ['outro'] }), e2.estado, config, ctx())
 ok('"outro" 2x seguidas escala', e2.acao.tipo === 'escalar')
 
 // 7 qualificação completa e agendamento
-const completo = est({ dados: { negocio: 'dentista', aparece_no_google: 'nao', tem_perfil_google: 'sim', so_indicacao: 'nao', fez_anuncio: 'nao', impacto_atual: 'perde clientes toda semana', urgencia: 'sim', decisor: 'sim', orcamento_ok: 'sim', escopo: 'gmn' } })
+const completo = est({ dados: { negocio: 'dentista', aparece_no_google: 'nao', tem_perfil_google: 'sim', so_indicacao: 'nao', fez_anuncio: 'nao', impacto_atual: 'perde clientes toda semana', urgencia: 'sim', decisor: 'sim', orcamento_declarado: 'sim, tenho orçamento pra isso', escopo: 'gmn' } })
 d = decidir(ex({ intencoes: ['outro'] }), completo, config, ctx())
 ok('qualificação completa oferece horários', d.acao.tipo === 'oferecer_horarios')
 d = decidir(ex({ intencoes: ['quer_agendar'] }), est({ dados: { negocio: 'x' } }), config, ctx())
@@ -113,7 +113,7 @@ if (config.preco.por_escopo) {
 // como_funciona/preço, não pode virar explicação de novo com pergunta de qualificação colada por cima
 // (achado real, lead Simone/conv923, 30/09/2026)
 {
-  const simone = est({ dados: { negocio: 'turismo', aparece_no_google: 'nao', tem_perfil_google: 'sim', so_indicacao: 'nao', fez_anuncio: 'nao', impacto_atual: 'perde clientes', urgencia: 'sim', decisor: 'sim', orcamento_ok: 'sim', escopo: 'gmn' }, etapa: 'oferta_horario', contadores: { ...ESTADO_INICIAL(2).contadores, horarios_ofertados: true } })
+  const simone = est({ dados: { negocio: 'turismo', aparece_no_google: 'nao', tem_perfil_google: 'sim', so_indicacao: 'nao', fez_anuncio: 'nao', impacto_atual: 'perde clientes', urgencia: 'sim', decisor: 'sim', orcamento_declarado: 'sim, tenho orçamento pra isso', escopo: 'gmn' }, etapa: 'oferta_horario', contadores: { ...ESTADO_INICIAL(2).contadores, horarios_ofertados: true } })
   const d = decidir(ex({ intencoes: ['escolheu_horario', 'pergunta_como_funciona'], horario_escolhido: '2026-10-01T17:00:00' }), simone, config, ctx())
   ok('escolheu horário + "como funciona" junto: prioriza o agendamento, não reabre como_funciona', d.acao.tipo === 'pedir_dados_agendamento', d.acao.tipo)
   ok('não cola pergunta de qualificação (ex.: impacto) no meio disso', !d.acao.proxima_pergunta, JSON.stringify(d.acao.proxima_pergunta))
@@ -201,7 +201,7 @@ ok('turno seguinte com e-mail e nome completo já preenchidos: fecha o agendamen
 // 7f regressão real (lead Marcelo, 27/09): pergunta obrigatória (escopo) feita 2x sem resposta reconhecível
 // — o motor desistia de perguntar de novo e nunca mais tentava, nem avisava ninguém, ficando preso pra sempre.
 const escopoTravado = est({
-  dados: { negocio: 'Guincho', aparece_no_google: 'nao', tem_perfil_google: 'sim', so_indicacao: 'nao', fez_anuncio: 'nao', impacto_atual: 'perde clientes', urgencia: 'sim', decisor: 'sim', orcamento_ok: 'sim' },
+  dados: { negocio: 'Guincho', aparece_no_google: 'nao', tem_perfil_google: 'sim', so_indicacao: 'nao', fez_anuncio: 'nao', impacto_atual: 'perde clientes', urgencia: 'sim', decisor: 'sim', orcamento_declarado: 'sim, tenho orçamento pra isso' },
   perguntas_feitas: [
     { id: 'escopo', turno: 4, respondida: false },
     { id: 'escopo', turno: 6, respondida: false },
@@ -213,7 +213,7 @@ ok('pergunta obrigatória travada 2x: escala (handoff) mesmo respondendo a dúvi
 d = decidir(ex({ intencoes: ['social'], social: { tipo: 'cumprimento', texto_do_lead: 'oi' } }), escopoTravado, config, ctx())
 ok('pergunta obrigatória travada 2x, turno sem nada relevante: aguarda mas ainda assim escala', d.acao.tipo === 'aguardar' && !!d.acao.handoff, JSON.stringify(d.acao))
 const escopoUmaVez = est({
-  dados: { negocio: 'Guincho', aparece_no_google: 'nao', tem_perfil_google: 'sim', so_indicacao: 'nao', fez_anuncio: 'nao', impacto_atual: 'perde clientes', urgencia: 'sim', decisor: 'sim', orcamento_ok: 'sim' },
+  dados: { negocio: 'Guincho', aparece_no_google: 'nao', tem_perfil_google: 'sim', so_indicacao: 'nao', fez_anuncio: 'nao', impacto_atual: 'perde clientes', urgencia: 'sim', decisor: 'sim', orcamento_declarado: 'sim, tenho orçamento pra isso' },
   perguntas_feitas: [{ id: 'escopo', turno: 4, respondida: false }],
   turno: 6,
 })
@@ -282,6 +282,28 @@ ok('escopo dito sem ninguém ter perguntado: só guarda, não solta valor', deci
   ok('turno seguinte, campo continua "nao": NÃO reabre encerrar de novo sozinho', d1.acao.tipo !== 'encerrar', d1.acao.tipo)
   const d2 = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { orcamento_ok: 'nao sei' } }), est({ dados: { nome: 'Marcos' } }), cfgFin, ctx())
   ok('resposta ambígua ("não sei") não conta como recusa', d2.acao.tipo !== 'encerrar', d2.acao.tipo)
+}
+
+// trava de orçamento sem ancoragem (valor_minimo_aceitavel, Rodrigo 30/09/2026): pergunta aberta, sem falar
+// valor; só corta quando o PRÓPRIO lead diz um número abaixo do mínimo.
+{
+  ok('valorDitoPeloLead: "uns 200" pega 200', valorDitoPeloLead('uns 200') === 200)
+  ok('valorDitoPeloLead: "tenho 2 mil separados" pega 2000', valorDitoPeloLead('tenho 2 mil separados') === 2000)
+  ok('valorDitoPeloLead: "consigo uns 800 por mês" pega 800', valorDitoPeloLead('consigo uns 800 por mês') === 800)
+  ok('valorDitoPeloLead: "R$1.199,00" pega 1199', valorDitoPeloLead('consigo pagar R$1.199,00') === 1199)
+  ok('valorDitoPeloLead: "sim, tenho" não acha número', valorDitoPeloLead('sim, tenho') === null)
+  ok('valorDitoPeloLead: "ainda não pensei nisso" não acha número', valorDitoPeloLead('ainda não pensei nisso') === null)
+  ok('valorDitoPeloLead: "tenho 2 funcionários" ignora número pequeno sem R$/mil', valorDitoPeloLead('tenho 2 funcionários') === null)
+
+  const cfgOrc: any = { ...config, qualificacao: { perguntas: [...config.qualificacao.perguntas, { id: 'orcamento2', ordem: 98, obrigatoria: true, campo: 'orcamento_declarado', texto: 'Você tem orçamento reservado, ou ainda não pensou nesse investimento?', valor_minimo_aceitavel: { valor: 1199, frase_recusa: 'Poxa {nome}, no momento não consigo te ajudar.' } }] } }
+  let d3 = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { orcamento_declarado: 'só uns 200' } }), est({ dados: { nome: 'Ana' } }), cfgOrc, ctx())
+  ok('disse um valor claramente abaixo do mínimo: encerra na hora', d3.acao.tipo === 'encerrar' && d3.estado.etapa === 'encerrado', d3.acao.tipo)
+  d3 = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { orcamento_declarado: 'sim, tenho orçamento pra isso' } }), est({ dados: { nome: 'Ana' } }), cfgOrc, ctx())
+  ok('disse que tem, sem citar número: NÃO encerra, segue o fluxo', d3.acao.tipo !== 'encerrar', d3.acao.tipo)
+  d3 = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { orcamento_declarado: 'ainda não pensei nesse investimento' } }), est({ dados: { nome: 'Ana' } }), cfgOrc, ctx())
+  ok('"ainda não pensei" (sem número): NÃO encerra', d3.acao.tipo !== 'encerrar', d3.acao.tipo)
+  d3 = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { orcamento_declarado: 'tenho uns 2000 guardados' } }), est({ dados: { nome: 'Ana' } }), cfgOrc, ctx())
+  ok('valor declarado acima do mínimo: NÃO encerra', d3.acao.tipo !== 'encerrar', d3.acao.tipo)
 }
 // 7b2 trava da abertura: gancho de anúncio (infinitas variações) não pode disparar preço/como funciona,
 // mesmo que a IA classifique errado; só o texto LITERAL do lead libera isso na primeira mensagem.

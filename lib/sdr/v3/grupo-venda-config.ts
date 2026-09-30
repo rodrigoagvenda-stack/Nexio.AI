@@ -29,17 +29,17 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
       { id: 'impacto', ordem: 7, obrigatoria: true, campo: 'impacto_atual', texto: '{nome}, isso te custa quanto hoje, em clientes que você deixa de fechar?' },
       { id: 'evento_critico', ordem: 8, obrigatoria: true, campo: 'urgencia', texto: 'Tem algum motivo pra resolver isso logo, ou pode esperar?' },
       { id: 'decisor', ordem: 9, obrigatoria: true, campo: 'decisor', texto: 'Você que decide sobre esse tipo de investimento na empresa, ou tem mais alguém envolvido nessa parte?' },
-      // Trava de orçamento (BANT): só entra escopo/preço depois de confirmar que o mínimo cabe. "Não" claro encerra
-      // na hora, educado; resposta ambígua ("não sei") não conta como recusa, fica pendente como qualquer obrigatória.
+      // Trava de orçamento (BANT), sem ancorar valor (achado real, Rodrigo 30/09/2026: nenhum lead que recebeu o
+      // preço puxado primeiro agendou; quem disse que não tinha dinheiro foi sempre quem deu o número primeiro).
+      // Pergunta aberta; só corta quando o PRÓPRIO lead cita um número abaixo do mínimo do plano Start.
       {
         id: 'qualificacao_financeira',
         ordem: 10,
         obrigatoria: true,
-        campo: 'orcamento_ok',
-        campo_tipo: 'sim_nao',
-        titulo: 'Orçamento mínimo',
-        texto: '{nome}, nosso investimento mínimo é de R$ 1.199, podendo ser Pix ou cartão. Esse valor faz sentido pra você hoje?',
-        encerrar_se_nao: 'Poxa {nome}, entendo. No momento não consigo te ajudar, mas se isso mudar é só me chamar por aqui.',
+        campo: 'orcamento_declarado',
+        titulo: 'Orçamento',
+        texto: '{nome}, hoje você tem orçamento reservado pra resolver isso, ou ainda não pensou nesse investimento?',
+        valor_minimo_aceitavel: { valor: 1199, frase_recusa: 'Poxa {nome}, entendo. No momento não consigo te ajudar, mas se isso mudar é só me chamar por aqui.' },
       },
       // Mesmo texto de preco.por_escopo.pergunta (se mudar um, muda o outro). Por último: só decide o plano exato
       // (Start ou Essencial) depois de confirmar que o mínimo cabe no orçamento.

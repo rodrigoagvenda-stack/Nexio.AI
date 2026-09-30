@@ -38,6 +38,23 @@ export interface Decisao {
 
 const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim()
 
+/** O número (em reais) que o LEAD disse na resposta, se ele disse algum ("uns 200", "consigo 300 por mês",
+ * "tenho 2 mil"). Ignora número pequeno demais pra ser valor de investimento (evita "2 funcionários", "3x"
+ * viram falso positivo). null quando não há número claro: "sim, tenho", "ainda não pensei" nunca cortam. */
+export function valorDitoPeloLead(texto: string): number | null {
+  const t = norm(texto)
+  let melhor: number | null = null
+  for (const m of t.matchAll(/(?:r\$\s?)?(\d{1,3}(?:\.\d{3})+(?:,\d{2})?|\d+(?:,\d{2})?)\s*(mil)?/g)) {
+    let n = parseFloat(m[1].replace(/\.(?=\d{3}(?:\D|$))/g, '').replace(',', '.'))
+    if (isNaN(n)) continue
+    if (m[2]) n *= 1000
+    const temSinal = /r\$/.test(m[0]) || m[2] || n >= 10
+    if (!temSinal) continue
+    if (melhor === null || n < melhor) melhor = n
+  }
+  return melhor
+}
+
 /** Preenche {nome}, {segmento}... com o que se sabe; o que não se sabe some (com a vírgula que o segue). */
 export function preencher(texto: string, dados: Record<string, string>): string {
   const vals: Record<string, string> = {
@@ -122,22 +139,37 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   const campoDe = (id: string) => config.qualificacao.perguntas.find((q) => q.id === id)?.campo
   for (const p of estado.perguntas_feitas) if (!p.respondida && campoDe(p.id) && filled(estado.dados, campoDe(p.id)!)) p.respondida = true
 
-  // Trava de orçamento: alguma pergunta de qualificação tem encerrar_se_nao e o lead acabou de responder "não"
-  // pela primeira vez (não reabre em turnos seguintes, mesmo que o campo continue "nao"). Roda antes de qualquer
-  // outra regra: não faz sentido continuar qualificando quem já disse que o valor não cabe.
-  for (const q of config.qualificacao.perguntas) {
-    if (!q.encerrar_se_nao) continue
-    const respondeuAgora = typeof ex.dados?.[q.campo] === 'string' && ex.dados[q.campo].trim() && !(entrada.dados[q.campo] ?? '').trim()
-    // Só "nao" isolado ou com detalhe depois de ":"/",": "nao sei" começa com as mesmas letras mas não é
-    // recusa nenhuma, é resposta ambígua (fica pendente, como qualquer obrigatória sem resposta clara).
-    const respostaNao = respondeuAgora && (() => { const v = norm(estado.dados[q.campo]); return v === 'nao' || /^nao[:,]/.test(v) })()
-    if (respostaNao) {
+  // Travas de orçamento: rodam antes de qualquer outra regra, não faz sentido continuar qualificando quem já
+  // deixou claro que não cabe no bolso. As duas só disparam no turno em que o campo é preenchido pela primeira
+  // vez: nunca reabrem sozinhas depois, mesmo que o campo continue com o mesmo valor.
+  const encerraPorOrcamento = (): Decisao | null => {
+    for (const q of config.qualificacao.perguntas) {
+      const respondeuAgora = typeof ex.dados?.[q.campo] === 'string' && ex.dados[q.campo].trim() && !(entrada.dados[q.campo] ?? '').trim()
+      if (!respondeuAgora) continue
+      // encerrar_se_nao: pergunta fechada (sim/não). Só "nao" isolado ou com detalhe depois de ":"/",":
+      // "nao sei" começa com as mesmas letras mas é resposta ambígua, fica pendente.
+      if (q.encerrar_se_nao) {
+        const v = norm(estado.dados[q.campo])
+        if (v === 'nao' || /^nao[:,]/.test(v)) return frase(q.encerrar_se_nao)
+      }
+      // valor_minimo_aceitavel: pergunta aberta, sem ancorar valor. Só corta quando o PRÓPRIO lead cita um
+      // número na resposta e esse número é menor que o mínimo; "sim, tenho" ou "ainda não pensei" (sem
+      // número) seguem o fluxo normal.
+      if (q.valor_minimo_aceitavel) {
+        const dito = valorDitoPeloLead(estado.dados[q.campo])
+        if (dito !== null && dito < q.valor_minimo_aceitavel.valor) return frase(q.valor_minimo_aceitavel.frase_recusa)
+      }
+    }
+    return null
+    function frase(texto: string): Decisao {
       return {
         estado: { ...estado, etapa: 'encerrado' },
-        acao: { tipo: 'encerrar', reacao_social: false, social: null, conteudo: { modo: 'literal', texto: preencher(q.encerrar_se_nao, estado.dados) }, fatos: [], proxima_pergunta: null, tom_do_lead: ex.tom_do_lead, contexto: [], etapa_depois: 'encerrado' },
+        acao: { tipo: 'encerrar', reacao_social: false, social: null, conteudo: { modo: 'literal', texto: preencher(texto, estado.dados) }, fatos: [], proxima_pergunta: null, tom_do_lead: ex.tom_do_lead, contexto: [], etapa_depois: 'encerrado' },
       }
     }
   }
+  const decisaoOrcamento = encerraPorOrcamento()
+  if (decisaoOrcamento) return decisaoOrcamento
 
   const I = new Set(ex.intencoes)
   // Depois de já ter explicado "como funciona" uma vez nesta conversa, uma nova pergunta_como_funciona vira

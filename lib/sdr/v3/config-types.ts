@@ -27,11 +27,19 @@ export interface PerguntaQualificacao {
   campo_descricao?: string
   /** EXTENSÃO: outros dados que a mesma pergunta também preenche (ex.: "confirma decisor" junto com "nome do decisor"). */
   campos_extra?: { campo: string; label: string; tipo: 'texto' | 'sim_nao' | 'link_ou_print'; descricao?: string; opcional?: boolean }[]
-  /** EXTENSÃO: trava de orçamento. Quando a resposta desta pergunta (campo_tipo 'sim_nao') vem "não" pela primeira vez,
-   * a conversa encerra na hora com esta frase, em vez de seguir qualificando um lead que já disse que não cabe no bolso.
-   * Só dispara no turno em que o campo é preenchido com "não": nunca reabre sozinho depois, mesmo que o lead volte a
-   * falar. Resposta ambígua ("não sei", "talvez") não conta como "não": fica pendente, igual qualquer obrigatória. */
+  /** EXTENSÃO: trava de orçamento por resposta fechada. Quando a resposta desta pergunta (campo_tipo 'sim_nao') vem
+   * "não" pela primeira vez, a conversa encerra na hora com esta frase, em vez de seguir qualificando um lead que já
+   * disse que não cabe no bolso. Só dispara no turno em que o campo é preenchido com "não": nunca reabre sozinho
+   * depois, mesmo que o lead volte a falar. Resposta ambígua ("não sei", "talvez") não conta como "não": fica
+   * pendente, igual qualquer obrigatória. Pra perguntar orçamento sem ancorar um valor, use `valor_minimo_aceitavel`
+   * em vez deste campo: pergunta aberta, só corta quando o PRÓPRIO lead diz um número. */
   encerrar_se_nao?: string
+  /** EXTENSÃO: trava de orçamento sem ancoragem (achado real, Rodrigo 30/09/2026: nenhum lead que recebeu o preço
+   * puxado primeiro agendou; os que disseram que não tinham dinheiro foram os que ELES MESMOS deram um número, sem
+   * a empresa jogar o valor primeiro). A pergunta desta pergunta fica em aberto ("você tem orçamento reservado?"),
+   * sem falar valor. Só encerra quando o próprio lead cita um número na resposta E esse número é menor que `minimo`:
+   * "sim, tenho", "ainda não pensei" ou qualquer resposta sem número claro seguem o fluxo normal, nunca cortam. */
+  valor_minimo_aceitavel?: { minimo: number; frase_recusa: string }
 }
 
 export interface ObjecaoConfig {
