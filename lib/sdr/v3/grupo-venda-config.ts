@@ -13,19 +13,37 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
     assinatura_humano: 'Bruno',
   },
 
+  // Ordem consultiva (auditoria 30/09/2026, a pedido do Rodrigo): situação atual antes de preço/escopo, dor antes
+  // de urgência/decisor, orçamento como trava de BANT logo depois do decisor, escopo por último (só decide o
+  // plano exato depois de confirmar que o mínimo cabe no bolso). anuncios/canal_aquisicao/dor_central passam a
+  // obrigatórias: como pergunta não obrigatória só é feita durante a abertura (1 mensagem), na prática nunca
+  // eram perguntadas depois disso — promover era a única forma de a ordem pedida valer de verdade.
   qualificacao: {
     perguntas: [
       { id: 'nome', ordem: 1, obrigatoria: false, campo: 'nome', texto: 'Olá, tudo bem? Sou a Laura, atendente do Grupo Venda Marketing Digital. Qual o seu nome?' },
-      { id: 'negocio', ordem: 2, obrigatoria: true, campo: 'negocio', texto: '{nome}, qual o nome, o ramo e a cidade da sua empresa?' },
-      { id: 'perfil_google', ordem: 3, obrigatoria: true, campo: 'tem_perfil_google', texto: 'Você possui o perfil do Google Meu Negócio criado? Se sim, me manda o link ou um print dele.' },
-      // Mesmo texto de preco.por_escopo.pergunta (se mudar um, muda o outro): substitui a antiga pergunta solta "Tem site?",
-      // que perguntava sobre outra coisa (site que já existe) sem nunca travar o agendamento no que realmente importa pro
-      // Bruno (se o lead precisa que a gente monte um site). Obrigatória: nunca agenda reunião sem saber o escopo.
-      { id: 'escopo', ordem: 4, obrigatoria: true, campo: 'escopo', texto: 'Pra te passar o valor certinho: você precisa só da configuração do Google Meu Negócio ou precisa de um site também?' },
-      { id: 'anuncios', ordem: 5, obrigatoria: false, campo: 'fez_anuncio', texto: 'Já fez anúncio no Google ou no Meta?' },
-      { id: 'canal_aquisicao', ordem: 6, obrigatoria: false, campo: 'so_indicacao', texto: 'Hoje, você vive só de indicação e boca a boca?' },
-      { id: 'dor_central', ordem: 7, obrigatoria: false, campo: 'aparece_no_google', texto: 'Quando você procura a sua empresa no Google, ela aparece ou não?' },
-      { id: 'decisor', ordem: 8, obrigatoria: true, campo: 'decisor', texto: 'Você que decide sobre esse tipo de investimento na empresa, ou tem mais alguém envolvido nessa parte?' },
+      { id: 'negocio', ordem: 2, obrigatoria: true, campo: 'negocio', texto: '{nome}, qual é o seu negócio e em qual cidade você atende?' },
+      { id: 'dor_central', ordem: 3, obrigatoria: true, campo: 'aparece_no_google', texto: 'Quando você procura a sua empresa no Google, ela aparece ou não?' },
+      { id: 'perfil_google', ordem: 4, obrigatoria: true, campo: 'tem_perfil_google', texto: 'Você possui o perfil do Google Meu Negócio criado? Se sim, me manda o link ou um print dele.' },
+      { id: 'canal_aquisicao', ordem: 5, obrigatoria: true, campo: 'so_indicacao', texto: 'Hoje, você vive só de indicação e boca a boca?' },
+      { id: 'anuncios', ordem: 6, obrigatoria: true, campo: 'fez_anuncio', texto: 'Já fez anúncio no Google ou no Meta?' },
+      { id: 'impacto', ordem: 7, obrigatoria: true, campo: 'impacto_atual', texto: '{nome}, isso te custa quanto hoje, em clientes que você deixa de fechar?' },
+      { id: 'evento_critico', ordem: 8, obrigatoria: true, campo: 'urgencia', texto: 'Tem algum motivo pra resolver isso logo, ou pode esperar?' },
+      { id: 'decisor', ordem: 9, obrigatoria: true, campo: 'decisor', texto: 'Você que decide sobre esse tipo de investimento na empresa, ou tem mais alguém envolvido nessa parte?' },
+      // Trava de orçamento (BANT): só entra escopo/preço depois de confirmar que o mínimo cabe. "Não" claro encerra
+      // na hora, educado; resposta ambígua ("não sei") não conta como recusa, fica pendente como qualquer obrigatória.
+      {
+        id: 'qualificacao_financeira',
+        ordem: 10,
+        obrigatoria: true,
+        campo: 'orcamento_ok',
+        campo_tipo: 'sim_nao',
+        titulo: 'Orçamento mínimo',
+        texto: '{nome}, nosso investimento mínimo é de R$ 1.199, podendo ser Pix ou cartão. Esse valor faz sentido pra você hoje?',
+        encerrar_se_nao: 'Poxa {nome}, entendo. No momento não consigo te ajudar, mas se isso mudar é só me chamar por aqui.',
+      },
+      // Mesmo texto de preco.por_escopo.pergunta (se mudar um, muda o outro). Por último: só decide o plano exato
+      // (Start ou Essencial) depois de confirmar que o mínimo cabe no orçamento.
+      { id: 'escopo', ordem: 11, obrigatoria: true, campo: 'escopo', texto: 'Pra te passar o valor certinho: você precisa só da configuração do Google Meu Negócio ou precisa de um site também?' },
     ],
   },
 
@@ -202,9 +220,12 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
         {
           valor: 'gmn',
           descricao: 'precisa só da configuração ou otimização do Google Meu Negócio, sem site',
+          // 3º bloco termina em "?": o preço nunca fica solto esperando o lead tomar a iniciativa (achado real,
+          // Rodrigo 30/09/2026), e por já terminar em pergunta, o decisor não cola nenhuma outra por cima.
           texto: [
             'Pro Google Meu Negócio sozinho, sem site, é o plano Start: de R$ 1.350 por R$ 1.199 à vista no Pix, ou 3x de R$ 399,67 no cartão, sem juros.',
             'Inclui o diagnóstico do perfil, perfil criado ou corrigido do zero, categorias, descrição e serviços configurados, fotos reais, 4 posts do primeiro mês prontos e a verificação junto ao Google.',
+            'E aí, topa marcar 15 minutos pra eu te mostrar certinho o que cabe no seu caso?',
           ],
         },
         {
@@ -213,6 +234,7 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
           texto: [
             'Com site, é o plano Essencial: R$ 2.200 à vista no Pix, ou 6x de R$ 397,03 no cartão (com juros, total R$ 2.382,16).',
             'Inclui tudo do Google Meu Negócio, mais o site de uma página com SEO local, Analytics, Tag Manager e Search Console configurados, e 30 dias de ativação com posts semanais, script de pedido de avaliação e relatório de resultado.',
+            'E aí, topa marcar 15 minutos pra eu te mostrar certinho o que cabe no seu caso?',
           ],
         },
       ],
@@ -228,10 +250,8 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
 
   como_funciona: {
     texto: [
-      '{nome}, deixa eu te explicar rapidinho.',
-      'A gente cuida da sua presença no Google. Primeiro olhamos como está o seu perfil hoje e por que ele não aparece. Depois criamos ou corrigimos o Google Meu Negócio do zero: categoria, descrição, serviços, fotos reais e a verificação junto ao Google.',
-      'É um pagamento único, sem mensalidade obrigatória.',
-      'Se você também precisa de um site, a gente faz com SEO local pra aparecer na sua cidade, e nos primeiros 30 dias ainda posta toda semana, deixa pronto um script pra você pedir avaliação dos clientes e te entrega um relatório de resultado.',
+      '{nome}, a gente arruma a sua presença no Google: vê por que o seu perfil não aparece e cria ou corrige o Google Meu Negócio do zero, até a verificação. É pagamento único, sem mensalidade.',
+      'E se você precisar, a gente também faz o site com SEO local pra aparecer na sua cidade.',
     ],
   },
 

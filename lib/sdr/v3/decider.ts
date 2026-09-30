@@ -122,6 +122,23 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   const campoDe = (id: string) => config.qualificacao.perguntas.find((q) => q.id === id)?.campo
   for (const p of estado.perguntas_feitas) if (!p.respondida && campoDe(p.id) && filled(estado.dados, campoDe(p.id)!)) p.respondida = true
 
+  // Trava de orçamento: alguma pergunta de qualificação tem encerrar_se_nao e o lead acabou de responder "não"
+  // pela primeira vez (não reabre em turnos seguintes, mesmo que o campo continue "nao"). Roda antes de qualquer
+  // outra regra: não faz sentido continuar qualificando quem já disse que o valor não cabe.
+  for (const q of config.qualificacao.perguntas) {
+    if (!q.encerrar_se_nao) continue
+    const respondeuAgora = typeof ex.dados?.[q.campo] === 'string' && ex.dados[q.campo].trim() && !(entrada.dados[q.campo] ?? '').trim()
+    // Só "nao" isolado ou com detalhe depois de ":"/",": "nao sei" começa com as mesmas letras mas não é
+    // recusa nenhuma, é resposta ambígua (fica pendente, como qualquer obrigatória sem resposta clara).
+    const respostaNao = respondeuAgora && (() => { const v = norm(estado.dados[q.campo]); return v === 'nao' || /^nao[:,]/.test(v) })()
+    if (respostaNao) {
+      return {
+        estado: { ...estado, etapa: 'encerrado' },
+        acao: { tipo: 'encerrar', reacao_social: false, social: null, conteudo: { modo: 'literal', texto: preencher(q.encerrar_se_nao, estado.dados) }, fatos: [], proxima_pergunta: null, tom_do_lead: ex.tom_do_lead, contexto: [], etapa_depois: 'encerrado' },
+      }
+    }
+  }
+
   const I = new Set(ex.intencoes)
   // Depois de já ter explicado "como funciona" uma vez nesta conversa, uma nova pergunta_como_funciona vira
   // pergunta_fato de verdade (RAG): nunca repete o mesmo texto fixo de novo, e responde o que o lead pediu.
@@ -179,8 +196,13 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     }
   }
 
+  // Conteúdo fixo que já termina em pergunta (ex.: preço com CTA de agendamento embutido no texto da config,
+  // "...topa marcar 15 minutos?"): nunca cola uma segunda pergunta em cima. Regra geral, vale pra qualquer
+  // empresa que termine um bloco literal com "?", não só preço.
+  const literalJaTerminaEmPergunta = (a: Acao) => a.conteudo?.modo === 'literal' && asArr(a.conteudo.texto).join(' ').trim().endsWith('?')
+
   const comPergunta = (a: Acao, permitir = true): Acao => {
-    if (!permitir || completa) return a
+    if (!permitir || completa || literalJaTerminaEmPergunta(a)) return a
     const q = proximaPergunta(estado, config, false)
     if (q) {
       a.proxima_pergunta = { id: q.id, texto: q.texto }

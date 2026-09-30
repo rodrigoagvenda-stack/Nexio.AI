@@ -25,7 +25,7 @@ ok('abertura: reação social ligada', d.acao.reacao_social === true)
 
 // 2 social + resposta
 d = decidir(ex({ intencoes: ['social', 'resposta_qualificacao'], social: { tipo: 'retribuicao_pedida', texto_do_lead: 'tô bem e vc?' }, dados: { negocio: 'dentista em Botucatu', segmento: 'dentista', cidade: 'Botucatu' } }), est({ perguntas_feitas: [{ id: 'negocio', turno: 1, respondida: false }], turno: 1 }), config, ctx())
-ok('social + resposta: segue para perfil_google', d.acao.tipo === 'perguntar' && d.acao.proxima_pergunta?.id === 'perfil_google', d.acao.proxima_pergunta?.texto)
+ok('social + resposta: segue para a próxima obrigatória (dor_central)', d.acao.tipo === 'perguntar' && d.acao.proxima_pergunta?.id === 'dor_central', d.acao.proxima_pergunta?.texto)
 ok('marca pergunta respondida', d.estado.perguntas_feitas[0].respondida === true)
 
 // 3 preço
@@ -60,7 +60,7 @@ e2 = decidir(ex({ intencoes: ['outro'] }), e2.estado, config, ctx())
 ok('"outro" 2x seguidas escala', e2.acao.tipo === 'escalar')
 
 // 7 qualificação completa e agendamento
-const completo = est({ dados: { negocio: 'dentista', tem_perfil_google: 'sim', decisor: 'sim', escopo: 'gmn' } })
+const completo = est({ dados: { negocio: 'dentista', aparece_no_google: 'nao', tem_perfil_google: 'sim', so_indicacao: 'nao', fez_anuncio: 'nao', impacto_atual: 'perde clientes toda semana', urgencia: 'sim', decisor: 'sim', orcamento_ok: 'sim', escopo: 'gmn' } })
 d = decidir(ex({ intencoes: ['outro'] }), completo, config, ctx())
 ok('qualificação completa oferece horários', d.acao.tipo === 'oferecer_horarios')
 d = decidir(ex({ intencoes: ['quer_agendar'] }), est({ dados: { negocio: 'x' } }), config, ctx())
@@ -113,7 +113,7 @@ if (config.preco.por_escopo) {
 // como_funciona/preço, não pode virar explicação de novo com pergunta de qualificação colada por cima
 // (achado real, lead Simone/conv923, 30/09/2026)
 {
-  const simone = est({ dados: { negocio: 'turismo', tem_perfil_google: 'sim', decisor: 'sim', escopo: 'gmn' }, etapa: 'oferta_horario', contadores: { ...ESTADO_INICIAL(2).contadores, horarios_ofertados: true } })
+  const simone = est({ dados: { negocio: 'turismo', aparece_no_google: 'nao', tem_perfil_google: 'sim', so_indicacao: 'nao', fez_anuncio: 'nao', impacto_atual: 'perde clientes', urgencia: 'sim', decisor: 'sim', orcamento_ok: 'sim', escopo: 'gmn' }, etapa: 'oferta_horario', contadores: { ...ESTADO_INICIAL(2).contadores, horarios_ofertados: true } })
   const d = decidir(ex({ intencoes: ['escolheu_horario', 'pergunta_como_funciona'], horario_escolhido: '2026-10-01T17:00:00' }), simone, config, ctx())
   ok('escolheu horário + "como funciona" junto: prioriza o agendamento, não reabre como_funciona', d.acao.tipo === 'pedir_dados_agendamento', d.acao.tipo)
   ok('não cola pergunta de qualificação (ex.: impacto) no meio disso', !d.acao.proxima_pergunta, JSON.stringify(d.acao.proxima_pergunta))
@@ -201,7 +201,7 @@ ok('turno seguinte com e-mail e nome completo já preenchidos: fecha o agendamen
 // 7f regressão real (lead Marcelo, 27/09): pergunta obrigatória (escopo) feita 2x sem resposta reconhecível
 // — o motor desistia de perguntar de novo e nunca mais tentava, nem avisava ninguém, ficando preso pra sempre.
 const escopoTravado = est({
-  dados: { negocio: 'Guincho', tem_perfil_google: 'sim', decisor: 'sim' },
+  dados: { negocio: 'Guincho', aparece_no_google: 'nao', tem_perfil_google: 'sim', so_indicacao: 'nao', fez_anuncio: 'nao', impacto_atual: 'perde clientes', urgencia: 'sim', decisor: 'sim', orcamento_ok: 'sim' },
   perguntas_feitas: [
     { id: 'escopo', turno: 4, respondida: false },
     { id: 'escopo', turno: 6, respondida: false },
@@ -213,7 +213,7 @@ ok('pergunta obrigatória travada 2x: escala (handoff) mesmo respondendo a dúvi
 d = decidir(ex({ intencoes: ['social'], social: { tipo: 'cumprimento', texto_do_lead: 'oi' } }), escopoTravado, config, ctx())
 ok('pergunta obrigatória travada 2x, turno sem nada relevante: aguarda mas ainda assim escala', d.acao.tipo === 'aguardar' && !!d.acao.handoff, JSON.stringify(d.acao))
 const escopoUmaVez = est({
-  dados: { negocio: 'Guincho', tem_perfil_google: 'sim', decisor: 'sim' },
+  dados: { negocio: 'Guincho', aparece_no_google: 'nao', tem_perfil_google: 'sim', so_indicacao: 'nao', fez_anuncio: 'nao', impacto_atual: 'perde clientes', urgencia: 'sim', decisor: 'sim', orcamento_ok: 'sim' },
   perguntas_feitas: [{ id: 'escopo', turno: 4, respondida: false }],
   turno: 6,
 })
@@ -244,11 +244,11 @@ ok('volta depois de encerrar: zera objeções já respondidas', d.estado.objecoe
 function regrasPrime(b: string[]) { return validar(b, { config, estado: est(), acao: { tipo: 'perguntar', conteudo: null, fatos: [], proxima_pergunta: null, contexto: [] } as any, mensagensDoLead: [], ultimasNossas: [], eventoConfirmadoNoTurno: false }).map((x) => `${x.regra}:${x.modo}`).join(',') }
 // 7b como funciona e preço por escopo (Start e Essencial; Prime nunca aparece)
 d = decidir(ex({ intencoes: ['pergunta_preco', 'pergunta_como_funciona'] }), est({ dados: { nome: 'Luciano' } }), config, ctx())
-ok('como funciona: texto fixo, chama pelo nome', d.acao.tipo === 'responder_como_funciona' && d.acao.conteudo?.modo === 'literal' && txt(d.acao).startsWith('Luciano, deixa eu te explicar'), txt(d.acao).slice(0, 60))
+ok('como funciona: texto fixo, chama pelo nome', d.acao.tipo === 'responder_como_funciona' && d.acao.conteudo?.modo === 'literal' && txt(d.acao).startsWith('Luciano, a gente arruma'), txt(d.acao).slice(0, 60))
 ok('como funciona sem escopo: termina perguntando o escopo e não empilha outra pergunta', txt(d.acao).trim().endsWith('ou precisa de um site também?') && !d.acao.proxima_pergunta && d.estado.contadores.escopo_perguntado === true)
 ok('como funciona não solta valor antes de saber o escopo', !txt(d.acao).includes('R$'))
 const dComoSemNome = decidir(ex({ intencoes: ['pergunta_como_funciona'] }), est(), config, ctx())
-ok('como funciona sem nome conhecido: sem buraco no texto', txt(dComoSemNome.acao).startsWith('Deixa eu te explicar rapidinho.'), txt(dComoSemNome.acao).slice(0, 50))
+ok('como funciona sem nome conhecido: sem buraco no texto', txt(dComoSemNome.acao).startsWith('A gente arruma a sua presença no Google'), txt(dComoSemNome.acao).slice(0, 50))
 const aposComo = d.estado
 d = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), aposComo, config, ctx())
 ok('escopo gmn (depois de perguntado): sai o Start, Pix e 3x sem juros', d.acao.tipo === 'responder_preco' && txt(d.acao).includes('R$ 1.199') && txt(d.acao).includes('3x de R$ 399,67') && txt(d.acao).includes('sem juros'), txt(d.acao).slice(0, 80))
@@ -258,10 +258,31 @@ ok('escopo site: sai o Essencial, 2.200 no Pix e 6x com juros', txt(d.acao).incl
 d = decidir(ex({ intencoes: ['pergunta_preco'] }), est({ dados: { escopo: 'gmn' } }), config, ctx())
 ok('preço com escopo já conhecido: responde direto', d.acao.tipo === 'responder_preco' && txt(d.acao).includes('R$ 1.199'))
 d = decidir(ex({ intencoes: ['pergunta_preco', 'pergunta_como_funciona'] }), est({ dados: { escopo: 'site' } }), config, ctx())
-ok('valor + como funciona com escopo conhecido: explica e já dá o valor, sem re-perguntar', txt(d.acao).toLowerCase().includes('deixa eu te explicar') && txt(d.acao).includes('R$ 2.200') && !txt(d.acao).includes('ou precisa de um site também?'))
+ok('valor + como funciona com escopo conhecido: explica e já dá o valor, sem re-perguntar', txt(d.acao).toLowerCase().includes('a gente arruma a sua presença no google') && txt(d.acao).includes('R$ 2.200') && !txt(d.acao).includes('ou precisa de um site também?'))
 d = decidir(ex({ intencoes: ['pergunta_preco'] }), est({ dados: { nome: 'Ana' }, pedidos_de_preco: 1, contadores: { ...ESTADO_INICIAL(3).contadores, escopo_perguntado: true } }), config, ctx())
 ok('insistiu no valor sem responder o escopo: chama o Bruno (não fica sem resposta)', d.acao.tipo === 'escalar')
 ok('escopo dito sem ninguém ter perguntado: só guarda, não solta valor', decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), est(), config, ctx()).acao.tipo !== 'responder_preco')
+
+// preço com CTA de agendamento embutido na config (Rodrigo, 30/09/2026): o texto já termina em "?", então
+// NUNCA cola uma pergunta de qualificação por cima, mesmo com qualificação incompleta
+{
+  const p = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), aposComo, config, ctx())
+  ok('preço com CTA: termina no CTA, sem pergunta de qualificação colada', txt(p.acao).trim().endsWith('?') && !p.acao.proxima_pergunta, JSON.stringify(p.acao.proxima_pergunta))
+  ok('preço com CTA: convida a marcar 15 minutos', txt(p.acao).includes('topa marcar 15 minutos'))
+}
+
+// trava de orçamento (encerrar_se_nao): "não" claro na pergunta de qualificação financeira encerra na hora,
+// uma vez só; resposta ambígua não conta; depois de encerrado não reabre sozinho por causa do mesmo campo.
+{
+  const cfgFin: any = { ...config, qualificacao: { perguntas: [...config.qualificacao.perguntas, { id: 'orcamento', ordem: 99, obrigatoria: true, campo: 'orcamento_ok', campo_tipo: 'sim_nao', texto: 'Nosso mínimo é R$ 1.199, faz sentido pra você?', encerrar_se_nao: 'Poxa {nome}, no momento não consigo te ajudar.' }] } }
+  let d1 = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { orcamento_ok: 'nao' } }), est({ dados: { nome: 'Marcos' } }), cfgFin, ctx())
+  ok('respondeu "não" no orçamento: encerra na hora', d1.acao.tipo === 'encerrar' && d1.estado.etapa === 'encerrado', d1.acao.tipo)
+  ok('frase de encerramento usa o nome', txt(d1.acao).includes('Marcos'))
+  d1 = decidir(ex({ intencoes: ['social'] }), d1.estado, cfgFin, ctx())
+  ok('turno seguinte, campo continua "nao": NÃO reabre encerrar de novo sozinho', d1.acao.tipo !== 'encerrar', d1.acao.tipo)
+  const d2 = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { orcamento_ok: 'nao sei' } }), est({ dados: { nome: 'Marcos' } }), cfgFin, ctx())
+  ok('resposta ambígua ("não sei") não conta como recusa', d2.acao.tipo !== 'encerrar', d2.acao.tipo)
+}
 // 7b2 trava da abertura: gancho de anúncio (infinitas variações) não pode disparar preço/como funciona,
 // mesmo que a IA classifique errado; só o texto LITERAL do lead libera isso na primeira mensagem.
 const abertura1 = ESTADO_INICIAL(3)

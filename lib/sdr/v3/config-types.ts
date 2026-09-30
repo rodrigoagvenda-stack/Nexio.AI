@@ -27,6 +27,11 @@ export interface PerguntaQualificacao {
   campo_descricao?: string
   /** EXTENSÃO: outros dados que a mesma pergunta também preenche (ex.: "confirma decisor" junto com "nome do decisor"). */
   campos_extra?: { campo: string; label: string; tipo: 'texto' | 'sim_nao' | 'link_ou_print'; descricao?: string; opcional?: boolean }[]
+  /** EXTENSÃO: trava de orçamento. Quando a resposta desta pergunta (campo_tipo 'sim_nao') vem "não" pela primeira vez,
+   * a conversa encerra na hora com esta frase, em vez de seguir qualificando um lead que já disse que não cabe no bolso.
+   * Só dispara no turno em que o campo é preenchido com "não": nunca reabre sozinho depois, mesmo que o lead volte a
+   * falar. Resposta ambígua ("não sei", "talvez") não conta como "não": fica pendente, igual qualquer obrigatória. */
+  encerrar_se_nao?: string
 }
 
 export interface ObjecaoConfig {
