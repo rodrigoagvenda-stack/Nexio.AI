@@ -37,9 +37,9 @@ export interface PerguntaQualificacao {
   /** EXTENSÃO: trava de orçamento sem ancoragem (achado real, Rodrigo 30/09/2026: nenhum lead que recebeu o preço
    * puxado primeiro agendou; os que disseram que não tinham dinheiro foram os que ELES MESMOS deram um número, sem
    * a empresa jogar o valor primeiro). A pergunta desta pergunta fica em aberto ("você tem orçamento reservado?"),
-   * sem falar valor. Só encerra quando o próprio lead cita um número na resposta E esse número é menor que `minimo`:
+   * sem falar valor. Só encerra quando o próprio lead cita um número na resposta E esse número é menor que `valor`:
    * "sim, tenho", "ainda não pensei" ou qualquer resposta sem número claro seguem o fluxo normal, nunca cortam. */
-  valor_minimo_aceitavel?: { minimo: number; frase_recusa: string }
+  valor_minimo_aceitavel?: { valor: number; frase_recusa: string }
 }
 
 export interface ObjecaoConfig {
