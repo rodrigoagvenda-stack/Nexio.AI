@@ -431,6 +431,21 @@ ok('sem texto fixo de como funciona: cai na dúvida sobre fato (com RAG)', d.aca
   const comOutraFrente = est({ dados: { negocio: 'clínica odontológica', escopo: 'outra_frente' } })
   const d3 = decidir(ex({ intencoes: ['pergunta_preco'] }), comOutraFrente, config, ctx())
   ok('pediu preço com escopo=outra_frente: defere pro Bruno, nunca solta R$ do plano GMN/site', d3.acao.tipo === 'responder_preco' && !txt(d3.acao).includes('R$'), txt(d3.acao))
+
+  // regressão real (lead Rodrigo/conv530, 30/09/2026): pivotou pra tráfego pago no MESMO turno em que outra
+  // pergunta obrigatória (sem relação, ex.: orçamento) já estava travada há 2 tentativas — o handoff disparava
+  // junto, escalando pro Bruno no exato turno em que o lead finalmente foi entendido. Dá um turno de respiro.
+  const pivoComOutraTravada = est({
+    dados: { negocio: 'clínica odontológica', decisor: 'sim' },
+    perguntas_feitas: [
+      { id: 'escopo', turno: 4, respondida: false },
+      { id: 'escopo', turno: 6, respondida: false },
+    ],
+    turno: 6,
+  })
+  const d4 = decidir(ex({ intencoes: ['interesse_outra_frente'] }), pivoComOutraTravada, config, ctx())
+  ok('pivotou pra outra frente com pergunta diferente já travada: NÃO escala no mesmo turno do pivô', !d4.acao.handoff, JSON.stringify(d4.acao.handoff))
+  ok('mesmo sem escalar, ainda reconhece o pivô (fato outras_frentes)', d4.acao.tipo === 'responder_fato' && d4.acao.fatos.some((f) => f.id === 'outras_frentes'), d4.acao.tipo)
 }
 
 // 7c config e Prime

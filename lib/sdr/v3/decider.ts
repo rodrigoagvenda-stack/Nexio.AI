@@ -379,13 +379,19 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // 'outra_frente' (sem preço fixo, sempre conversa com o Bruno) e os campos específicos de GMN como n/a, pra não
   // travar a qualificação nem seguir perguntando coisa sem relação com o que o lead pediu. Só dispara uma vez
   // (guard no valor de escopo): das próximas vezes só deixa o funil seguir adiante normalmente.
+  // IMPORTANTE: usa base() puro, NUNCA comPergunta/handoffSeTravado aqui. Achado real, Rodrigo/conv530,
+  // 30/09/2026: a pergunta de orçamento (outro campo, sem relação com essa trava) já tinha ficado presa 2x
+  // ANTES do lead pivotar pra essa frente; se colar a checagem de trava no mesmo turno que reconhece o pivô, o
+  // lead é escalado pro Bruno no exato turno em que finalmente foi entendido — parece bug, mesmo sendo dois
+  // problemas diferentes colidindo. Dá um turno de respiro: a trava (se ainda existir) só é reavaliada no
+  // próximo turno, pelo fluxo normal.
   if (I.has('interesse_outra_frente') && (estado.dados.escopo ?? '').trim() !== 'outra_frente') {
     estado.dados.escopo = 'outra_frente'
     if (!filled(estado.dados, 'aparece_no_google')) estado.dados.aparece_no_google = 'n/a'
     if (!filled(estado.dados, 'tem_perfil_google')) estado.dados.tem_perfil_google = 'n/a'
     const fatoOutrasFrentes = config.fatos?.find((f) => f.id === 'outras_frentes')
     if (fatoOutrasFrentes) {
-      return { estado, acao: comPergunta(base('responder_fato', { fatos: [{ id: fatoOutrasFrentes.id, texto: fatoOutrasFrentes.texto }] })) }
+      return { estado, acao: base('responder_fato', { fatos: [{ id: fatoOutrasFrentes.id, texto: fatoOutrasFrentes.texto }] }) }
     }
   }
 
