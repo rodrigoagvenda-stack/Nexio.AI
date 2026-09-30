@@ -249,6 +249,8 @@ export function SdrConversaV3() {
       if (!res.ok || !json.success) throw new Error(json.message || json.errors?.[0] || 'Não foi possível publicar');
       setSaved(clone(config));
       toast({ title: 'Alterações publicadas', description: 'O agente já atende com a versão nova.', variant: 'success' });
+      const avisos: string[] = Array.isArray(json.avisos) ? json.avisos : [];
+      if (avisos.length) toast({ title: 'Pontos que deixam o agente com cara de robô', description: avisos.slice(0, 3).join(' '), variant: 'warning' });
     } catch (e) {
       toast({ title: 'Não foi possível publicar', description: e instanceof Error ? e.message : undefined, variant: 'destructive' });
     } finally {

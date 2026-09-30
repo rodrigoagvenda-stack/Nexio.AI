@@ -196,7 +196,15 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
     if (!agendaCtx) return false
     const filtro = filtroDisponibilidade(estado.dados.disponibilidade)
     const jaOfertados = (estado.dados._slots ?? '').split(',').filter(Boolean)
-    const of = await ofertarHorarios(agendaCtx, { filtro, jaOfertados })
+    // Calendar fora do ar (achado real, 29/09 12:27-12:33: "invalid_request" do Google): antes o erro derrubava o
+    // turno inteiro e o motor antigo respondia no lugar. Agora vira "sem horário" e a conversa vai pra pessoa.
+    let of: Awaited<ReturnType<typeof ofertarHorarios>> = null
+    try {
+      of = await ofertarHorarios(agendaCtx, { filtro, jaOfertados })
+    } catch (err: any) {
+      await deps.log('v3_calendario_erro', { erro: err?.message ?? 'erro' }).catch(() => {})
+      return false
+    }
     if (!of) return false
     acao.bloco_fixo = `${prefixo}${of.texto}`
     estado.dados._slots = of.slots.join(',')

@@ -212,16 +212,28 @@ export function corrigirMecanico(blocos: string[], v: ValidadorCtx, violacoes: V
   }
 
   if (tem('V1')) {
-    let achou = false
+    // Fica a pergunta que o CÓDIGO decidiu (ou a do texto fixo), nunca simplesmente a primeira: achado real
+    // (conv 935 e 932, 29/09) — a IA escreveu uma pergunta-ponte antes da oficial, o corte ficava com a ponte
+    // e a pergunta de qualificação sumia.
+    const alvo = v.acao.proxima_pergunta?.texto ?? (v.acao.conteudo?.modo === 'literal' ? [v.acao.conteudo.texto].flat().join(' ') : '')
+    const perguntas = out.flatMap(sentencas).filter((s) => s.includes('?') && !PERGUNTA_SOCIAL_RE.test(s.trim()))
+    const ta = tokens(alvo)
+    const manter = alvo && perguntas.length
+      ? perguntas.reduce((best, s) => (jaccard(tokens(s), ta) > jaccard(tokens(best), ta) ? s : best), perguntas[0])
+      : perguntas[0]
+    // Devolver "e você?" junto com a pergunta de verdade vira duas perguntas pro lead: a devolvida sai.
+    // O cumprimento de abertura ("Oi, tudo bem?") fica, é assim que se fala no WhatsApp.
+    const DEVOLVE_RE = /(^|\s)e (voc[eê]|vc)(?![a-z])/i
+    const semDevolver = (s: string) => s.replace(/[,\s]*e (voc[eê]|vc)\s*\?\s*$/i, '!').replace(/^!$/, '')
     out = out
       .map((b) =>
         sentencas(b)
+          .map((s) => (s.includes('?') && s !== manter && DEVOLVE_RE.test(s) && perguntas.length > 0 ? semDevolver(s) : s))
           .filter((s) => {
+            if (!s) return false
             if (!s.includes('?')) return true
             if (PERGUNTA_SOCIAL_RE.test(s.trim())) return true
-            if (achou) return false
-            achou = true
-            return true
+            return s === manter
           })
           .join(' '),
       )

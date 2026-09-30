@@ -339,6 +339,18 @@ const sujo = ['Legal — dentista!', 'Tem site? E anúncios?']
 const fix = corrigirMecanico(sujo, vc(), validar(sujo, vc()))
 ok('correção mecânica: 1 pergunta e sem travessão', fix.join(' ').match(/\?/g)?.length === 1 && !/[—–]/.test(fix.join(' ')), JSON.stringify(fix))
 
+// V1 mantém a pergunta DECIDIDA, não a primeira (conv 932/935, 29/09: a pergunta-ponte ficava e a oficial sumia)
+{
+  const acaoPq: any = { ...vc().acao, proxima_pergunta: { id: 'perfil_google', texto: 'Você possui o perfil do Google Meu Negócio criado? Se sim, me manda o link ou um print dele.' } }
+  const ctxPq = { ...vc(), acao: acaoPq }
+  const ponte = ['Me fala também a cidade onde você atende?', 'Você já tem o perfil do Google Meu Negócio criado?']
+  const f1 = corrigirMecanico(ponte, ctxPq, validar(ponte, ctxPq))
+  ok('V1 corta a pergunta-ponte e mantém a decidida', f1.join(' ').includes('perfil do Google') && !f1.join(' ').includes('cidade'), JSON.stringify(f1))
+  const devolve = ['Bom dia, tudo sim e você?', 'Você já tem o perfil do Google Meu Negócio criado?']
+  const f2 = corrigirMecanico(devolve, ctxPq, validar(devolve, ctxPq))
+  ok('V1 tira o "e você?" devolvido e mantém o cumprimento e a pergunta', f2.join(' ').match(/\?/g)?.length === 1 && f2.join(' ').includes('Bom dia') && f2.join(' ').includes('perfil'), JSON.stringify(f2))
+}
+
 // saudação social ("tudo bem?") nunca conta como "a" pergunta da V1: não pode apagar a pergunta de verdade (achado ao vivo, 27/09)
 const comSaudacao = ['Oi, tudo bem?', 'Eu sou a Laura, aqui do Grupo Venda Marketing Digital.', 'Qual o seu nome?']
 const fixSaudacao = corrigirMecanico(comSaudacao, vc(), validar(comSaudacao, vc()))

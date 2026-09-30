@@ -3910,6 +3910,9 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
         // Falha antes de qualquer envio: o lead não fica sem resposta, o turno cai no motor atual (nunca os dois falam no mesmo turno).
         console.error(`[SDR v3:${companyId}] erro no turno:`, err)
         await log(companyId, 'v3_erro', { enviou: v3Enviou }, supabase, phone, leadId, err?.message ?? 'erro')
+        // Número que não existe no WhatsApp: nenhum motor consegue responder, repetir só gera erro em loop
+        // (achado real, lead 63485, 29/09: 3 tentativas iguais). Encerra o turno sem retry.
+        if (/not on whatsapp/i.test(String(err?.message ?? ''))) return
         if (v3Enviou) throw err
         await log(companyId, 'v3_fallback_motor_atual', {}, supabase, phone, leadId)
       }

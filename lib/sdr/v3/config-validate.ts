@@ -62,6 +62,10 @@ export function validateCompanyConfig(raw: unknown): ConfigValidation {
   })
   const obrigatorias = perguntas.filter((q) => q.obrigatoria).length
   if (obrigatorias > 5) avisos.push(`${obrigatorias} perguntas obrigatórias: acima de 5 a conversa vira interrogatório.`)
+  // Pergunta que pede várias coisas de uma vez ("o nome, o ramo e a cidade") parece formulário e a IA tenta
+  // completar o que faltou com pergunta extra (achado real, conv 935, 29/09).
+  const VARIAS_RE = /\w+, (o|a|os|as|seu|sua) [^,?]+ e (o|a|os|as|seu|sua) [^?]+\?/i
+  for (const q of perguntas) if (VARIAS_RE.test(q.texto ?? '')) avisos.push(`Pergunta ${q.id} pede várias coisas de uma vez: divida em perguntas separadas, uma por mensagem.`)
   if (perguntas.length > 0 && obrigatorias === 0) avisos.push('Nenhuma pergunta obrigatória: a qualificação nunca será considerada completa.')
 
   // ── objeções
@@ -121,6 +125,8 @@ export function validateCompanyConfig(raw: unknown): ConfigValidation {
   }
   if (c.como_funciona) {
     if (asArray(c.como_funciona.texto).length === 0 || asArray(c.como_funciona.texto).some((t) => !t.trim())) erros.push('Como funciona: texto vazio.')
+    // Paredão de mensagens é o que mais denuncia robô (achado real, Grupo Venda 29/09: 5 a 6 blocos seguidos).
+    if (asArray(c.como_funciona.texto).length > 2) avisos.push(`Como funciona tem ${asArray(c.como_funciona.texto).length} mensagens seguidas: acima de 2 soa como robô. Resuma em até 2 e deixe o detalhe para a base de conhecimento.`)
     add('Como funciona', c.como_funciona.texto)
   }
 

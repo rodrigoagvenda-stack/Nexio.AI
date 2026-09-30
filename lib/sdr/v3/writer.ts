@@ -45,8 +45,13 @@ function descreverAcao(a: Acao, soReacao: boolean): string {
       `Fatos disponíveis (use só o que responde à dúvida do lead; se eles não respondem, diga que o especialista responde melhor e chame-o pelo nome, sem inventar):\n${a.fatos.map((f) => `- ${f.texto}`).join('\n')}`,
     )
   }
+  const literalTerminaEmPergunta = a.conteudo?.modo === 'literal' && asList(a.conteudo.texto).join(' ').includes('?')
   if (a.proxima_pergunta) {
     linhas.push(`${a.conteudo || a.fatos.length ? 'Depois, termine com' : 'Pergunta de referência'} (uma única pergunta, no fim): "${a.proxima_pergunta.texto}"`)
+    linhas.push('Essa é a ÚNICA pergunta da mensagem. Não crie outra pergunta antes dela (nem de ponte, nem pedindo dado que faltou), nem devolva "e você?".')
+    if (a.conteudo?.modo === 'literal') linhas.push('Entre o conteúdo exato e a pergunta, se precisar, use meia frase de transição natural (ex.: "Mas me conta,"), sem pergunta.')
+  } else if (literalTerminaEmPergunta) {
+    linhas.push('O conteúdo exato já termina com a pergunta desta mensagem: não faça nenhuma outra pergunta, nem "tudo bem?" ou "e você?".')
   } else {
     linhas.push('Não faça nenhuma pergunta nesta mensagem.')
   }
@@ -60,10 +65,10 @@ export function promptRedator(config: CompanyConfig, acao: Acao, soReacao: boole
   const nunca = (config.nunca_prometer ?? []).map((r) => `- ${r}`).join('\n')
   const termos = (config.validador?.terminologia ?? []).map((t) => `- Diga "${t.usar}", não "${t.evitar}"${t.excecao ? ` (exceção: ${t.excecao})` : ''}.`).join('\n')
   const social = acao.reacao_social && acao.social
-    ? `Reação social do lead (${acao.social.tipo}): "${acao.social.texto_do_lead}". Responda a ela primeiro, como uma pessoa faria. Se perguntou "e você?", diga que está bem, com naturalidade. Se agradeceu, receba o agradecimento. Se desabafou, reconheça antes de seguir.`
+    ? `Reação social do lead (${acao.social.tipo}): "${acao.social.texto_do_lead}". Responda a ela primeiro, como uma pessoa faria. Se perguntou "tudo bem?" ou "e você?", diga que está bem, com naturalidade, sem devolver a pergunta. Se agradeceu, receba o agradecimento. Se desabafou, reconheça antes de seguir.`
     : 'Não há reação social a responder.'
   return `Você é ${p.nome_agente}, do ${p.empresa}, conversando no WhatsApp.
-Escreva como uma pessoa real escreveria, no tom ${p.tom}.
+Escreva como uma pessoa real escreveria, no tom ${p.tom}. Fale no gênero de quem você é (ex.: uma Laura diz "obrigada", nunca "obrigado").
 
 O que fazer neste turno:
 ${descreverAcao(acao, soReacao)}
