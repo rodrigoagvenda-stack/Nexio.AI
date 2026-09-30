@@ -67,6 +67,8 @@ export interface Contadores {
   escopo_perguntado?: boolean
   /** Já explicamos "como funciona" nesta conversa: nunca repete o texto fixo de novo, próxima vez vira pergunta_fato (RAG). */
   como_funciona_explicado?: boolean
+  /** Quantas vezes já mandamos horários nesta conversa: passou do limite sem escolher, vai pra pessoa (evita disco riscado). */
+  ofertas_horario?: number
 }
 
 export interface Estado {
@@ -123,6 +125,8 @@ export interface Acao {
   consulta_rag?: string
   /** Bloco literal já pronto (ex.: horários do calendário, link de cobrança): o redator não altera. */
   bloco_fixo?: string
+  /** Não envia nada neste turno (ex.: resposta automática da empresa do lead: responder cria loop de robô com robô). */
+  silencio?: boolean
 }
 
 export const ESTADO_INICIAL = (configVersion: number): Estado => ({

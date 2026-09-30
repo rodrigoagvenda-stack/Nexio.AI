@@ -7,7 +7,7 @@ import type OpenAI from 'openai'
 import type { createServiceClient } from '@/lib/supabase/server'
 import { formatDateTimeBR } from '@/lib/google-calendar'
 import { writeV3TurnLog } from '../turn-log'
-import { agendarReuniao, cancelarReuniao, ofertarHorarios, type AgendaCtx } from './agenda'
+import { agendarReuniao, cancelarReuniao, filtroDisponibilidade, ofertarHorarios, type AgendaCtx } from './agenda'
 import { gerarCobranca } from './cobranca'
 import { firstName, decidir, type DecisorCtx } from './decider'
 import { extrair, type MsgHist } from './extractor'
@@ -194,11 +194,14 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
   }
   const ofertar = async (prefixo = ''): Promise<boolean> => {
     if (!agendaCtx) return false
-    const of = await ofertarHorarios(agendaCtx)
+    const filtro = filtroDisponibilidade(estado.dados.disponibilidade)
+    const jaOfertados = (estado.dados._slots ?? '').split(',').filter(Boolean)
+    const of = await ofertarHorarios(agendaCtx, { filtro, jaOfertados })
     if (!of) return false
     acao.bloco_fixo = `${prefixo}${of.texto}`
     estado.dados._slots = of.slots.join(',')
     estado.contadores.horarios_ofertados = true
+    estado.contadores.ofertas_horario = (estado.contadores.ofertas_horario ?? 0) + 1
     acao.etapa_depois = 'oferta_horario'
     return true
   }
@@ -283,7 +286,7 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
     return r.blocos
   }
 
-  let blocos: string[] = soLiteral ? literal! : await escrever()
+  let blocos: string[] = acao.silencio ? [] : soLiteral ? literal! : await escrever()
   redatorBlocos = clone(blocos)
 
   // Conteúdo literal tem que sair como está: se o redator mexeu, regenera 1x e depois usa o literal direto
@@ -309,7 +312,7 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
     ultimasNossas: historico.filter((m) => m.role === 'assistant').map((m) => m.content).reverse().slice(0, 4),
     eventoConfirmadoNoTurno: ctx.agendamentoConfirmadoNoTurno === true,
   })
-  let violacoes = validar(blocos, vctx())
+  let violacoes = acao.silencio ? [] : validar(blocos, vctx())
   let bloq = violacoes.filter((v) => v.modo === 'bloqueia')
   if (bloq.length > 0 && usouLLM && !soLiteral && !regenerou) {
     regenerou = true

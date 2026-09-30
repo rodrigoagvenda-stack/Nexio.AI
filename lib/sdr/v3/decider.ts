@@ -3,7 +3,10 @@
  * Nenhuma regra de negócio depende de o modelo lembrar: a ordem abaixo é a primeira regra que casar.
  */
 import type { CompanyConfig, ObjecaoConfig } from './config-types'
-import type { Acao, Estado, Etapa, Extracao } from './types'
+import type { Acao, Estado, Etapa, Extracao, Intencao } from './types'
+
+/** Quantas listas de horários o lead recebe antes de ir pra pessoa. */
+const LIMITE_OFERTAS_HORARIO = 3
 
 export interface DecisorCtx {
   temCalendario: boolean
@@ -200,6 +203,16 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // o estado do v3 ainda estava em "qualificando" e o SDR voltou a perguntar nome/ramo/cidade da empresa.
   if (soAgradecimento && (estado.etapa === 'encerrado' || estado.etapa === 'agendado' || ctx.respondendoAutomacao) && config.agradecimento_fim?.frase) {
     return { estado, acao: base('agradecimento_fim', { conteudo: { modo: 'literal', texto: config.agradecimento_fim.frase }, etapa_depois: estado.etapa }) }
+  }
+
+  // 0. resposta automática da empresa do lead (menu, "em breve retornaremos", horário de atendimento): não responde.
+  // Robô respondendo robô é o que mais denuncia bot e gera loop. A pessoa de verdade responde depois e aí segue.
+  const temDado = Object.values(ex.dados ?? {}).some((v) => typeof v === 'string' && v.trim())
+  const SUBSTANTIVAS: Intencao[] = ['pergunta_preco', 'quer_agendar', 'escolheu_horario', 'informou_email', 'pede_humano', 'pergunta_fato', 'pergunta_como_funciona', 'objecao', 'recusa', 'pede_ligacao', 'pede_pagamento', 'pergunta_se_e_robo', 'cancela_reuniao', 'pede_remarcar']
+  if (ex.resposta_automatica && !temDado && !SUBSTANTIVAS.some((i) => I.has(i))) {
+    estado.contadores.outros_seguidos = 0
+    estado.contadores.baixa_confianca_seguidas = 0
+    return { estado, acao: base('aguardar', { silencio: true, etapa_depois: estado.etapa }) }
   }
 
   // 1. pede humano / confiança baixa ou "outro" 2x seguidas
@@ -427,6 +440,17 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
         }),
       }
     }
+    // Horários já mandados e o lead não trouxe nada novo (nem pediu outro período, nem pediu pra agendar):
+    // não despeja a mesma lista de novo, só pergunta se algum serve. Passou do limite de ofertas: vai pra pessoa.
+    const disponibilidadeNova = !!ex.dados?.disponibilidade?.trim() && ex.dados.disponibilidade.trim() !== (entrada.dados.disponibilidade ?? '').trim()
+    if (estado.contadores.horarios_ofertados && estado.etapa === 'oferta_horario' && !disponibilidadeNova && !I.has('quer_agendar')) {
+      if (estado.perguntas_feitas.filter((p) => p.id === 'horario').length >= 2) return escalar('lead recebeu horários, foi lembrado 2 vezes e não escolheu nenhum')
+      const a = base('perguntar', { etapa_depois: 'oferta_horario' })
+      a.proxima_pergunta = { id: 'horario', texto: 'Algum desses horários fica bom pra você, ou prefere outro dia ou período?' }
+      a.contexto.push('Os horários já foram enviados na mensagem anterior. Não repita a lista.')
+      return { estado, acao: a }
+    }
+    if ((estado.contadores.ofertas_horario ?? 0) >= LIMITE_OFERTAS_HORARIO) return escalar(`lead recebeu horários ${LIMITE_OFERTAS_HORARIO} vezes e não escolheu nenhum`)
     estado.contadores.horarios_ofertados = true
     return { estado, acao: base('oferecer_horarios', { etapa_depois: 'oferta_horario' }) }
   }

@@ -36,21 +36,77 @@ const rotuloDia = (iso: string, hojeIso: string, amanhaIso: string) =>
       ? 'amanhã'
       : new Date(`${iso}T12:00:00-03:00`).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' })
 
-/** Até 3 horários livres (hoje com folga de 1h e o próximo dia útil com vaga), espalhados. */
-export async function ofertarHorarios(ctx: AgendaCtx): Promise<Oferta | null> {
+export type Periodo = 'manha' | 'tarde' | 'noite'
+export interface FiltroHorario {
+  periodos: Periodo[]
+  depoisDe?: number
+  antesDe?: number
+  evitarHoje?: boolean
+  evitarAmanha?: boolean
+}
+
+const semAcento = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+const periodoDe = (h: number): Periodo => (h < 12 ? 'manha' : h < 18 ? 'tarde' : 'noite')
+
+/** Lê o que o lead disse de disponibilidade ("de manhã não dá", "só à tarde", "depois das 18h", "hoje não")
+ * e devolve o filtro dos horários a oferecer. Sem restrição reconhecida devolve null (oferta normal). */
+export function filtroDisponibilidade(texto: string | undefined | null): FiltroHorario | null {
+  if (!texto?.trim()) return null
+  const t = semAcento(texto)
+  const P = '(manha|tarde|noite)'
+  const todos: Periodo[] = ['manha', 'tarde', 'noite']
+  const nao = new Set<Periodo>()
+  const so = new Set<Periodo>()
+  for (const m of t.matchAll(new RegExp(`${P}[^.,;]{0,25}?\\b(nao|n|ruim|complicad\\w*|impossivel|nem pensar)\\b`, 'g'))) nao.add(m[1] as Periodo)
+  for (const m of t.matchAll(new RegExp(`\\b(nao|n)\\s+(da|posso|consigo|rola|tenho como|vai dar)\\b[^.,;]{0,20}?\\b${P}`, 'g'))) nao.add(m[3] as Periodo)
+  for (const m of t.matchAll(new RegExp(`\\b(so|somente|apenas|prefiro|melhor|pode ser)\\s+(de |a |pela |na |no )?${P}`, 'g'))) so.add(m[3] as Periodo)
+  const f: FiltroHorario = { periodos: so.size ? [...so] : todos.filter((p) => !nao.has(p)) }
+  const depois = t.match(/depois d[ao]s?\s+(\d{1,2})\s*(h|:|horas?)?/)
+  const antes = t.match(/antes d[ao]s?\s+(\d{1,2})\s*(h|:|horas?)?/)
+  if (depois) f.depoisDe = Number(depois[1])
+  if (antes) f.antesDe = Number(antes[1])
+  if (/\bhoje\b[^.,;]{0,15}\b(nao|n)\b|\b(nao|n)\s+(da|posso|consigo)\s+hoje\b/.test(t)) f.evitarHoje = true
+  if (/\bamanha\b[^.,;]{0,15}\b(nao|n)\b|\b(nao|n)\s+(da|posso|consigo)\s+amanha\b/.test(t)) f.evitarAmanha = true
+  const restringe = f.periodos.length < 3 || f.depoisDe !== undefined || f.antesDe !== undefined || f.evitarHoje || f.evitarAmanha
+  if (f.periodos.length === 0) return null
+  return restringe ? f : null
+}
+
+/** Horário (Brasília) passa no filtro do lead? */
+export function passaFiltro(d: Date, f: FiltroHorario | null, hojeIso: string, amanhaIso: string): boolean {
+  if (!f) return true
+  const [h, m] = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }).split(':').map(Number)
+  const dia = diaIso(d)
+  if (f.evitarHoje && dia === hojeIso) return false
+  if (f.evitarAmanha && dia === amanhaIso) return false
+  if (!f.periodos.includes(periodoDe(h))) return false
+  if (f.depoisDe !== undefined && h < f.depoisDe) return false
+  if (f.antesDe !== undefined && (h > f.antesDe || (h === f.antesDe && m > 0))) return false
+  return true
+}
+
+/** Até 3 horários livres (hoje com folga de 1h e o próximo dia útil com vaga), espalhados.
+ * filtro: restrição que o lead deu ("manhã não dá"). jaOfertados: nunca repete a mesma oferta se houver outra opção. */
+export async function ofertarHorarios(ctx: AgendaCtx, opts: { filtro?: FiltroHorario | null; jaOfertados?: string[] } = {}): Promise<Oferta | null> {
   const hoje = new Date(Date.now() - 3 * 3_600_000).toISOString().slice(0, 10)
-  const livres: Date[] = []
+  const amanhaIso = new Date(new Date(`${hoje}T12:00:00Z`).getTime() + 86_400_000).toISOString().slice(0, 10)
+  const ja = new Set(opts.jaOfertados ?? [])
+  const ok = (d: Date) => passaFiltro(d, opts.filtro ?? null, hoje, amanhaIso)
+  const todos: Date[] = []
   const slotsHoje = await checkAvailableSlots({ calendarId: ctx.calendarId, date: new Date(hoje), companyId: ctx.companyId })
-  livres.push(...slotsHoje.filter((s) => s.available).map((s) => s.start))
-  for (let i = 1; i <= 7; i++) {
+  todos.push(...slotsHoje.filter((s) => s.available && ok(s.start)).map((s) => s.start))
+  const limiteDias = opts.filtro ? 14 : 7
+  for (let i = 1; i <= limiteDias; i++) {
     const dia = new Date(new Date(`${hoje}T12:00:00Z`).getTime() + i * 86_400_000).toISOString().slice(0, 10)
     const s = await checkAvailableSlots({ calendarId: ctx.calendarId, date: new Date(`${dia}T12:00:00Z`), companyId: ctx.companyId })
-    const ok = s.filter((x) => x.available)
-    if (ok.length > 0) {
-      livres.push(...ok.map((x) => x.start))
-      break
+    const bons = s.filter((x) => x.available && ok(x.start))
+    if (bons.length > 0) {
+      todos.push(...bons.map((x) => x.start))
+      if (todos.filter((d) => !ja.has(brt(d))).length >= 3) break
     }
   }
+  const novos = todos.filter((d) => !ja.has(brt(d)))
+  const livres = novos.length > 0 ? novos : todos
   if (livres.length === 0) return null
 
   const idx = [...new Set([0, Math.floor(livres.length / 2), livres.length - 1])].sort((a, b) => a - b)

@@ -119,7 +119,8 @@ REGRAS
 - nome_completo só quando o lead deu nome e sobrenome.
 - tom_do_lead: curto_informal (poucas palavras, abreviações), informal, ou formal.
 - confianca: baixa quando você não tem certeza do que o lead quis dizer.
-- resposta_automatica: true se parece resposta automática de empresa (menu, horário de atendimento, "somos uma empresa que...").
+- resposta_automatica: true só quando é claramente mensagem automática de sistema (menu numerado "digite 1 para...", mensagem de ausência, "em breve retornaremos", "nosso horário de atendimento é...", "obrigado por entrar em contato com a empresa X"). Uma pessoa contando do próprio negócio ("somos uma clínica", "trabalho com estética") NÃO é resposta automática: é resposta_qualificacao.
+- disponibilidade: preencha quando o lead diz dia, período ou horário em que pode ou não pode ("de manhã não dá", "só à tarde", "depois das 18h", "hoje não consigo"), com as palavras dele.
 - Se o agente ofereceu horários, os oferecidos foram: ${estado.dados._slots ? estado.dados._slots : 'nenhum'}.${
     automacao
       ? `

@@ -2,6 +2,7 @@ import { GRUPO_VENDA_CONFIG } from '@/lib/sdr/v3/grupo-venda-config'
 import { decidir, type DecisorCtx } from '@/lib/sdr/v3/decider'
 import { corrigirMecanico, validar } from '@/lib/sdr/v3/validator'
 import { validateCompanyConfig } from '@/lib/sdr/v3/config-validate'
+import { filtroDisponibilidade, passaFiltro } from '@/lib/sdr/v3/agenda'
 import { ESTADO_INICIAL, type Extracao, type Estado } from '@/lib/sdr/v3/types'
 
 const config: any = { ...GRUPO_VENDA_CONFIG, version: 3, agendamento: { ativo: true, calendario_id: 'x' } }
@@ -63,6 +64,41 @@ d = decidir(ex({ intencoes: ['outro'] }), completo, config, ctx())
 ok('qualificação completa oferece horários', d.acao.tipo === 'oferecer_horarios')
 d = decidir(ex({ intencoes: ['quer_agendar'] }), est({ dados: { negocio: 'x' } }), config, ctx())
 ok('quer agendar sem qualificação: NÃO oferece horário, pergunta', d.acao.tipo === 'perguntar' && !!d.acao.proxima_pergunta, d.acao.tipo)
+
+// 7a oferta de horário: sem disco riscado, filtro do lead, limite
+const jaOfertou = est({ ...completo, etapa: 'oferta_horario', contadores: { ...completo.contadores, horarios_ofertados: true, ofertas_horario: 1 }, dados: { ...completo.dados, _slots: '2026-10-01T09:00:00' } })
+d = decidir(ex({ intencoes: ['social'], social: { tipo: 'cumprimento', texto_do_lead: 'ok' } }), jaOfertou, config, ctx())
+ok('horários já enviados + lead só diz "ok": pergunta se algum serve, não reenvia a lista', d.acao.tipo === 'perguntar' && d.acao.proxima_pergunta?.id === 'horario', d.acao.tipo)
+d = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { disponibilidade: 'de manhã não dá' } }), jaOfertou, config, ctx())
+ok('lead diz "de manhã não dá": reoferece (com filtro no turno)', d.acao.tipo === 'oferecer_horarios', d.acao.tipo)
+d = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { disponibilidade: 'sexta não' } }), { ...jaOfertou, contadores: { ...jaOfertou.contadores, ofertas_horario: 3 } }, config, ctx())
+ok('3 listas de horário sem escolha: vai pra pessoa', d.acao.tipo === 'escalar', d.acao.tipo)
+const lembrado = { ...jaOfertou, perguntas_feitas: [{ id: 'horario', turno: 1, respondida: false }, { id: 'horario', turno: 2, respondida: false }] }
+d = decidir(ex({ intencoes: ['social'] }), lembrado, config, ctx())
+ok('lembrado 2x sem escolher: vai pra pessoa', d.acao.tipo === 'escalar', d.acao.tipo)
+d = decidir(ex({ intencoes: ['pede_espera'] }), jaOfertou, config, ctx())
+ok('horários enviados + "vou ver minha agenda": aguarda', d.acao.tipo === 'aguardar', d.acao.tipo)
+{
+  const f1 = filtroDisponibilidade('de manhã não dá')
+  ok('filtro: "de manhã não dá" tira manhã', !!f1 && !f1.periodos.includes('manha') && f1.periodos.includes('tarde'))
+  const f2 = filtroDisponibilidade('só à tarde')
+  ok('filtro: "só à tarde" deixa só tarde', !!f2 && f2.periodos.join() === 'tarde')
+  const f3 = filtroDisponibilidade('depois das 18h')
+  ok('filtro: "depois das 18h"', f3?.depoisDe === 18)
+  ok('filtro: sem restrição devolve null', filtroDisponibilidade('qualquer horário') === null)
+  const hojeIso = '2026-10-01', amanhaIso = '2026-10-02'
+  ok('filtro aplica: 9h fora quando manhã não dá', !passaFiltro(new Date('2026-10-02T09:00:00-03:00'), f1, hojeIso, amanhaIso))
+  ok('filtro aplica: 14h passa quando manhã não dá', passaFiltro(new Date('2026-10-02T14:00:00-03:00'), f1, hojeIso, amanhaIso))
+  ok('filtro aplica: "hoje não" tira hoje', !passaFiltro(new Date('2026-10-01T15:00:00-03:00'), filtroDisponibilidade('hoje não consigo'), hojeIso, amanhaIso))
+}
+
+// 7a' resposta automática da empresa do lead: não responde (robô com robô)
+d = decidir(ex({ intencoes: ['social'], resposta_automatica: true }), est(), config, ctx())
+ok('resposta automática sem conteúdo: silêncio', d.acao.tipo === 'aguardar' && d.acao.silencio === true, d.acao.tipo)
+d = decidir(ex({ intencoes: ['resposta_qualificacao'], resposta_automatica: true, dados: { negocio: 'clínica de estética' } }), est(), config, ctx())
+ok('marcado automático mas trouxe dado do negócio: responde normal', !d.acao.silencio, d.acao.tipo)
+d = decidir(ex({ intencoes: ['pergunta_se_e_robo'] }), est(), config, ctx())
+ok('fora de escopo/identidade não colam pergunta', !d.acao.proxima_pergunta)
 
 // 7b já existe reunião marcada: nunca reabre qualificação (caso do lead que confirma presença no lembrete de anti no-show, mesmo com campo obrigatório faltando)
 d = decidir(ex({ intencoes: ['social'], social: { tipo: 'retribuicao_pedida', texto_do_lead: 'Sim' } }), est({ dados: { decisor: 'sim' } }), config, ctx({ reuniaoExistente: 'quinta-feira, 01/10, às 14h' }))
