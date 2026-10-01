@@ -98,7 +98,14 @@ export interface CompanyConfig {
     /** EXTENSÃO: máximo de frases por mensagem (regra do dono). */
     max_frases_por_mensagem?: number
   }
-  escala: { frase: string; frase_duvida: string; nome_humano: string }
+  escala: {
+    frase: string
+    frase_duvida: string
+    nome_humano: string
+    /** EXTENSÃO: WhatsApp do responsável humano (com DDD, só dígitos: ex. "11987654321"). Usado pra notificar
+     * automaticamente quando o SDR transfere uma conversa ou confirma um agendamento. */
+    telefone_humano?: string
+  }
   identidade: { frase_robo: string; modo?: ModoTexto }
   fora_escopo: { frase: string }
   palavras_proibidas: string[]

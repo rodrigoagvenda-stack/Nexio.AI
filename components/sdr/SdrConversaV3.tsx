@@ -21,6 +21,14 @@ type CampoTipo = 'texto' | 'sim_nao' | 'link_ou_print';
 const ordinal = (n: number) => `${n}ª`;
 const clone = <T,>(o: T): T => JSON.parse(JSON.stringify(o));
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+const soDigitos = (s: string) => s.replace(/\D/g, '').slice(0, 11);
+const formatTelefoneBR = (raw?: string) => {
+  const d = soDigitos(raw ?? '');
+  if (d.length <= 2) return d;
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+};
 const ACOES: { value: ProximaAcaoObjecao; label: string }[] = [
   { value: 'aguardar', label: 'Aguardar' },
   { value: 'voltar_qualificacao', label: 'Voltar pra qualificação' },
@@ -667,12 +675,36 @@ export function SdrConversaV3() {
                 <p className="px-3.5 pb-1 pt-3 text-[13px] font-semibold text-muted-foreground">Mensagens</p>
                 {config.ligacao && <ListRow active={selEnc === 'ligacao'} title="Lead pede ligação" sub={config.ligacao.oferta} onClick={() => setSelEnc('ligacao')} />}
                 {encItems.map((it) => <ListRow key={it.id} active={selEnc === it.id} title={it.title} sub={it.sub} onClick={() => setSelEnc(it.id)} />)}
+                <p className="px-3.5 pb-1 pt-4 text-[13px] font-semibold text-muted-foreground">Responsável</p>
+                <ListRow
+                  active={selEnc === 'responsavel'}
+                  title="Pra quem transferir"
+                  sub={config.escala?.nome_humano ? `${config.escala.nome_humano}${config.escala.telefone_humano ? ` · ${formatTelefoneBR(config.escala.telefone_humano)}` : ' · sem telefone'}` : 'Não configurado'}
+                  onClick={() => setSelEnc('responsavel')}
+                />
                 <p className="px-3.5 pb-1 pt-4 text-[13px] font-semibold text-muted-foreground">Ajustes</p>
                 <ListRow active={selEnc === 'recusas'} title="Recusas até encerrar" onClick={() => setSelEnc('recusas')} right={<span className="text-sm font-semibold text-muted-foreground">{config.limites?.recusas_para_encerrar ?? 2}</span>} />
               </div>
             </aside>
             <section className={cn(CARD, card, 'min-w-0 flex-1 gap-6 px-8 py-7')}>
-              {selEnc === 'recusas' ? (
+              {selEnc === 'responsavel' ? (
+                <>
+                  <EditorHead eyebrow="Responsável" title="Pra quem transferir" subtitle="Nome e WhatsApp de quem assume a conversa quando o agente transfere ou confirma um agendamento." />
+                  <div className="grid gap-x-5 gap-y-6 md:grid-cols-2">
+                    <Labeled label="Nome" htmlFor="v3-resp-nome"><input id="v3-resp-nome" className={INPUT} placeholder="Ex.: Bruno" value={config.escala?.nome_humano ?? ''} onChange={(e) => scheduleSave({ ...config, escala: { ...config.escala, nome_humano: e.target.value } })} /></Labeled>
+                    <Labeled label="WhatsApp" optional htmlFor="v3-resp-fone" help="Com DDD. Usado pra avisar automaticamente quando a conversa é transferida ou uma reunião é agendada.">
+                      <input
+                        id="v3-resp-fone"
+                        inputMode="numeric"
+                        className={INPUT}
+                        placeholder="(11) 98765-4321"
+                        value={formatTelefoneBR(config.escala?.telefone_humano)}
+                        onChange={(e) => scheduleSave({ ...config, escala: { ...config.escala, telefone_humano: soDigitos(e.target.value) } })}
+                      />
+                    </Labeled>
+                  </div>
+                </>
+              ) : selEnc === 'recusas' ? (
                 <>
                   <EditorHead eyebrow="Ajuste" title="Recusas até encerrar" subtitle="Quantas vezes o lead pode recusar antes do agente parar de insistir." />
                   <Labeled label="Recusas" htmlFor="v3-recusas"><input id="v3-recusas" type="number" min={1} className={cn(INPUT, 'max-w-[140px]')} value={config.limites?.recusas_para_encerrar ?? 2} onChange={(e) => scheduleSave({ ...config, limites: { ...config.limites, recusas_para_encerrar: Math.max(1, Number(e.target.value) || 1) } })} /></Labeled>
