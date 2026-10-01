@@ -24,7 +24,9 @@ function descreverAcao(a: Acao, soReacao: boolean): string {
       linhas.push('O lead pediu um tempo ou não há o que perguntar agora. Responda só com reação social curta e acolhedora. NÃO faça pergunta.')
       break
     case 'perguntar':
-      linhas.push('Faça a pergunta abaixo, com suas palavras.')
+      linhas.push(
+        'Faça a pergunta abaixo, com suas palavras, adaptando o tom ao que o lead já contou na conversa. Se a pergunta de referência presume uma situação (ex.: "quanto isso te custa em clientes que você perde") mas o histórico já deixou claro que a realidade dele é outra (ex.: ele já aparece bem, já tem avaliações, só quer melhorar posição), ajuste a pergunta pra fazer sentido com o que ele mesmo disse — sem mudar a informação que está sendo coletada no fundo, só a forma de perguntar. Nunca faça uma pergunta que soe como se você tivesse ignorado o que ele acabou de contar.',
+      )
       break
     default:
       break
