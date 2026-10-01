@@ -1,13 +1,14 @@
 /**
  * SDR v3: validador (spec seção 6). Funções puras: rodam sobre todo texto que sai.
  * V1 uma pergunta, V2 pergunta já respondida, V3 frase repetida, V4 valor, V5 palavra proibida,
- * V6 fato fora da fonte (registro), V7 vício de IA (registro), V8 tamanho, V9 travessão, V10 agendamento sem evento, V11 dúvida do lead sem resposta.
+ * V6 fato fora da fonte (registro), V7 vício de IA (registro), V8 tamanho, V9 travessão, V10 agendamento sem evento, V11 dúvida do lead sem resposta,
+ * V12 promete chamar o humano sem handoff real.
  * Regras da config: terminologia e nomear o humano.
  */
 import type { CompanyConfig } from './config-types'
 import type { Acao, Estado } from './types'
 
-export type RegraId = 'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7' | 'V8' | 'V9' | 'V10' | 'V11' | 'TERMO' | 'HUMANO' | 'LITERAL'
+export type RegraId = 'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7' | 'V8' | 'V9' | 'V10' | 'V11' | 'V12' | 'TERMO' | 'HUMANO' | 'LITERAL'
 
 export interface Violacao {
   regra: RegraId
@@ -169,6 +170,16 @@ export function validar(blocos: string[], v: ValidadorCtx): Violacao[] {
   // V10 agendamento afirmado sem evento criado neste turno
   if (!v.eventoConfirmadoNoTurno && AGENDAMENTO_RE.test(texto)) add('V10', 'afirma ou promete agendamento sem evento criado')
 
+  // V12 promete chamar/acionar o humano agora (ex.: "deixa eu chamar o Bruno", "vou chamar ele aqui") sem que o
+  // turno realmente esteja escalando (acao.handoff vazio): acontece quando o redator usa variação parecida com
+  // config.escala.frase/frase_duvida fora da ação de escalar, e ninguém de verdade é avisado nem a conversa pausa
+  // (achado real, lead Rodrigo/conv530, 01/10/2026: prometeu "chamar o Bruno" numa resposta comum, sem handoff).
+  if (!v.acao.handoff) {
+    const nome = escapeRegex(cfg.escala.nome_humano)
+    const chamarHumanoRe = new RegExp(`\\b(vou|deixa eu|j[aá] vou|j[aá])\\s+(chamar|acionar|chamo)\\b[^.!?]{0,40}\\b${nome}\\b`, 'i')
+    if (chamarHumanoRe.test(texto)) add('V12', `promete chamar ${cfg.escala.nome_humano} agora sem o turno realmente escalar`)
+  }
+
   // V11 o lead perguntou algo e a resposta não usa nenhum fato (só cumprimento, apresentação e pergunta): ninguém fica sem resposta
   if (v.acao.tipo === 'responder_fato' && v.acao.fatos.length > 0 && !v.acao.fatos.some((f) => f.id === 'reuniao_existente')) {
     const persona = new Set(tokens(`${cfg.persona.nome_agente} ${cfg.persona.empresa}`))
@@ -258,6 +269,14 @@ export function corrigirMecanico(blocos: string[], v: ValidadorCtx, violacoes: V
           .join(' '),
       )
       .filter(Boolean)
+    if (filtrado.length > 0) out = filtrado
+  }
+
+  // V12 promessa de chamar o humano sem handoff real: corta só a frase ofensora, mantém o resto da resposta.
+  if (tem('V12')) {
+    const nome = escapeRegex(v.config.escala.nome_humano)
+    const chamarHumanoRe = new RegExp(`\\b(vou|deixa eu|j[aá] vou|j[aá])\\s+(chamar|acionar|chamo)\\b[^.!?]{0,40}\\b${nome}\\b[^.!?]*[.!?]?`, 'gi')
+    const filtrado = out.map((b) => b.replace(chamarHumanoRe, '').trim()).filter(Boolean)
     if (filtrado.length > 0) out = filtrado
   }
 

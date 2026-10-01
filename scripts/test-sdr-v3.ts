@@ -489,6 +489,21 @@ ok('V10 promessa de agendamento sem evento', regras(['Vou agendar sua conversa a
 const estadoComFrase = est({ frases_enviadas: ['tenho amanha as 9h30, 15h ou 17h.', 'qual fica melhor pra voce?'] })
 ok('V3 frase repetida é detectada', regras(['Tenho amanhã às 9h30, 15h ou 17h. Qual fica melhor pra você?'], vc(estadoComFrase)).includes('V3:bloqueia'))
 ok('V10 liberado com evento criado', !regras(['Ana, agendado! quinta às 14h.'], vc(est(), true)).includes('V10'))
+// V12 regressão real (lead Rodrigo/conv530, 01/10/2026): o redator escreveu "Deixa eu já chamar o Bruno aqui no
+// WhatsApp" numa resposta comum (responder_fato), sem o turno realmente escalar (acao.handoff vazio) — promessa
+// falsa, ninguém de verdade é avisado nem a conversa pausa.
+ok('V12 promete chamar o humano sem handoff real', regras(['Vi que o valor é importante. Deixa eu já chamar o Bruno aqui no WhatsApp pra te passar certinho, um segundo.']).includes('V12:bloqueia'))
+ok('V12 libera quando o turno realmente escala (handoff preenchido)', !regras(['Deixa eu já chamar o Bruno aqui, um segundo.'], { ...vc(), acao: { ...acaoBase, handoff: { motivo: 'teste' } } }).includes('V12'))
+ok('V12 não pega frase sem relação com chamar o humano', !regras(['Vou verificar isso com calma e te respondo.']).includes('V12'))
+ok('V12 correção mecânica: corta só a frase ofensora, mantém o resto', corrigirMecanico(
+  ['A gente cuida do Google Meu Negócio e site.', 'Deixa eu já chamar o Bruno aqui no WhatsApp pra te passar certinho, um segundo.'],
+  vc(),
+  [{ regra: 'V12', modo: 'bloqueia', detalhe: 'teste' }],
+).join(' ').includes('Google Meu Negócio') && !corrigirMecanico(
+  ['Deixa eu já chamar o Bruno aqui no WhatsApp pra te passar certinho, um segundo.'],
+  vc(),
+  [{ regra: 'V12', modo: 'bloqueia', detalhe: 'teste' }],
+).join(' ').match(/chamar o bruno/i))
 ok('TERMO diagnóstico', regras(['Nosso diagnóstico é rápido.']).includes('TERMO'))
 ok('TERMO exceção "diagnóstico do perfil"', !regras(['O diagnóstico do perfil faz parte do plano.']).includes('TERMO'))
 ok('HUMANO só "especialista"', regras(['Nosso especialista te chama.']).includes('HUMANO'))
