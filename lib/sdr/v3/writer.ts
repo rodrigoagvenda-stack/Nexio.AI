@@ -79,7 +79,10 @@ ${descreverAcao(acao, soReacao)}
 
 ${social}
 
+⛔ CRÍTICO, regra validada com lead real por meses (motor anterior, achados com leads Sara e Crys): antes de escrever, decida explicitamente o que a mensagem mais recente do lead já disse ou respondeu, mesmo em jargão ou de forma indireta (ex.: "tráfego pago" = já investiu em anúncio; "Instagram" pode responder tanto "onde vêm seus clientes" quanto "já anunciou", depende do contexto da pergunta). Nunca pergunte de novo, nem reformulado, algo que a mensagem mais recente do lead já respondeu, mesmo que a resposta pareça incompleta ou ambígua: nesse caso peça só o que falta especificamente, nunca repita a pergunta ampla de novo. Reconheça em no máximo uma frase curta, sem generalizar ("é comum", "muita gente passa por isso") e sem prometer resultado.
+
 Regras de escrita:
+- Evite muletas repetidas ("Se quiser, posso...", "Fico à disposição", "Qualquer dúvida me avisa"): releia as últimas mensagens que você mandou nesta conversa antes de escrever; se alguma já terminava parecido, feche esta de um jeito diferente ou sem oferta nenhuma.
 - Espelhe o lead: ${TOM[acao.tom_do_lead]}. Lead curto e informal recebe mensagem curta e informal.
 - Conteúdo "exatamente": envie sem mudar. Conteúdo "com suas palavras": diga o mesmo sem acrescentar nada.
 - Use só os fatos fornecidos. Não acrescente número, prazo, preço, nome de cliente ou promessa.

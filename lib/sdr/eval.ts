@@ -362,6 +362,28 @@ function makeDeepScenarios(companyId: number, supabase: Supabase) {
       { lead: 'Sou o Marcos, tenho uma padaria em Olinda' },
       { lead: 'Vou ter que ver com meu sócio' },
     ]),
+    // Achado real, lead Willian/conv944, 01/10/2026 (Grupo Venda): perfil fora do padrão "invisível no Google"
+    // que o roteiro assume — já aparece, já tem avaliação, já anuncia. O SDR perguntou "vive só de indicação e
+    // boca a boca?" logo depois dele dizer que já faz anúncio, contradição que soou como se tivesse ignorado o
+    // que ele acabou de falar. Fixes aplicados: implicação lógica fez_anuncio⟺so_indicacao, cruzamento de campo
+    // pelo extrator, comentário de reconhecimento em toda resposta. Esse cenário prova isso de forma automática,
+    // sem precisar de outro lead real pra descobrir se quebrou nessa mesma combinação de novo.
+    conversa('Lead que já tem presença forte (não é o perfil "invisível")', [
+      { lead: 'Oi, vi o anúncio e quero saber por que meu negócio não aparece no Google' },
+      { lead: 'Sou o Willian, tenho uma empresa de encanamento em Londrina' },
+      { lead: 'Já apareço sim, só queria ficar em primeiro, já tenho bastante avaliação' },
+      { lead: 'Sim já tenho perfil, e também já uso Google Ads' },
+    ], (s) => {
+      const depoisDeDizerQueAnuncia = s[3]
+      if (depoisDeDizerQueAnuncia.some((b) => /só de indica|boca a boca/i.test(b))) {
+        return 'perguntou se vive só de indicação/boca a boca mesmo o lead tendo acabado de dizer que já faz anúncio'
+      }
+      const todasSaidas = s.flat()
+      if (todasSaidas.filter((b) => /(você )?(já )?(possui|tem) (o )?perfil (do )?google/i.test(b)).length > 1) {
+        return 'perguntou se tem perfil do Google Meu Negócio mais de uma vez, mesmo a resposta já tendo sido dada antes com outras palavras'
+      }
+      return null
+    }),
   ]
 }
 
