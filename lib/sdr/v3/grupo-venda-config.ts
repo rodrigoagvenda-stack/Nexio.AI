@@ -236,7 +236,7 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
           descricao: 'quer site (com ou sem o Google Meu Negócio, inclusive "os dois", "tudo" ou "site também")',
           texto: [
             'Com site, é o plano Essencial: R$ 2.200 à vista no Pix, ou 6x de R$ 397,03 no cartão (com juros, total R$ 2.382,16).',
-            'Inclui tudo do Google Meu Negócio, mais o site de uma página com SEO local, Analytics, Tag Manager e Search Console configurados, e 30 dias de ativação com posts semanais, script de pedido de avaliação e relatório de resultado.',
+            'Inclui tudo do Google Meu Negócio, mais o site institucional com mais de 20 páginas (organizadas por serviço e localidade, pra aparecer em mais buscas da sua região), com SEO local, Analytics, Tag Manager e Search Console configurados, e 30 dias de ativação com posts semanais, script de pedido de avaliação e relatório de resultado.',
             'E aí, topa marcar 15 minutos pra eu te mostrar certinho o que cabe no seu caso?',
           ],
         },
@@ -313,7 +313,18 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
       so_quando_perguntado: true,
       titulo: 'Plano Essencial (para quem quer sair do zero, rápido)',
       texto:
-        'Google Meu Negócio: diagnóstico do perfil atual, perfil criado ou corrigido do zero, categoria principal e até 3 secundárias, descrição, produtos, serviços e atributos configurados, fotos reais enviadas pela conta verificada do proprietário, calendário com 4 posts do primeiro mês prontos, verificação do perfil concluída junto ao Google. Site institucional: one page (uma página só), com SEO local. Mensuração: Google Analytics, Google Tag Manager e Search Console configurados. Ativação de 30 dias: posts semanais no Google, script de pedido de avaliação pronto e relatório de resultado no dia 30.',
+        'Google Meu Negócio: diagnóstico do perfil atual, perfil criado ou corrigido do zero, categoria principal e até 3 secundárias, descrição, produtos, serviços e atributos configurados, fotos reais enviadas pela conta verificada do proprietário, calendário com 4 posts do primeiro mês prontos, verificação do perfil concluída junto ao Google. Site institucional: mais de 20 páginas, organizadas por serviço e localidade, com SEO local. Mensuração: Google Analytics, Google Tag Manager e Search Console configurados. Ativação de 30 dias: posts semanais no Google, script de pedido de avaliação pronto e relatório de resultado no dia 30.',
+    },
+    {
+      // Promoção do anúncio "Quero garantir meu bônus de R$2.400 em anúncios!" (01/10/2026). Valor fechado:
+      // R$4.200 = Fundação Digital completa (igual ao plano_essencial) + R$2.400 em Google Ads pago pelo Grupo
+      // Venda nos primeiros 30 dias. Não é mensalidade nem recorrente: é o bônus de mídia de UMA vez, igual
+      // cobrança.texto já deixa claro que não existe plano mensal. Confirmar com o Bruno se ainda está ativa.
+      id: 'oferta_bonus_ads',
+      so_quando_perguntado: true,
+      titulo: 'Promoção: Fundação Digital + bônus de R$2.400 em Google Ads',
+      texto:
+        'Promoção ativa pra quem veio pelo anúncio do bônus: por R$ 4.200, você leva a Fundação Digital completa (tudo do plano Essencial: Google Meu Negócio do zero, site institucional com mais de 20 páginas com SEO local e GEO, Analytics, Tag Manager e Search Console, 30 dias de ativação) E AINDA GANHA R$ 2.400 em Google Ads, pago do bolso do Grupo Venda, rodando nos primeiros 30 dias. Ou seja: você paga o setup, e o investimento em anúncio sai por nossa conta nesse período. Setup único, sem mensalidade. Confirme com o Bruno na análise se a promoção ainda está ativa antes de fechar.',
     },
     {
       id: 'plano_start',
