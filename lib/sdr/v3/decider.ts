@@ -229,12 +229,17 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     ...extra,
   })
 
-  // Spec seção 4 ("qualificação enxuta"): a cada 2 perguntas respondidas, um comentário curto sobre a resposta
-  // antes da próxima, pra não virar interrogatório. Só quando o lead acabou de responder uma pergunta nossa.
-  const respondidas = estado.perguntas_feitas.filter((p) => p.respondida).length
+  // Originalmente (Spec seção 4, "qualificação enxuta"): comentário só a cada 2 perguntas respondidas, numa
+  // contagem cega, pra não virar interrogatório. Achado real, lead Willian/conv944, 30/09/2026: ele disse "Tenho
+  // Google ads" e a contagem caiu exatamente num turno sem comentário — a próxima pergunta foi "você vive só de
+  // indicação e boca a boca?", contradizendo o que ele tinha acabado de dizer. Uma contagem cega não sabe
+  // QUANDO vale a pena comentar; troca pra sempre oferecer a chance, deixando o redator (que vê a mensagem real
+  // do lead) decidir se tem algo que mereça meia frase de reconhecimento ou se é só um "sim"/"não" seco.
   const comentar = (a: Acao) => {
-    if (I.has('resposta_qualificacao') && respondidas > 0 && respondidas % 2 === 0) {
-      a.contexto.push('Antes da pergunta, faça um comentário curto (meia frase) sobre o que o lead acabou de responder, como uma pessoa faria. Sem inventar fato, número, resultado nem dizer que viu ou analisou algo dele.')
+    if (I.has('resposta_qualificacao')) {
+      a.contexto.push(
+        'Antes da pergunta, veja a última mensagem do lead: se ela trouxe alguma informação real (não só "sim"/"não" seco), faça um comentário curto (meia frase) reconhecendo isso, como uma pessoa faria — nunca emende a próxima pergunta do roteiro como se ele não tivesse dito nada, principalmente se o que ele disse já responde ou contradiz parte da próxima pergunta. Se a resposta foi só um "sim"/"não" sem nada a mais, pode ir direto pra pergunta, sem comentário. Sem inventar fato, número, resultado nem dizer que viu ou analisou algo dele.',
+      )
     }
   }
 

@@ -155,14 +155,17 @@ if (config.preco.por_escopo) {
   ok('não cola pergunta de qualificação (ex.: impacto) no meio disso', !d.acao.proxima_pergunta, JSON.stringify(d.acao.proxima_pergunta))
 }
 
-// 7a'' comentário curto a cada 2 respostas (spec seção 4)
+// 7a'' comentário curto: oferece a chance em TODA resposta de qualificação, não numa contagem cega a cada 2
+// (achado real, lead Willian/conv944, 30/09/2026: a contagem cega caiu num turno sem comentário bem na hora em
+// que ele disse "Tenho Google ads", e a pergunta seguinte soou como se tivesse ignorado isso). O redator (que
+// vê a mensagem real do lead) decide se tem algo que mereça reconhecer ou se é só um "sim"/"não" seco.
 {
   const feitas = [{ id: config.qualificacao.perguntas[0].id, turno: 1, respondida: true }, { id: config.qualificacao.perguntas[1].id, turno: 2, respondida: false }]
   const campo2 = config.qualificacao.perguntas[1].campo
   d = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { [campo2]: 'dentista' } }), est({ perguntas_feitas: feitas, turno: 3 }), config, ctx())
-  ok('2ª resposta: pede comentário curto antes da próxima pergunta', d.acao.contexto.some((c) => c.includes('comentário curto')), d.acao.contexto.join(' | '))
+  ok('2ª resposta: oferece comentário curto antes da próxima pergunta', d.acao.contexto.some((c) => c.includes('comentário curto')), d.acao.contexto.join(' | '))
   d = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { [config.qualificacao.perguntas[0].campo]: 'x' } }), est({ perguntas_feitas: [{ ...feitas[0], respondida: false }], turno: 2 }), config, ctx())
-  ok('1ª resposta: sem comentário', !d.acao.contexto.some((c) => c.includes('comentário curto')))
+  ok('1ª resposta: também oferece comentário curto (não é mais numa contagem cega a cada 2)', d.acao.contexto.some((c) => c.includes('comentário curto')), d.acao.contexto.join(' | '))
 }
 // 7a''' templates de automação passam pelo validador ao salvar (spec seção 6)
 ok('template com palavra proibida bloqueia', !!checarPassos([{ mensagem: 'A análise é gratuita, sem compromisso' }], config))
