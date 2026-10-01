@@ -71,7 +71,17 @@ export interface PrecoPorEscopo {
 export interface CompanyConfig {
   version: number
   persona: { nome_agente: string; empresa: string; tom: string; assinatura_humano: string }
-  qualificacao: { perguntas: PerguntaQualificacao[] }
+  qualificacao: {
+    perguntas: PerguntaQualificacao[]
+    /** EXTENSÃO: implicação lógica entre campos (achado real, lead Willian/conv944, 01/10/2026: ele disse que já
+     * faz anúncio, e o roteiro mesmo assim perguntou "vive só de indicação e boca a boca?" — pergunta cuja
+     * resposta já estava implícita no que ele tinha acabado de dizer). Quando `se_campo` já começa com
+     * `se_comeca_com`, preenche `entao_campo` automaticamente com `entao_valor` — a pergunta correspondente
+     * nunca é feita, porque o campo já conta como respondido. Só preenche se `entao_campo` ainda estiver vazio:
+     * nunca sobrescreve uma resposta real que o lead já deu com as próprias palavras. Determinístico, sem IA
+     * decidindo: é implicação lógica (quem anuncia não vive SÓ de indicação), não inferência arriscada. */
+    implicacoes?: { se_campo: string; se_comeca_com: string; entao_campo: string; entao_valor: string }[]
+  }
   objecoes: ObjecaoConfig[]
   preco: {
     pode_informar: boolean

@@ -451,6 +451,23 @@ ok('sem texto fixo de como funciona: cai na dúvida sobre fato (com RAG)', d.aca
   ok('mesmo sem escalar, ainda reconhece o pivô (fato outras_frentes)', d4.acao.tipo === 'responder_fato' && d4.acao.fatos.some((f) => f.id === 'outras_frentes'), d4.acao.tipo)
 }
 
+// 7h implicação lógica entre campos: achado real, lead Willian/conv944, 01/10/2026 — disse que já faz anúncio
+// e mesmo assim foi perguntado se vive só de indicação, pergunta cuja resposta já estava implícita.
+{
+  const d = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { fez_anuncio: 'sim: Google Ads' } }), est({ dados: { negocio: 'encanador' } }), config, ctx())
+  ok('fez_anuncio=sim preenche so_indicacao automaticamente (implicação lógica)', d.estado.dados.so_indicacao?.startsWith('nao'), d.estado.dados.so_indicacao)
+  ok('não pergunta mais "vive só de indicação" (já implícito)', d.acao.proxima_pergunta?.id !== 'canal_aquisicao', JSON.stringify(d.acao.proxima_pergunta))
+
+  // nunca sobrescreve resposta real que o lead já deu
+  const jaRespondeu = est({ dados: { negocio: 'encanador', so_indicacao: 'sim' } })
+  const d2 = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { fez_anuncio: 'sim: Google Ads' } }), jaRespondeu, config, ctx())
+  ok('implicação nunca sobrescreve resposta real já dada antes', d2.estado.dados.so_indicacao === 'sim', d2.estado.dados.so_indicacao)
+
+  // direção inversa: vive só de indicação ⟹ nunca anunciou
+  const d3 = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { so_indicacao: 'sim' } }), est({ dados: { negocio: 'encanador' } }), config, ctx())
+  ok('so_indicacao=sim preenche fez_anuncio automaticamente (direção inversa)', d3.estado.dados.fez_anuncio?.startsWith('nao'), d3.estado.dados.fez_anuncio)
+}
+
 // 7c config e Prime
 const vcfg = validateCompanyConfig(config)
 ok('config v3 da Grupo Venda é válida', vcfg.erros.length === 0, vcfg.erros.join(' | '))

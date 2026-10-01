@@ -48,6 +48,13 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
       // (Start ou Essencial) depois de confirmar que o mínimo cabe no orçamento.
       { id: 'escopo', ordem: 11, obrigatoria: true, campo: 'escopo', texto: 'Pra te passar o valor certinho: você precisa só da configuração do Google Meu Negócio ou precisa de um site também?' },
     ],
+    // Achado real, lead Willian/conv944, 01/10/2026: ele disse que já faz anúncio, e mesmo assim o roteiro
+    // perguntou depois "vive só de indicação e boca a boca?" — quem anuncia não vive SÓ de indicação, então
+    // essa pergunta nunca precisava ter sido feita.
+    implicacoes: [
+      { se_campo: 'fez_anuncio', se_comeca_com: 'sim', entao_campo: 'so_indicacao', entao_valor: 'nao: já faz anúncio, não vive só de indicação' },
+      { se_campo: 'so_indicacao', se_comeca_com: 'sim', entao_campo: 'fez_anuncio', entao_valor: 'nao: vive só de indicação, nunca anunciou' },
+    ],
   },
 
   objecoes: [

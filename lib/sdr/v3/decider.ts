@@ -136,6 +136,16 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // prioridade maior (ex.: pergunta_como_funciona), a regra 9 nunca rodava e a escolha de horário do lead se
   // perdia pra sempre, mesmo ele repetindo. Precisa ser incondicional, igual ex.dados, não só dentro da regra 9.
   if (ex.horario_escolhido) estado.dados.horario_escolhido = ex.horario_escolhido
+
+  // 0b. implicação lógica entre campos: acabou de preencher um campo que, por si só, já responde outro campo
+  // ainda vazio (ex.: fez_anuncio="sim" já implica so_indicacao="nao"). Nunca sobrescreve resposta real do lead.
+  for (const imp of config.qualificacao.implicacoes ?? []) {
+    const valorSe = estado.dados[imp.se_campo]
+    if (valorSe?.trim().toLowerCase().startsWith(imp.se_comeca_com.toLowerCase()) && !filled(estado.dados, imp.entao_campo)) {
+      estado.dados[imp.entao_campo] = imp.entao_valor
+    }
+  }
+
   const campoDe = (id: string) => config.qualificacao.perguntas.find((q) => q.id === id)?.campo
   for (const p of estado.perguntas_feitas) if (!p.respondida && campoDe(p.id) && filled(estado.dados, campoDe(p.id)!)) p.respondida = true
 
