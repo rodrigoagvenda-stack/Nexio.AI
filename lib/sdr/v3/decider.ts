@@ -275,6 +275,22 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     return a
   }
 
+  /** Só a parte de "colar a próxima pergunta" do comPergunta acima, SEM nunca checar trava/handoff: usado
+   * quando o turno já reconheceu algo importante (ex.: pivô pra outra frente) e precisa seguir qualificando,
+   * mas não pode escalar na mesma respirada por causa de uma trava antiga e sem relação (achado real, lead
+   * Edvaldo, 01/10/2026: a regra 3a usava base() puro pra evitar escalar junto com o pivô, só que isso também
+   * cortou a pergunta seguinte — a conversa respondia certo e simplesmente parava, sem next step nenhum). */
+  const comPerguntaSemTrava = (a: Acao): Acao => {
+    if (completa || literalJaTerminaEmPergunta(a)) return a
+    const q = proximaPergunta(estado, config, false)
+    if (q) {
+      a.proxima_pergunta = { id: q.id, texto: q.texto }
+      comentar(a)
+      if (q.reformulada && !q.reformulacaoFixa) a.contexto.push('Esta pergunta já foi feita antes e não foi respondida: reformule com outras palavras, sem cobrar.')
+    }
+    return a
+  }
+
   /** Só a parte de "pergunta obrigatória travada" do comPergunta acima, sem colar a próxima pergunta:
    * usado em respostas que não devem emendar o roteiro na mesma respirada (ex.: responder_fato), mas que
    * ainda precisam escalar se a qualificação estiver presa há 2 tentativas sem resposta reconhecível. */
@@ -414,10 +430,12 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     if ((config.fatos ?? []).length > 0) {
       return {
         estado,
-        acao: base('responder_fato', {
-          consulta_rag: ctx.mensagemLead || perguntaFato || 'Em que frente (tráfego, social, audiovisual) o lead demonstrou interesse?',
-          fatos: (config.fatos ?? []).map((f) => ({ id: f.id, texto: f.texto })),
-        }),
+        acao: comPerguntaSemTrava(
+          base('responder_fato', {
+            consulta_rag: ctx.mensagemLead || perguntaFato || 'Em que frente (tráfego, social, audiovisual) o lead demonstrou interesse?',
+            fatos: (config.fatos ?? []).map((f) => ({ id: f.id, texto: f.texto })),
+          }),
+        ),
       }
     }
   }

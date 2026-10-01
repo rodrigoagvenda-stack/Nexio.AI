@@ -426,6 +426,12 @@ ok('sem texto fixo de como funciona: cai na dúvida sobre fato (com RAG)', d.aca
   ok('marca dor_central e perfil_google como n/a (perguntas de GMN não fazem sentido aqui)', d.estado.dados.aparece_no_google === 'n/a' && d.estado.dados.tem_perfil_google === 'n/a')
   ok('próxima pergunta colada não é a de escopo GMN/site', !txt(d.acao).includes('configuração do Google Meu Negócio ou precisa de um site'), txt(d.acao))
 
+  // regressão real (lead Edvaldo, 01/10/2026): respondeu certo sobre a promoção, mas não colou NENHUMA pergunta
+  // seguinte (base() puro cortava a checagem de trava E a pergunta, quando só devia cortar a trava) — a conversa
+  // respondia e simplesmente parava, sem next step. Lead totalmente novo (igual o caso real: só "Olá!").
+  const dNovo = decidir(ex({ intencoes: ['social', 'interesse_outra_frente'] }), est(), config, ctx())
+  ok('lead novo com interesse em outra frente: cola a próxima pergunta de qualificação (não para a conversa)', !!dNovo.acao.proxima_pergunta, JSON.stringify(dNovo.acao.proxima_pergunta))
+
   // 2ª vez: não repete o fato de novo, só deixa o funil seguir (evita o "oi de novo" a cada mensagem)
   const d2 = decidir(ex({ intencoes: ['interesse_outra_frente'] }), d.estado, config, ctx())
   ok('interesse repetido: não repete o texto do fato de novo', d2.acao.tipo !== 'responder_fato' || !d2.acao.fatos.some((f) => f.id === 'outras_frentes'), d2.acao.tipo)
