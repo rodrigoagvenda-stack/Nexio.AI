@@ -424,8 +424,44 @@ async function applyPendingHandoff(
     distributeQueuedConversations(ctx.companyId, supabase).catch((e) =>
       console.error(`[SDR:${ctx.companyId}] distribuição pós-handoff falhou:`, e.message)
     )
+    await notificarResponsavelHumano(
+      { companyId: ctx.companyId, leadId: ctx.leadId, leadName: ctx.leadName, leadPhone: ctx.leadPhone, tipo: 'transferencia', motivo: pendente.motivo },
+      supabase,
+    )
   } catch (e: any) {
     console.error(`[SDR:${ctx.companyId}] handoff pós-envio falhou:`, e?.message)
+  }
+}
+
+/** Avisa o responsável humano (config.escala) por WhatsApp quando o SDR transfere uma conversa ou confirma um
+ * agendamento. Pedido do Rodrigo, 01/10/2026: antes só avisava por dentro do sistema (sino); o responsável só
+ * ficava sabendo se entrasse no painel. `tipo` muda só a saudação (transferência vs agendamento); `extra`
+ * (quando vem, ex.: data/link da reunião) substitui o resumo_ia padrão. Nunca derruba o turno que chamou. */
+async function notificarResponsavelHumano(
+  p: { companyId: number; leadId: number; leadName: string; leadPhone: string; tipo: 'transferencia' | 'agendamento'; motivo: string; extra?: string },
+  supabase: ReturnType<typeof createServiceClient>
+): Promise<void> {
+  try {
+    const { data: cfgRow } = await supabase
+      .from('sdr_company_configs')
+      .select('config')
+      .eq('company_id', p.companyId)
+      .eq('ativo', true)
+      .maybeSingle()
+    const escala = (cfgRow?.config as { escala?: { nome_humano?: string; telefone_humano?: string } } | null)?.escala
+    if (!escala?.telefone_humano) return
+    let corpo = p.extra
+    if (!corpo) {
+      const { data: leadRow } = await supabase.from('leads').select('resumo_ia').eq('id', p.leadId).maybeSingle()
+      corpo = `Lead: ${p.leadName || 'sem nome'}\nWhatsApp: ${p.leadPhone}\nMotivo: ${p.motivo}${leadRow?.resumo_ia ? `\n\nResumo:\n${leadRow.resumo_ia}` : ''}`
+    }
+    const saudacao = escala.nome_humano ? `Fala ${escala.nome_humano.split(' ')[0]}` : 'Fala'
+    const abertura = p.tipo === 'agendamento' ? `${saudacao}, acabamos de agendar uma reunião!` : `${saudacao}, o SDR transferiu uma conversa pra você.`
+    const texto = `${abertura}\n\n${corpo}`
+    const numero = escala.telefone_humano.replace(/\D/g, '')
+    await sendText({ companyId: p.companyId, phoneNumber: numero.startsWith('55') ? numero : `55${numero}`, text: texto })
+  } catch (e: any) {
+    console.error(`[SDR:${p.companyId}] notificação WhatsApp pro responsável falhou (ignorada):`, e?.message)
   }
 }
 
@@ -3899,6 +3935,8 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
             onUsage: (completion, agent) => pushUsage(acc, completion, agent),
             tokensDoTurno: () => acc.filter((u) => u.agent.startsWith('v3_')).reduce((s, u) => s + u.totalTokens, 0),
             modelosDoTurno: () => [...new Set(acc.filter((u) => u.agent.startsWith('v3_')).map((u) => u.model))],
+            notificarResponsavel: (motivo, extra) =>
+              notificarResponsavelHumano({ companyId, leadId, leadName: ctx.leadName, leadPhone: phone, tipo: 'agendamento', motivo, extra }, supabase),
           },
         })
         if (v3.handled) {

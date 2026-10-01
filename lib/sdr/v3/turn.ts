@@ -47,6 +47,9 @@ export interface V3Deps {
    * 01/10/2026: o campo do log estava hardcoded 'gpt-4.1' desde antes da troca pro Sol, então nem eu nem o
    * Rodrigo conseguia confirmar pelo banco se o modelo novo estava rodando de verdade ou sempre caindo). */
   modelosDoTurno: () => string[]
+  /** Avisa o responsável humano (config.escala) por WhatsApp. Usado no agendamento confirmado, além do handoff
+   * (que já é avisado em engine.ts). Nunca derruba o turno se o envio falhar. */
+  notificarResponsavel: (motivo: string, extra?: string) => Promise<void>
 }
 
 export interface V3Params {
@@ -249,6 +252,11 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
       acao.etapa_depois = 'agendado'
       acao.bloco_fixo = `${firstName(nomeCompleto)}, agendado! ${r.dataFormatada}.\n\nTe enviei o convite por e-mail com o link da reunião. Conseguiu receber?`
       await salvarEstado(supabase, ctx.companyId, conv, estado).catch(() => {})
+      const linkGmn = /https?:\/\/\S+/.exec(estado.dados.tem_perfil_google ?? '')?.[0]
+      await deps.notificarResponsavel(
+        'reunião agendada',
+        `Lead: ${nomeCompleto}\nWhatsApp: ${ctx.leadPhone}\nData: ${r.dataFormatada}\nLink da reunião: ${r.meetUrl}${linkGmn ? `\nPerfil do Google: ${linkGmn}` : ''}`,
+      )
     } else if (r.motivo === 'indisponivel') {
       delete estado.dados.horario_escolhido
       acao.tipo = 'oferecer_horarios'
