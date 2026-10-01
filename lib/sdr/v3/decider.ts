@@ -400,13 +400,25 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // lead é escalado pro Bruno no exato turno em que finalmente foi entendido — parece bug, mesmo sendo dois
   // problemas diferentes colidindo. Dá um turno de respiro: a trava (se ainda existir) só é reavaliada no
   // próximo turno, pelo fluxo normal.
+  // Achado real #2, lead Elydiane, 01/10/2026: essa regra citava SÓ o fato 'outras_frentes' (hardcoded), travado
+  // num id fixo. Quando criei o fato 'oferta_bonus_ads' (pra um anúncio específico de promoção) ele nunca era
+  // considerado aqui, mesmo sendo exatamente o caso: lead veio pelo anúncio do bônus, o fato genérico não
+  // mencionava o bônus, o redator tentou falar o valor sozinho e travou (V4), e a resposta saiu vazia, sem
+  // escalar de verdade. Agora passa TODOS os fatos como candidatos (igual a regra genérica de pergunta_fato,
+  // linha ~540), com consulta_rag = mensagem do lead: quem escolhe qual fato citar é quem lê o texto de
+  // verdade, não uma lista fixa de 1 item só.
   if (I.has('interesse_outra_frente') && (estado.dados.escopo ?? '').trim() !== 'outra_frente') {
     estado.dados.escopo = 'outra_frente'
     if (!filled(estado.dados, 'aparece_no_google')) estado.dados.aparece_no_google = 'n/a'
     if (!filled(estado.dados, 'tem_perfil_google')) estado.dados.tem_perfil_google = 'n/a'
-    const fatoOutrasFrentes = config.fatos?.find((f) => f.id === 'outras_frentes')
-    if (fatoOutrasFrentes) {
-      return { estado, acao: base('responder_fato', { fatos: [{ id: fatoOutrasFrentes.id, texto: fatoOutrasFrentes.texto }] }) }
+    if ((config.fatos ?? []).length > 0) {
+      return {
+        estado,
+        acao: base('responder_fato', {
+          consulta_rag: ctx.mensagemLead || perguntaFato || 'Em que frente (tráfego, social, audiovisual) o lead demonstrou interesse?',
+          fatos: (config.fatos ?? []).map((f) => ({ id: f.id, texto: f.texto })),
+        }),
+      }
     }
   }
 
