@@ -1,12 +1,21 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
-import { Loader2, Eye, EyeOff } from 'lucide-react';
-import { ZaapliLogo } from '@/components/brand/ZaapliLogo';
+import { Eye, EyeOff } from 'lucide-react';
+import {
+  AuthShell, Stack, Heading, FieldLabel, FieldBox, TextInput, PrimaryButton,
+  GreenLink, Copyright, IconBadge, badgeStroke, passwordChecks,
+} from '@/components/auth/auth-ui';
+
+function EyeToggle({ shown, onToggle }: { shown: boolean; onToggle: () => void }) {
+  return (
+    <button type="button" onClick={onToggle} aria-label={shown ? 'Ocultar senha' : 'Mostrar senha'} className="zl-link" style={{ color: '#8A948E', display: 'flex', flexShrink: 0 }}>
+      {shown ? <EyeOff size={20} /> : <Eye size={20} />}
+    </button>
+  );
+}
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState('');
@@ -43,8 +52,8 @@ export default function ResetPasswordPage() {
       toast({ title: 'As senhas não coincidem', variant: 'destructive' });
       return;
     }
-    if (password.length < 8) {
-      toast({ title: 'A senha deve ter pelo menos 8 caracteres', variant: 'destructive' });
+    if (!passwordChecks(password).ok) {
+      toast({ title: 'A senha precisa de 8 ou mais caracteres, com letras e números', variant: 'destructive' });
       return;
     }
     setLoading(true);
@@ -62,84 +71,65 @@ export default function ResetPasswordPage() {
     }
   };
 
+  if (done) {
+    return (
+      <AuthShell footer={<Copyright />}>
+        <Stack gap={32}>
+          <IconBadge>
+            <svg width="34" height="34" viewBox="0 0 24 24"><path d="m5 13 4 4L19 7" {...badgeStroke} /></svg>
+          </IconBadge>
+          <Heading title="Senha atualizada!" sub="Redirecionando para o painel…" gap={12} subLine={26} />
+        </Stack>
+      </AuthShell>
+    );
+  }
+
+  if (linkError) {
+    return (
+      <AuthShell footer={<Copyright />}>
+        <Stack gap={32}>
+          <IconBadge>
+            <svg width="34" height="34" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" {...badgeStroke} /><path d="M12 8v5M12 16h.01" {...badgeStroke} /></svg>
+          </IconBadge>
+          <Heading title="Link expirado ou já usado" sub="Peça um novo link em &quot;esqueci minha senha&quot; na tela de login." gap={12} subLine={26} />
+          <div><GreenLink icon="left" onClick={() => { window.location.href = '/login'; }}>Voltar para o login</GreenLink></div>
+        </Stack>
+      </AuthShell>
+    );
+  }
+
+  const pw = passwordChecks(password);
+
   return (
-    <div className="flex min-h-svh items-center justify-center" style={{ backgroundColor: '#080808' }}>
-      <div
-        className="flex flex-col w-full max-w-[440px] rounded-2xl p-10 gap-6"
-        style={{ backgroundColor: '#0C0C0C', border: '1px solid #1A1A1A' }}
-      >
-        <div className="flex justify-center">
-          <ZaapliLogo variant="full" iconSize={28} theme="dark" />
-        </div>
-
-        {done ? (
-          <div className="flex flex-col items-center gap-3 text-center">
-            <p className="text-white font-semibold">Senha atualizada!</p>
-            <p className="text-sm" style={{ color: '#888' }}>Redirecionando para o painel…</p>
-          </div>
-        ) : linkError ? (
-          <div className="flex flex-col items-center gap-3 text-center">
-            <p className="text-white font-semibold">Link expirado ou já usado</p>
-            <p className="text-sm" style={{ color: '#888' }}>Peça um novo link em &quot;esqueci minha senha&quot; na tela de login.</p>
-          </div>
-        ) : (
-          <>
-            <div>
-              <h1 className="text-xl font-bold text-white">Nova senha</h1>
-              <p className="text-sm mt-1" style={{ color: '#888' }}>
-                {sessionReady ? 'Defina sua nova senha abaixo.' : 'Carregando sessão de recuperação…'}
-              </p>
+    <AuthShell footer={<Copyright />}>
+      <Stack>
+        <Heading
+          title="Nova senha"
+          sub={sessionReady ? 'Defina sua nova senha abaixo.' : 'Carregando sessão de recuperação…'}
+        />
+        <form onSubmit={handleReset} style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <FieldLabel htmlFor="new-password">Nova senha</FieldLabel>
+              <FieldBox trailing={<EyeToggle shown={showPassword} onToggle={() => setShowPassword((s) => !s)} />}>
+                <TextInput id="new-password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading || !sessionReady} placeholder="Mínimo 8 caracteres" />
+              </FieldBox>
+              <div style={{ display: 'flex', gap: 6 }} aria-hidden="true">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i < pw.bars ? '#01573C' : '#E2E7E4', transition: 'background .2s' }} />
+                ))}
+              </div>
             </div>
-
-            <form onSubmit={handleReset} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="new-password" className="text-sm font-medium" style={{ color: '#CCC' }}>Nova senha</Label>
-                <div className="relative">
-                  <Input
-                    id="new-password"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Mínimo 8 caracteres"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    disabled={loading || !sessionReady}
-                    className="pr-10 text-white placeholder:text-white/30"
-                    style={{ backgroundColor: '#1A1A1A', borderColor: '#2A2A2A', color: '#fff' }}
-                  />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors" style={{ color: '#666' }}>
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="confirm-password" className="text-sm font-medium" style={{ color: '#CCC' }}>Confirmar nova senha</Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  placeholder="Repita a senha"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  required
-                  disabled={loading || !sessionReady}
-                  className="text-white placeholder:text-white/30"
-                  style={{ backgroundColor: '#1A1A1A', borderColor: '#2A2A2A', color: '#fff' }}
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading || !sessionReady}
-                className="flex items-center justify-center gap-2 w-full rounded-full font-bold text-sm mt-1 transition-transform active:translate-y-px disabled:opacity-60"
-                style={{ height: 44, backgroundColor: '#01573C', color: '#D8D8D8', boxShadow: '0 2px 0 0 #07261C' }}
-              >
-                {loading ? <><Loader2 className="h-4 w-4 animate-spin" />Salvando…</> : 'Salvar nova senha'}
-              </button>
-            </form>
-          </>
-        )}
-      </div>
-    </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <FieldLabel htmlFor="confirm-password">Confirmar nova senha</FieldLabel>
+              <FieldBox>
+                <TextInput id="confirm-password" type="password" autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} disabled={loading || !sessionReady} placeholder="Repita a senha" />
+              </FieldBox>
+            </div>
+          </div>
+          <PrimaryButton loading={loading} disabled={!sessionReady}>{loading ? 'Salvando…' : 'Salvar nova senha'}</PrimaryButton>
+        </form>
+      </Stack>
+    </AuthShell>
   );
 }
