@@ -1,0 +1,13 @@
+confirmation.html  ->  "Confirm sign up"  |  assunto: Confirme seu e-mail para começar no Zaapply
+invite.html  ->  "Invite user"  |  assunto: Você foi convidado para o Zaapply
+magic_link.html  ->  "Magic link or OTP"  |  assunto: Seu link de acesso ao Zaapply
+email_change.html  ->  "Change email address"  |  assunto: Confirme seu novo e-mail
+recovery.html  ->  "Reset password"  |  assunto: Redefinir sua senha no Zaapply
+reauthentication.html  ->  "Reauthentication"  |  assunto: {{ .Token }} é seu código de verificação
+password_changed.html  ->  "Password changed"  |  assunto: Sua senha foi alterada
+email_changed.html  ->  "Email address changed"  |  assunto: Seu e-mail foi alterado
+phone_changed.html  ->  "Phone number changed"  |  assunto: Seu número de WhatsApp foi alterado
+identity_linked.html  ->  "Sign-in method linked"  |  assunto: Um novo jeito de entrar foi adicionado
+identity_unlinked.html  ->  "Sign-in method removed"  |  assunto: Um jeito de entrar foi removido
+mfa_factor_enrolled.html  ->  "MFA method added"  |  assunto: Nova verificação adicionada à sua conta
+mfa_factor_unenrolled.html  ->  "MFA method removed"  |  assunto: Uma verificação foi removida da sua conta
