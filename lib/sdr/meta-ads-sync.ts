@@ -8,6 +8,7 @@
 // a Meta relata sobre si mesma.
 import { createServiceClient } from '@/lib/supabase/server'
 import { safeDecrypt } from '@/lib/crypto'
+import { syslog } from '@/lib/logger'
 
 type Supabase = ReturnType<typeof createServiceClient>
 
@@ -101,6 +102,25 @@ export async function runMetaAdsSync(): Promise<{ companies: number; synced: num
       companiesProcessed++
     } catch (err: any) {
       errors.push(`company=${cfg.company_id}: ${err.message}`)
+      // "fetch failed" do Node esconde a causa real (DNS, TLS, timeout, header
+      // inválido) atrás de uma mensagem genérica -- loga err.cause à parte pra
+      // não ficar só adivinhando. Também loga o formato do token decifrado
+      // (sem expor o valor) pra descartar o safeDecrypt engolindo erro de
+      // decriptação e devolvendo o texto cifrado bruto como se fosse o token.
+      const token = safeDecrypt(cfg.meta_access_token)
+      await syslog({
+        type: 'error',
+        severity: 'warning',
+        message: `[meta-ads-sync] company=${cfg.company_id} falhou`,
+        payload: {
+          error: err.message,
+          cause: err.cause ? String((err.cause as { message?: string })?.message ?? err.cause) : null,
+          causeCode: (err.cause as { code?: string })?.code ?? null,
+          tokenLength: token?.length ?? null,
+          tokenPareceCifradoBruto: typeof token === 'string' && token.split(':').length === 3,
+          tokenPrimeirosChars: typeof token === 'string' ? token.slice(0, 6) : null,
+        },
+      })
     }
   }
 
