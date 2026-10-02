@@ -3270,6 +3270,23 @@ async function isAgentePausadoAtivo(
     .eq('id', conversationId)
     .maybeSingle()
 
+  // Achado real, lead Ana/conv63358, 02/10/2026: a pausa tinha expirado pelo timer de 24h (mecanismo normal,
+  // pra não deixar lead preso se o humano esquecer de reativar), mas um humano (Bruno) continuava negociando
+  // ativamente ali há dias (plano customizado, valor fora da tabela) — o bot "acordou" sozinho e respondeu
+  // 2x uma pergunta de contrato/Pix que não tinha nada a ver com o script dele. Antes de confiar na flag+timer,
+  // confere se a ÚLTIMA mensagem nossa foi mandada por um humano de verdade: se foi, nunca auto-reativa sozinho
+  // só porque passou tempo — alguém tem que despausar manualmente. Timer continua valendo só quando quem pausou
+  // foi o próprio bot (handoff automático) e ninguém humano assumiu de fato a conversa depois.
+  const { data: ultimaNossa } = await supabase
+    .from('mensagens_do_whatsapp')
+    .select('sender_type')
+    .eq('id_da_conversacao', conversationId)
+    .eq('direcao', 'outbound')
+    .order('carimbo_de_data_e_hora', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (ultimaNossa?.sender_type === 'human') return true
+
   if (!conv?.agente_pausado) return false
 
   const pausadoEm = conv.agente_pausado_em ? new Date(conv.agente_pausado_em).getTime() : null
