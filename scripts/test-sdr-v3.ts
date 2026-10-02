@@ -66,7 +66,7 @@ ok('marca pergunta respondida', d.estado.perguntas_feitas[0].respondida === true
 
 // 3 preço
 d = decidir(ex({ intencoes: ['pergunta_preco'] }), est(), config, ctx())
-ok('preço sem escopo: pergunta o escopo em texto fixo (não fala valor)', d.acao.tipo === 'responder_preco' && d.acao.conteudo?.modo === 'literal' && JSON.stringify(d.acao.conteudo.texto).includes('só da configuração do Google Meu Negócio') && !JSON.stringify(d.acao.conteudo.texto).includes('R$') && d.estado.pedidos_de_preco === 1 && d.estado.contadores.escopo_perguntado === true)
+ok('preço sem escopo: pergunta o escopo em texto fixo (não fala valor)', d.acao.tipo === 'responder_preco' && d.acao.conteudo?.modo === 'literal' && JSON.stringify(d.acao.conteudo.texto).includes('estruturar e posicionar o seu Google Meu Negócio') && !JSON.stringify(d.acao.conteudo.texto).includes('R$') && d.estado.pedidos_de_preco === 1 && d.estado.contadores.escopo_perguntado === true)
 ok('preço sem escopo: uma pergunta só (não empilha qualificação)', !d.acao.proxima_pergunta)
 d = decidir(ex({ intencoes: ['pergunta_preco'] }), d.estado, config, ctx())
 ok('2º pedido de preço escala', d.acao.tipo === 'escalar' && !!d.acao.handoff)
@@ -290,7 +290,7 @@ ok('objecao_id preenchido sem a tag "objecao": ainda assim responde a objeção'
 d = decidir(ex({ intencoes: ['pede_pagamento'] }), est(), config, ctx())
 ok('pagamento sem cobrança ativa escala', d.acao.tipo === 'escalar')
 d = decidir(ex({ intencoes: ['pede_pagamento'] }), est({ dados: { nome: 'Ana' } }), config, ctx({ cobrancaAtiva: true }))
-ok('pagamento com cobrança ativa mas escopo desconhecido: pergunta o escopo antes (nunca cobra valor fixo errado)', d.acao.tipo === 'perguntar' && txt(d.acao).includes('site também'), d.acao.tipo)
+ok('pagamento com cobrança ativa mas escopo desconhecido: pergunta o escopo antes (nunca cobra valor fixo errado)', d.acao.tipo === 'perguntar' && txt(d.acao).includes('criação de um site'), d.acao.tipo)
 d = decidir(ex({ intencoes: ['pede_pagamento'] }), est({ dados: { escopo: 'site' } }), config, ctx({ cobrancaAtiva: true }))
 ok('pagamento com escopo já conhecido: segue pro CPF/CNPJ normalmente', d.acao.tipo === 'perguntar' && d.acao.proxima_pergunta?.id === 'cpf_cnpj', d.acao.tipo)
 
@@ -308,7 +308,7 @@ function regrasPrime(b: string[]) { return validar(b, { config, estado: est(), a
 // 7b como funciona e preço por escopo (Start e Essencial; Prime nunca aparece)
 d = decidir(ex({ intencoes: ['pergunta_preco', 'pergunta_como_funciona'] }), est({ dados: { nome: 'Luciano' } }), config, ctx())
 ok('como funciona: texto fixo, chama pelo nome', d.acao.tipo === 'responder_como_funciona' && d.acao.conteudo?.modo === 'literal' && txt(d.acao).startsWith('Luciano, a gente cuida'), txt(d.acao).slice(0, 60))
-ok('como funciona sem escopo: termina perguntando o escopo e não empilha outra pergunta', txt(d.acao).trim().endsWith('ou precisa de um site também?') && !d.acao.proxima_pergunta && d.estado.contadores.escopo_perguntado === true)
+ok('como funciona sem escopo: termina perguntando o escopo e não empilha outra pergunta', txt(d.acao).trim().endsWith('para receber esses clientes?') && !d.acao.proxima_pergunta && d.estado.contadores.escopo_perguntado === true)
 ok('como funciona não solta valor antes de saber o escopo', !txt(d.acao).includes('R$'))
 const dComoSemNome = decidir(ex({ intencoes: ['pergunta_como_funciona'] }), est(), config, ctx())
 ok('como funciona sem nome conhecido: sem buraco no texto', txt(dComoSemNome.acao).startsWith('A gente cuida da presença digital'), txt(dComoSemNome.acao).slice(0, 50))

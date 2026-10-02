@@ -452,7 +452,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     let blocos = blocosDe(config.como_funciona.texto)
     if (pe && opcao && I.has('pergunta_preco')) blocos = [...blocos, ...blocosDe(opcao.texto)]
     else if (pe && !opcao && !ehOutraFrente) {
-      blocos = [...blocos, preencher(pe.pergunta, estado.dados)]
+      blocos = [...blocos, ...blocosDe(pe.pergunta)]
       estado.contadores.escopo_perguntado = true
     }
     estado.contadores.como_funciona_explicado = true
@@ -484,7 +484,11 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     if (estado.pedidos_de_preco >= config.preco.escalar_apos) return escalar('lead insistiu em saber o valor')
     if (pe) {
       estado.contadores.escopo_perguntado = true
-      return { estado, acao: base('responder_preco', { conteudo: { modo: 'literal', texto: preencher(pe.pergunta, estado.dados) } }) }
+      // Reconhece a pergunta antes de pedir o escopo, em vez de ir seco direto pra pergunta (achado real,
+      // Rodrigo revisando o lead Anderson, 01/10/2026). Só nesse caminho (pediu preço de verdade): nos outros
+      // lugares que também perguntam escopo (combo com como_funciona, pede_pagamento) o reconhecimento não
+      // cabe, por isso fica aqui, não dentro do texto de pe.pergunta.
+      return { estado, acao: base('responder_preco', { conteudo: { modo: 'literal', texto: ['Excelente pergunta! A gente tem soluções que se adaptam ao momento de cada negócio, por isso o valor depende do escopo.', ...blocosDe(pe.pergunta)] } }) }
     }
     const antes = config.preco.frases_antes_qualificacao
     const frase = completa ? config.preco.frase_depois_qualificacao : antes[(estado.pedidos_de_preco - 1) % antes.length]
@@ -652,7 +656,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     // Preço por escopo: nunca gera cobrança do valor fixo da config sem saber qual escopo (Start e Essencial têm valores diferentes)
     if (pe && !opcao) {
       estado.contadores.escopo_perguntado = true
-      return { estado, acao: base('perguntar', { conteudo: { modo: 'literal', texto: preencher(pe.pergunta, estado.dados) } }) }
+      return { estado, acao: base('perguntar', { conteudo: { modo: 'literal', texto: blocosDe(pe.pergunta) } }) }
     }
     if (!filled(estado.dados, 'cpf_cnpj')) {
       return {

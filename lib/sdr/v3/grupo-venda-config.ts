@@ -46,7 +46,7 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
       },
       // Mesmo texto de preco.por_escopo.pergunta (se mudar um, muda o outro). Por último: só decide o plano exato
       // (Start ou Essencial) depois de confirmar que o mínimo cabe no orçamento.
-      { id: 'escopo', ordem: 11, obrigatoria: true, campo: 'escopo', texto: 'Pra te passar o valor certinho: você precisa só da configuração do Google Meu Negócio ou precisa de um site também?' },
+      { id: 'escopo', ordem: 11, obrigatoria: true, campo: 'escopo', texto: 'Para eu entender o seu cenário: o seu foco agora é apenas estruturar e posicionar o seu Google Meu Negócio, ou você também precisa da criação de um site para receber esses clientes?' },
     ],
     // Achado real, lead Willian/conv944, 01/10/2026: ele disse que já faz anúncio, e mesmo assim o roteiro
     // perguntou depois "vive só de indicação e boca a boca?" — quem anuncia não vive SÓ de indicação, então
@@ -239,7 +239,7 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
     // O valor sai sempre destes textos fixos, pelo que o lead precisa. O plano Prime nunca é citado.
     por_escopo: {
       campo: 'escopo',
-      pergunta: 'Pra te passar o valor certinho: você precisa só da configuração do Google Meu Negócio ou precisa de um site também?',
+      pergunta: 'Para eu entender o seu cenário: o seu foco agora é apenas estruturar e posicionar o seu Google Meu Negócio, ou você também precisa da criação de um site para receber esses clientes?',
       opcoes: [
         {
           valor: 'gmn',
