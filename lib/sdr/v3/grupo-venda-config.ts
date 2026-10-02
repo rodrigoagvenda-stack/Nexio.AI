@@ -232,9 +232,12 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
           descricao: 'precisa só da configuração ou otimização do Google Meu Negócio, sem site',
           // 3º bloco termina em "?": o preço nunca fica solto esperando o lead tomar a iniciativa (achado real,
           // Rodrigo 30/09/2026), e por já terminar em pergunta, o decisor não cola nenhuma outra por cima.
+          // Achado real, lead Genilson/01/10/2026: ele tinha 4 lojas e o bot ficou repetindo o preço de 1 perfil
+          // só, sem nunca sinalizar que é por unidade. Terceira linha deixa isso explícito.
           texto: [
             'Pro Google Meu Negócio sozinho, sem site, é o plano Start: de R$ 1.350 por R$ 1.199 à vista no Pix, ou 3x de R$ 399,67 no cartão, sem juros.',
             'Inclui o diagnóstico do perfil, perfil criado ou corrigido do zero, categorias, descrição e serviços configurados, fotos reais, 4 posts do primeiro mês prontos e a verificação junto ao Google.',
+            'Esse valor é pra 1 perfil. Se for mais de uma loja ou unidade, o Bruno fecha o valor certinho com você na análise.',
             'E aí, topa marcar 15 minutos pra eu te mostrar certinho o que cabe no seu caso?',
           ],
         },
@@ -244,6 +247,7 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
           texto: [
             'Com site, é o plano Essencial: R$ 2.200 à vista no Pix, ou 6x de R$ 397,03 no cartão (com juros, total R$ 2.382,16).',
             'Inclui tudo do Google Meu Negócio, mais o site institucional com mais de 20 páginas (organizadas por serviço e localidade, pra aparecer em mais buscas da sua região), com SEO local, Analytics, Tag Manager e Search Console configurados, e 30 dias de ativação com posts semanais, script de pedido de avaliação e relatório de resultado.',
+            'Esse valor é pra 1 perfil e 1 site. Se for mais de uma loja ou unidade, o Bruno fecha o valor certinho com você na análise.',
             'E aí, topa marcar 15 minutos pra eu te mostrar certinho o que cabe no seu caso?',
           ],
         },
