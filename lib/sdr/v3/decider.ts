@@ -565,6 +565,28 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     return { estado, acao: base('oferecer_ligacao', { conteudo: { modo: 'literal', texto: config.ligacao.oferta } }) }
   }
 
+  // 7b. pagamento/dados de contrato: prioridade MAIOR que pergunta_fato (regra 8 logo abaixo). Achado real,
+  // lead Ana/conv63358, 02/10/2026: ela pediu "quais os dados" e "chave Pix" junto numa mensagem só, o extrator
+  // marcou pede_pagamento E pergunta_fato ao mesmo tempo, e como pergunta_fato rodava primeiro (antes dessa
+  // mudança), a resposta genérica de fato vencia e a escalada de pagamento nunca disparava — o bot respondeu
+  // "não tenho essa lista" em vez de escalar de verdade pro humano. Pedido de pagamento/contrato é sempre
+  // prioridade: nunca deixa outra regra responder por cima.
+  if (I.has('pede_pagamento')) {
+    if (!ctx.cobrancaAtiva) return escalar('lead pediu para pagar e a cobrança automática não está ativa')
+    // Preço por escopo: nunca gera cobrança do valor fixo da config sem saber qual escopo (Start e Essencial têm valores diferentes)
+    if (pe && !opcao) {
+      estado.contadores.escopo_perguntado = true
+      return { estado, acao: base('perguntar', { conteudo: { modo: 'literal', texto: blocosDe(pe.pergunta) } }) }
+    }
+    if (!filled(estado.dados, 'cpf_cnpj')) {
+      return {
+        estado,
+        acao: base('perguntar', { proxima_pergunta: { id: 'cpf_cnpj', texto: 'Pra gerar o pagamento, preciso do seu CPF ou CNPJ. Pode me passar?' } }),
+      }
+    }
+    return { estado, acao: base('gerar_cobranca') }
+  }
+
   // 8. pergunta sobre fato (o RAG é consultado pelo turno; sem resultado e sem fatos na config vira escalar_duvida)
   // NÃO cola a próxima pergunta de qualificação em cima da resposta (achado real, 01/10/2026: lead perguntou
   // "quais serviços tem?", recebeu a resposta certa e, na mesma respirada, já veio "você vive só de indicação
@@ -649,23 +671,6 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
 
   // 11. pede espera
   if (I.has('pede_espera')) return { estado, acao: base('aguardar') }
-
-  // 12. pagamento
-  if (I.has('pede_pagamento')) {
-    if (!ctx.cobrancaAtiva) return escalar('lead pediu para pagar e a cobrança automática não está ativa')
-    // Preço por escopo: nunca gera cobrança do valor fixo da config sem saber qual escopo (Start e Essencial têm valores diferentes)
-    if (pe && !opcao) {
-      estado.contadores.escopo_perguntado = true
-      return { estado, acao: base('perguntar', { conteudo: { modo: 'literal', texto: blocosDe(pe.pergunta) } }) }
-    }
-    if (!filled(estado.dados, 'cpf_cnpj')) {
-      return {
-        estado,
-        acao: base('perguntar', { proxima_pergunta: { id: 'cpf_cnpj', texto: 'Pra gerar o pagamento, preciso do seu CPF ou CNPJ. Pode me passar?' } }),
-      }
-    }
-    return { estado, acao: base('gerar_cobranca') }
-  }
 
   // 13. demais: próxima pergunta (na abertura pode ser qualquer uma, inclusive opcional)
   const soSocial = I.has('social') && ex.intencoes.every((i) => i === 'social' || i === 'outro')

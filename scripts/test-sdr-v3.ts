@@ -294,6 +294,12 @@ ok('pagamento com cobrança ativa mas escopo desconhecido: pergunta o escopo ant
 d = decidir(ex({ intencoes: ['pede_pagamento'] }), est({ dados: { escopo: 'site' } }), config, ctx({ cobrancaAtiva: true }))
 ok('pagamento com escopo já conhecido: segue pro CPF/CNPJ normalmente', d.acao.tipo === 'perguntar' && d.acao.proxima_pergunta?.id === 'cpf_cnpj', d.acao.tipo)
 
+// regressão real (lead Ana/conv63358, 02/10/2026): pediu "quais os dados" e "chave Pix" na mesma mensagem — o
+// extrator marca pede_pagamento E pergunta_fato juntos, e pergunta_fato rodava primeiro, respondendo "não
+// tenho essa lista" em vez de escalar de verdade. Pedido de pagamento tem que vencer sempre.
+d = decidir(ex({ intencoes: ['pede_pagamento', 'pergunta_fato'], pergunta_fato: 'Quais dados são necessários para emitir o contrato?' }), est(), config, ctx())
+ok('pede_pagamento + pergunta_fato juntos: pagamento vence, escala de verdade (não responde fato genérico)', d.acao.tipo === 'escalar', d.acao.tipo)
+
 // 7c qualificação nunca completa sem o escopo (Start ou Essencial)
 d = decidir(ex({ intencoes: ['outro'] }), est({ dados: { negocio: 'dentista', tem_perfil_google: 'sim', decisor: 'sim' } }), config, ctx())
 ok('sem escopo: qualificação NÃO está completa, não oferece horário', d.acao.tipo !== 'oferecer_horarios', d.acao.tipo)
