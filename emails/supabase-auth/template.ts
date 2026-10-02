@@ -15,8 +15,8 @@ export interface AuthEmailScenario {
   /** Nome como aparece na lista do painel, só para referência humana. */
   label: string
   subject: string
-  /** Ícone decorativo do selo (SVG inline -- alguns clientes removem; degrada pra bolinha verde vazia, sem quebrar o layout). */
-  iconSvg: string
+  /** Chave do ícone do selo -- vira <img> pra public/email-icons/<icon>.png (SVG inline some no Gmail, confirmado em teste real). */
+  icon: string
   title: string
   /** HTML simples (parágrafos) -- pode conter {{ .Variavel }} do Supabase. */
   bodyHtml: string
@@ -31,6 +31,7 @@ export interface AuthEmailScenario {
 }
 
 const LOGO_URL = 'https://app.zaapply.com.br/logo-email.png'
+const ICON_BASE_URL = 'https://app.zaapply.com.br/email-icons'
 
 export function renderAuthEmail(s: AuthEmailScenario): string {
   const showLink = s.showFallbackLink ?? !!s.button
@@ -110,13 +111,7 @@ export function renderAuthEmail(s: AuthEmailScenario): string {
           </tr>
           <tr>
             <td class="pad-48" align="left" style="padding:28px 48px 0;">
-              <table cellpadding="0" cellspacing="0" border="0" role="presentation">
-                <tr>
-                  <td width="56" height="56" style="background-color:#E3F1EA;border-radius:28px;text-align:center;vertical-align:middle;">
-                    ${s.iconSvg}
-                  </td>
-                </tr>
-              </table>
+              <img src="${ICON_BASE_URL}/${s.icon}.png" width="56" height="56" alt="" style="display:block;border-radius:28px;" />
             </td>
           </tr>
           <tr>
