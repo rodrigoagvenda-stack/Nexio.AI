@@ -248,9 +248,11 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
           // Rodrigo 30/09/2026), e por já terminar em pergunta, o decisor não cola nenhuma outra por cima.
           // Achado real, lead Genilson/01/10/2026: ele tinha 4 lojas e o bot ficou repetindo o preço de 1 perfil
           // só, sem nunca sinalizar que é por unidade. Terceira linha deixa isso explícito.
+          // Formato checklist (achado real, lead Anderson/02/10/2026): lista os entregáveis reais em bullet antes
+          // do preço, sem adjetivo de resultado que não está configurado ("foco em conversão" etc. nunca entram
+          // aqui) e sem fixar dia ("amanhã") no convite — a agenda real quem decide isso, não o texto fixo.
           texto: [
-            'Pro Google Meu Negócio sozinho, sem site, é o plano Start: de R$ 1.350 por R$ 1.199 à vista no Pix, ou 3x de R$ 399,67 no cartão, sem juros.',
-            'Inclui o diagnóstico do perfil, perfil criado ou corrigido do zero, categorias, descrição e serviços configurados, fotos reais, 4 posts do primeiro mês prontos e a verificação junto ao Google.',
+            'Pro Google Meu Negócio sozinho, sem site, é o plano Start. Veja tudo que está incluso:\n• Diagnóstico do perfil atual\n• Perfil criado ou corrigido do zero\n• Categorias, descrição e serviços configurados\n• Fotos reais e 4 posts prontos pro primeiro mês\n• Verificação junto ao Google\n\nDe R$ 1.350 por R$ 1.199 à vista no Pix, ou 3x de R$ 399,67 no cartão, sem juros.',
             'Esse valor é pra 1 perfil. Se for mais de uma loja ou unidade, o Bruno fecha o valor certinho com você na análise.',
             'E aí, topa marcar 15 minutos pra eu te mostrar certinho o que cabe no seu caso?',
           ],
@@ -259,8 +261,7 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
           valor: 'site',
           descricao: 'quer site (com ou sem o Google Meu Negócio, inclusive "os dois", "tudo" ou "site também")',
           texto: [
-            'Com site, é o plano Essencial: R$ 2.200 à vista no Pix, ou 6x de R$ 397,03 no cartão (com juros, total R$ 2.382,16).',
-            'Inclui tudo do Google Meu Negócio, mais o site institucional com mais de 20 páginas (organizadas por serviço e localidade, pra aparecer em mais buscas da sua região), com SEO local, Analytics, Tag Manager e Search Console configurados, e 30 dias de ativação com posts semanais, script de pedido de avaliação e relatório de resultado.',
+            'Com site, é o plano Essencial. Veja tudo que está incluso:\n• Tudo do Google Meu Negócio (perfil do zero, categorias, descrição, fotos e posts)\n• Site institucional com mais de 20 páginas, organizadas por serviço e localidade\n• SEO local, Analytics, Tag Manager e Search Console configurados\n• 30 dias de ativação: posts semanais, script de pedido de avaliação e relatório de resultado\n\nR$ 2.200 à vista no Pix, ou 6x de R$ 397,03 no cartão (com juros, total R$ 2.382,16).',
             'Esse valor é pra 1 perfil e 1 site. Se for mais de uma loja ou unidade, o Bruno fecha o valor certinho com você na análise.',
             'E aí, topa marcar 15 minutos pra eu te mostrar certinho o que cabe no seu caso?',
           ],
