@@ -15,10 +15,20 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
+  const [linkError, setLinkError] = useState(false);
 
-  // Supabase envia o token no hash : o client SDK troca automaticamente por sessão
+  // O link de recuperação chega como ?code= (PKCE) : troca explicitamente por
+  // sessão em vez de confiar só no evento PASSWORD_RECOVERY, que não dispara
+  // de forma confiável pra esse formato dentro do Next.js.
   useEffect(() => {
     const supabase = createClient();
+    const code = new URLSearchParams(window.location.search).get('code');
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).then(({ error }: { error: unknown }) => {
+        if (error) setLinkError(true);
+        else setSessionReady(true);
+      });
+    }
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: any) => {
       if (event === 'PASSWORD_RECOVERY') {
         setSessionReady(true);
@@ -66,6 +76,11 @@ export default function ResetPasswordPage() {
           <div className="flex flex-col items-center gap-3 text-center">
             <p className="text-white font-semibold">Senha atualizada!</p>
             <p className="text-sm" style={{ color: '#888' }}>Redirecionando para o painel…</p>
+          </div>
+        ) : linkError ? (
+          <div className="flex flex-col items-center gap-3 text-center">
+            <p className="text-white font-semibold">Link expirado ou já usado</p>
+            <p className="text-sm" style={{ color: '#888' }}>Peça um novo link em &quot;esqueci minha senha&quot; na tela de login.</p>
           </div>
         ) : (
           <>
