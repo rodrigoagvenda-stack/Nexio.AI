@@ -50,7 +50,7 @@
               <table cellpadding="0" cellspacing="0" border="0" role="presentation">
                 <tr>
                   <td class="btn-cell" style="background-color:#01573C;box-shadow:0 3px 0 #013825;border-radius:999px;">
-                    <a href="{{ .ConfirmationURL }}" style="display:block;padding:16px 28px;font-family:'Inter',Arial,sans-serif;font-size:16px;font-weight:700;color:#FFFFFF;text-decoration:none;text-align:center;white-space:nowrap;border-radius:999px;">Entrar agora</a>
+                    <a href="{{ .SiteURL }}/api/auth/confirm?token_hash={{ .TokenHash }}&type=magiclink&next=/dashboard" style="display:block;padding:16px 28px;font-family:'Inter',Arial,sans-serif;font-size:16px;font-weight:700;color:#FFFFFF;text-decoration:none;text-align:center;white-space:nowrap;border-radius:999px;">Entrar agora</a>
                   </td>
                 </tr>
               </table>
@@ -61,7 +61,7 @@
           <tr>
             <td align="left" style="padding:28px 48px 0;">
               <p style="margin:0;font-family:'Inter',Arial,sans-serif;font-size:13px;line-height:18px;color:#8A948E;">Se o botão não funcionar, copie e cole este link no navegador:</p>
-              <p style="margin:4px 0 0 0;font-family:'Inter',Arial,sans-serif;font-size:13px;line-height:18px;color:#01573C;word-break:break-all;">{{ .ConfirmationURL }}</p>
+              <p style="margin:4px 0 0 0;font-family:'Inter',Arial,sans-serif;font-size:13px;line-height:18px;color:#01573C;word-break:break-all;">{{ .SiteURL }}/api/auth/confirm?token_hash={{ .TokenHash }}&type=magiclink&next=/dashboard</p>
             </td>
           </tr>
           <tr>

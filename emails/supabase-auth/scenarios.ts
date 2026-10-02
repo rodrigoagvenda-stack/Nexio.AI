@@ -1,7 +1,9 @@
 import type { AuthEmailScenario } from './template'
 
 const SITE = '{{ .SiteURL }}'
-const CONFIRM = '{{ .ConfirmationURL }}'
+/** Link pro /api/auth/confirm (verifyOtp direto, sem precisar de cookie/PKCE salvo antes -- funciona mesmo se o e-mail for aberto em outro navegador/aparelho). */
+const confirmUrl = (type: 'signup' | 'invite' | 'magiclink' | 'recovery' | 'email_change', next: string) =>
+  `${SITE}/api/auth/confirm?token_hash={{ .TokenHash }}&type=${type}&next=${next}`
 
 /** Os 6 templates de autenticação -- Authentication > Emails no painel. */
 export const AUTH_SCENARIOS: AuthEmailScenario[] = [
@@ -12,7 +14,7 @@ export const AUTH_SCENARIOS: AuthEmailScenario[] = [
     icon: 'mailCheck',
     title: 'Confirme seu e-mail',
     bodyHtml: `<p style="margin:0;">Falta pouco! Clique no botão abaixo para confirmar seu e-mail e ativar sua conta no Zaapply.</p>`,
-    button: { text: 'Confirmar e-mail', url: CONFIRM },
+    button: { text: 'Confirmar e-mail', url: confirmUrl('signup', '/dashboard') },
   },
   {
     key: 'invite',
@@ -21,7 +23,7 @@ export const AUTH_SCENARIOS: AuthEmailScenario[] = [
     icon: 'userPlus',
     title: 'Você foi convidado',
     bodyHtml: `<p style="margin:0;">Você foi convidado para fazer parte de uma equipe no Zaapply. Clique no botão abaixo para criar sua senha e acessar o painel.</p>`,
-    button: { text: 'Aceitar convite', url: CONFIRM },
+    button: { text: 'Aceitar convite', url: confirmUrl('invite', '/reset-password') },
     footerNote: 'Se você não esperava este convite, pode ignorar este e-mail com segurança.',
   },
   {
@@ -31,7 +33,7 @@ export const AUTH_SCENARIOS: AuthEmailScenario[] = [
     icon: 'bolt',
     title: 'Entrar no Zaapply',
     bodyHtml: `<p style="margin:0;">Clique no botão abaixo para entrar na sua conta sem precisar digitar senha. Esse link é de uso único.</p>`,
-    button: { text: 'Entrar agora', url: CONFIRM },
+    button: { text: 'Entrar agora', url: confirmUrl('magiclink', '/dashboard') },
   },
   {
     key: 'email_change',
@@ -40,7 +42,7 @@ export const AUTH_SCENARIOS: AuthEmailScenario[] = [
     icon: 'mail',
     title: 'Confirme seu novo e-mail',
     bodyHtml: `<p style="margin:0;">Pediram a troca do e-mail da sua conta para <strong style="color:#0E1512;">{{ .NewEmail }}</strong>. Clique no botão abaixo para confirmar.</p>`,
-    button: { text: 'Confirmar novo e-mail', url: CONFIRM },
+    button: { text: 'Confirmar novo e-mail', url: confirmUrl('email_change', '/dashboard') },
     footerNote: 'Se você não pediu essa troca, ignore este e-mail -- seu e-mail atual continua o mesmo.',
   },
   {
@@ -50,7 +52,7 @@ export const AUTH_SCENARIOS: AuthEmailScenario[] = [
     icon: 'lock',
     title: 'Redefinir sua senha',
     bodyHtml: `<p style="margin:0;">Recebemos um pedido para redefinir a senha da sua conta. Clique no botão abaixo para criar uma senha nova. Esse link expira em 1 hora.</p>`,
-    button: { text: 'Criar nova senha', url: CONFIRM },
+    button: { text: 'Criar nova senha', url: confirmUrl('recovery', '/reset-password') },
     footerNote: 'Se você não pediu essa redefinição, pode ignorar este e-mail com segurança -- sua senha continua a mesma.',
   },
   {
