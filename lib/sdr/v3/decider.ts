@@ -390,7 +390,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
         return {
           estado,
           acao: base('pedir_dados_agendamento', {
-            conteudo: { modo: 'livre', texto: `Pra enviar o convite, preciso do seu ${falta.join(' e ')}.` },
+            conteudo: { modo: 'livre', texto: `Show, fechamos esse horário! Pra enviar o convite, preciso do seu ${falta.join(' e ')}.` },
             etapa_depois: 'confirmando',
           }),
         }
@@ -623,7 +623,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
       return {
         estado,
         acao: base('pedir_dados_agendamento', {
-          conteudo: { modo: 'livre', texto: `Pra fechar o agendamento, só preciso do seu ${falta.join(' e ')}.` },
+          conteudo: { modo: 'livre', texto: `Show, vamos fechar! Só preciso do seu ${falta.join(' e ')}.` },
           etapa_depois: 'confirmando',
         }),
       }
