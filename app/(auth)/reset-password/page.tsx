@@ -26,24 +26,22 @@ export default function ResetPasswordPage() {
   const [sessionReady, setSessionReady] = useState(false);
   const [linkError, setLinkError] = useState(false);
 
-  // O link de recuperação chega como ?code= (PKCE) : troca explicitamente por
-  // sessão em vez de confiar só no evento PASSWORD_RECOVERY, que não dispara
-  // de forma confiável pra esse formato dentro do Next.js.
+  // A troca do code por sessão já aconteceu no servidor (/api/auth/confirm)
+  // antes de chegar aqui -- o navegador não consegue fazer essa troca sozinho
+  // porque o verificador PKCE fica num cookie só o servidor lê. Aqui só
+  // confere se a sessão de fato veio junto (cookie já setado) ou se o
+  // servidor mandou de volta com erro.
   useEffect(() => {
-    const supabase = createClient();
-    const code = new URLSearchParams(window.location.search).get('code');
-    if (code) {
-      supabase.auth.exchangeCodeForSession(code).then(({ error }: { error: unknown }) => {
-        if (error) setLinkError(true);
-        else setSessionReady(true);
-      });
+    const query = new URLSearchParams(window.location.search);
+    if (query.get('error')) {
+      setLinkError(true);
+      return;
     }
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: any) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setSessionReady(true);
-      }
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data: { session } }: { data: { session: unknown } }) => {
+      if (session) setSessionReady(true);
+      else setLinkError(true);
     });
-    return () => subscription.unsubscribe();
   }, []);
 
   const handleReset = async (e: React.FormEvent) => {
