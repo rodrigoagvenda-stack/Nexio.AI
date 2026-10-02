@@ -250,7 +250,9 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
       ctx.agendamentoConfirmadoNoTurno = true
       estado.etapa = 'agendado'
       acao.etapa_depois = 'agendado'
-      acao.bloco_fixo = `${firstName(nomeCompleto)}, agendado! ${r.dataFormatada}.\n\nTe enviei o convite por e-mail com o link da reunião. Conseguiu receber?`
+      // Lembrete de checar spam adicionado por pedido do Rodrigo, 01/10/2026: ele mesmo usou isso contornando
+      // uma conversa real (lead Antônio) e resolve um problema comum antes de virar reclamação ("não chegou nada").
+      acao.bloco_fixo = `${firstName(nomeCompleto)}, agendado! ${r.dataFormatada}.\n\nTe enviei o convite por e-mail com o link da reunião. Dá uma olhadinha lá (vale checar o spam também por garantia) e me avisa se chegou certinho.`
       await salvarEstado(supabase, ctx.companyId, conv, estado).catch(() => {})
       const linkGmn = /https?:\/\/\S+/.exec(estado.dados.tem_perfil_google ?? '')?.[0]
       await deps.notificarResponsavel(

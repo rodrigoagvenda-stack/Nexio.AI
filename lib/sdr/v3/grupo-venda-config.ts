@@ -196,6 +196,20 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
       prioridade: 6,
     },
     {
+      // Achado real, lead Antônio, 01/10/2026: perguntou "tem algum custo?" sobre a REUNIÃO (não sobre o
+      // serviço) bem na hora de agendar, e essa dúvida não tinha resposta configurada. Texto baseado no que
+      // o Rodrigo usou de verdade pra contornar: tranquiliza, tira a pressão de fechar, reforça o valor
+      // (diagnóstico real) sem soar como "pegadinha pra vender".
+      id: 'reuniao_sem_custo',
+      titulo: 'A reunião/análise tem custo?',
+      gatilhos: ['tem algum custo?', 'a reunião é paga?', 'vou pagar pra conversar?', 'tem algum valor só pra falar com vocês?'],
+      modo: 'livre',
+      resposta: 'Fique tranquilo, a reunião não tem custo nenhum. É um bate-papo sem compromisso pra te mostrar exatamente onde estão os gargalos que estão te fazendo perder dinheiro hoje. Se fizer sentido fechar depois, ótimo. Se não, sem problema.',
+      proxima_acao: 'aguardar',
+      conta_como_recusa: false,
+      prioridade: 6,
+    },
+    {
       id: 'hesitacao_qualificacao',
       titulo: 'Hesitação durante a qualificação',
       gatilhos: ['pra que isso?', 'precisa?', 'prefiro não dizer'],
