@@ -365,6 +365,15 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
       texto:
         'Setup único, sem mensalidade obrigatória. Se o lead perguntar sobre acompanhamento depois dos 30 dias, diga que o Bruno mostra as opções na conversa. Não descreva nenhum plano mensal.',
     },
+    {
+      // Achado real, lead Edevane (conv535), 02/10/2026: perguntou se o Google Meu Negócio tem raio de alcance
+      // de 10km (mito comum) e se dá pra ampliar. Não tinha fato nem objeção mapeada pra isso -- escalava sempre.
+      // Texto checado em doc oficial do Google antes de entrar aqui.
+      id: 'alcance_raio',
+      titulo: 'Raio de alcance do Google Meu Negócio',
+      texto:
+        'O Google Meu Negócio não tem um raio fixo de 10km, isso é mito. Dá pra cadastrar até 20 áreas de atendimento (por cidade ou CEP), com limite geral de cerca de 2 horas de carro a partir do endereço cadastrado. O alcance real que o perfil aparece pra quem busca varia: depende de quanta concorrência tem na região e da autoridade do perfil (avaliações, site, menções). Pra ampliar: reforçar avaliações, ter páginas no site citando as cidades/regiões atendidas, e cadastrar essas áreas certinho no perfil.',
+    },
   ],
 
   nunca_prometer: [
