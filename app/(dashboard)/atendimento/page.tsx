@@ -1319,7 +1319,10 @@ export default function AtendimentoPage() {
   const tabMatchers: Record<'sua_vez' | 'aguardando' | 'sem_dono' | 'todas', (c: Conversation) => boolean> = {
     sua_vez: isSuaVez,
     aguardando: (c) => !isSuaVez(c) && !leadFalouPorUltimo(c) && leadAtivo(c),
-    sem_dono: (c) => c.assigned_to == null,
+    // Perdido também sai daqui (achado real, Rodrigo, 03/10/2026: não faz sentido povoar a fila de "sem dono"
+    // com lead que nem vai ser mais atendido). "Todas" continua mostrando tudo, inclusive Perdido: é a visão de
+    // auditoria, igual todo CRM grande (Intercom, HubSpot, Zendesk) mantém um filtro explícito pra ver encerrado.
+    sem_dono: (c) => c.assigned_to == null && leadAtivo(c),
     todas: () => true,
   };
   const tabCounts = {
