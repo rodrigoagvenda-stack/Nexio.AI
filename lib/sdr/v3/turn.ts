@@ -160,7 +160,14 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
     await supabase.from('leads').update({ contact_name: extracao.dados.nome_completo || extracao.dados.nome, updated_at: new Date().toISOString() }).eq('id', ctx.leadId).eq('company_id', ctx.companyId)
     await supabase.from('conversas_do_whatsapp').update({ nome_do_contato: extracao.dados.nome }).eq('id', ctx.conversationId).eq('company_id', ctx.companyId)
   }
-  if (extracao.dados.segmento) await supabase.from('leads').update({ segment: extracao.dados.segmento }).eq('id', ctx.leadId).eq('company_id', ctx.companyId)
+  if (extracao.dados.segmento) {
+    const { error: segmentoErr } = await supabase.from('leads').update({ segment: extracao.dados.segmento }).eq('id', ctx.leadId).eq('company_id', ctx.companyId)
+    // Achado real, lead Jorge Luiz/conv541, 03/10/2026: segment é enum fechado no banco -- quando o valor não
+    // bate com nenhuma opção, a escrita falhava calada (sem log, sem erro visível), o campo ficava null pra
+    // sempre sem ninguém perceber. Agora loga de verdade se acontecer de novo (ex.: opção nova que falta no
+    // enum do banco mesmo já travada no schema do extrator).
+    if (segmentoErr) await deps.log('v3_segmento_falhou', { valor: extracao.dados.segmento, erro: segmentoErr.message }).catch(() => {})
+  }
   if (novo && contextoOutbound) {
     const I = new Set(extracao.intencoes)
     const score = extracao.resposta_automatica ? 0 : I.has('quer_agendar') || I.has('escolheu_horario') ? 10 : I.has('recusa') ? 2 : I.has('pergunta_preco') || I.has('pergunta_fato') || I.has('objecao') ? 6 : 5

@@ -56,6 +56,17 @@ export interface MsgHist {
 
 const SOCIAL_TIPOS = ['cumprimento', 'retribuicao_pedida', 'agradecimento', 'desabafo', 'humor', 'elogio', 'reclamacao']
 const CAMPOS_FIXOS = ['nome', 'nome_completo', 'segmento', 'cidade', 'email', 'disponibilidade', 'cpf_cnpj']
+// `leads.segment` é enum fechado no banco (tipo "Segmento", compartilhado por toda a plataforma, não por
+// empresa). Achado real, lead Jorge Luiz/conv541, 03/10/2026: o extrator escrevia texto livre ("construção
+// civil"), turn.ts tentava gravar isso no enum, o Postgres recusava (valor fora da lista) e a escrita falhava
+// calada -- sem log, sem erro visível, o campo só ficava null pra sempre. Travando aqui, o próprio extrator só
+// pode escolher uma destas 22 opções (ou null), igual já acontece com o campo de escopo por empresa.
+const SEGMENTO_OPCOES = [
+  'E-commerce', 'Saúde/Medicina', 'Educação', 'Alimentação', 'Beleza/Estética', 'Imobiliária', 'Advocacia',
+  'Consultoria', 'Tecnologia', 'Moda/Fashion', 'Arquitetura', 'Outros', 'Auto Escola', 'Restaurante', 'Academia',
+  'Farmácia', 'Padaria', 'Supermercado', 'Floricultural', 'Hotel/Pousada', 'Oficina Mecânica', 'Pet Shop',
+  'Construção Civil', 'Transporte/Logística', 'Veterinária', 'Contabilidade', 'Serviços Gerais',
+]
 
 export function camposDeDados(config: CompanyConfig): string[] {
   const escopo = config.preco.por_escopo?.campo
@@ -90,7 +101,11 @@ export function schemaExtracao(config: CompanyConfig) {
         additionalProperties: false,
         required: campos,
         properties: Object.fromEntries(
-          campos.map((c) => [c, c === config.preco.por_escopo?.campo ? { type: ['string', 'null'], enum: [...config.preco.por_escopo.opcoes.map((o) => o.valor), null] } : { type: ['string', 'null'] }]),
+          campos.map((c) => {
+            if (c === config.preco.por_escopo?.campo) return [c, { type: ['string', 'null'], enum: [...config.preco.por_escopo.opcoes.map((o) => o.valor), null] }]
+            if (c === 'segmento') return [c, { type: ['string', 'null'], enum: [...SEGMENTO_OPCOES, null] }]
+            return [c, { type: ['string', 'null'] }]
+          }),
         ),
       },
       horario_escolhido: { type: ['string', 'null'] },
@@ -158,7 +173,8 @@ REGRAS
 - "dados" recebe SOMENTE o que o LEAD disse em qualquer mensagem do trecho abaixo. Nada inferido, nada que o agente tenha escrito, nada do nome de perfil do WhatsApp. Uma resposta curta ("sim", "não", "sou eu") vale para a pergunta que o agente acabou de fazer. Campo sem informação = null.
 - NÃO se limite ao campo da última pergunta feita: se a MESMA mensagem do lead, com as próprias palavras dele, também responder a OUTRO campo da lista (ainda não perguntado ou perguntado antes), preencha os dois. Isso não é inferir: é o que ele literalmente disse, só que de uma vez só. Exemplo real: perguntado se aparece no Google, respondeu "sim, só queria aparecer em primeiro, já tenho bastante avaliação" — isso responde "aparece_no_google" (sim) E também "tem_perfil_google" (sim, já que avaliação só existe em um perfil criado), mesmo sem a pergunta do perfil ter sido feita ainda. Nunca repita uma pergunta cujo campo a própria resposta do lead já deixou claro.
 - A primeira mensagem do lead costuma ser o texto fixo do próprio anúncio (ex.: "Vi o anúncio e quero saber por que meu negócio não aparece no Google"), igual para todo mundo que clicou, não uma frase que ele escreveu sobre a empresa dele. NUNCA preencha nenhum campo de dados a partir dessa frase de gancho (ex.: NÃO preencha "aparece no Google" como "nao" só porque essa é a frase padrão do anúncio): só preenche quando o lead disser isso com as próprias palavras, fora do gancho do anúncio.
-- Para o campo "negocio": preencha com o que o lead disse do negócio (nome, ramo, cidade) em uma frase curta. Preencha também segmento e cidade quando ele disse.
+- Para o campo "negocio": preencha com o que o lead disse do negócio (nome, ramo, cidade) em uma frase curta. Preencha também cidade quando ele disse.
+- Para o campo "segmento": escolha SOMENTE uma destas categorias fixas (nunca escreva texto livre, nunca invente uma categoria nova): ${SEGMENTO_OPCOES.join(', ')}. Escolha a que mais se aproxima do negócio do lead; se nenhuma encaixar bem, use "Outros". Deixe null se o ramo do negócio ainda não foi dito.
 - Para os campos de sim ou não (perfil no Google, decisor, site, anúncio, indicação): responda "sim" ou "nao" e, se ele deu detalhe (link, print, nome da pessoa), acrescente depois de dois-pontos. Print ou link enviado como resposta a "tem perfil no Google?" vale "sim".
 - nome_completo só quando o lead deu nome e sobrenome.
 - tom_do_lead: curto_informal (poucas palavras, abreviações), informal, ou formal.

@@ -1,6 +1,6 @@
 import { GRUPO_VENDA_CONFIG } from '@/lib/sdr/v3/grupo-venda-config'
 import { decidir, valorDitoPeloLead, type DecisorCtx } from '@/lib/sdr/v3/decider'
-import { chatV3, MODELO_V3, MODELO_V3_FALLBACK } from '@/lib/sdr/v3/extractor'
+import { chatV3, MODELO_V3, MODELO_V3_FALLBACK, schemaExtracao } from '@/lib/sdr/v3/extractor'
 import { corrigirMecanico, validar } from '@/lib/sdr/v3/validator'
 import { validateCompanyConfig } from '@/lib/sdr/v3/config-validate'
 import { filtroDisponibilidade, passaFiltro } from '@/lib/sdr/v3/agenda'
@@ -600,6 +600,12 @@ ok('correção mecânica: termo com caractere especial de regex não quebra', fi
 const cfgEscopoOrfao: any = { ...config, preco: { ...config.preco, por_escopo: { ...config.preco.por_escopo, campo: 'campo_que_nao_existe' } } }
 const vEscopoOrfao = validateCompanyConfig(cfgEscopoOrfao)
 ok('config-validate: acusa erro quando o campo do escopo não bate com nenhuma pergunta', vEscopoOrfao.erros.some((e) => e.includes('não corresponde a nenhuma pergunta')), vEscopoOrfao.erros.join(' | '))
+
+// Achado real, lead Jorge Luiz/conv541, 03/10/2026: leads.segment é enum fechado no banco, o extrator escrevia
+// texto livre ("construção civil") e a gravação falhava calada. Trava o schema nas opções reais do enum.
+const schema: any = schemaExtracao(config)
+const segmentoSchema = schema.properties.dados.properties.segmento
+ok('schema do extrator trava segmento num enum fechado (não aceita texto livre)', Array.isArray(segmentoSchema?.enum) && segmentoSchema.enum.includes('Construção Civil') && segmentoSchema.enum.includes(null), JSON.stringify(segmentoSchema))
 
 testarChatV3().then(() => {
   console.log(falhas === 0 ? '\nTODOS OK' : `\n${falhas} FALHA(S)`)
