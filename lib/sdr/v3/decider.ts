@@ -325,6 +325,13 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // (lead Mike/63473, 28/09) — respondeu "Tá okay obrigado" ao áudio final do follow ("vou parar de te procurar"),
   // o estado do v3 ainda estava em "qualificando" e o SDR voltou a perguntar nome/ramo/cidade da empresa.
   if (soAgradecimento && (estado.etapa === 'encerrado' || estado.etapa === 'agendado' || ctx.respondendoAutomacao) && config.agradecimento_fim?.frase) {
+    // Achado real, lead Jorge Luiz/conv541, 03/10/2026: ele agradeceu duas vezes seguidas ("Obrigado", depois
+    // "Beleza 🤝") e o SDR respondeu a MESMA frase fixa de despedida as duas vezes -- "uma resposta e pronto" só
+    // valia na teoria, sem trava nenhuma. Segunda vez em diante fica em silêncio: a conversa já acabou.
+    if (estado.contadores.agradecimento_fim_enviado) {
+      return { estado, acao: base('aguardar', { silencio: true, etapa_depois: estado.etapa }) }
+    }
+    estado.contadores.agradecimento_fim_enviado = true
     return { estado, acao: base('agradecimento_fim', { conteudo: { modo: 'literal', texto: config.agradecimento_fim.frase }, etapa_depois: estado.etapa }) }
   }
 

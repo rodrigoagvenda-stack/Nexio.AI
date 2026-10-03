@@ -83,6 +83,10 @@ d = decidir(ex({ intencoes: ['objecao'], objecao_id: 'sem_orcamento' }), est(), 
 ok('sem orçamento encerra', d.acao.tipo === 'responder_objecao' && d.estado.etapa === 'encerrado')
 const dAgr = decidir(ex({ intencoes: ['social'], social: { tipo: 'agradecimento', texto_do_lead: 'obrigado' } }), d.estado, config, ctx())
 ok('agradecimento depois de encerrar: frase única', dAgr.acao.tipo === 'agradecimento_fim')
+// Achado real, lead Jorge Luiz/conv541, 03/10/2026: agradeceu 2x seguidas ("Obrigado", "Beleza 🤝") e o SDR
+// repetiu a mesma frase fixa de despedida as duas vezes. Segunda vez fica em silêncio.
+const dAgr2 = decidir(ex({ intencoes: ['social'], social: { tipo: 'agradecimento', texto_do_lead: 'beleza' } }), dAgr.estado, config, ctx())
+ok('2º agradecimento seguido: fica em silêncio, não repete a frase', dAgr2.acao.tipo === 'aguardar' && dAgr2.acao.silencio === true, dAgr2.acao.tipo)
 
 // 6 humano, robô, espera, 2x outro
 d = decidir(ex({ intencoes: ['pede_humano'] }), est(), config, ctx())

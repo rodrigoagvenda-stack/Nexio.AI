@@ -75,6 +75,8 @@ export interface Contadores {
   preco_enviado?: string
   /** Já explicamos que "outra frente" (sem preço fechado na config) precisa de análise antes do valor: pedido repetido recebe só um lembrete curto, não o texto inteiro de novo. */
   outra_frente_valor_explicado?: boolean
+  /** Já mandou a frase fixa de despedida (agradecimento_fim) nesta conversa: próximo agradecimento do lead fica em silêncio, nunca repete a mesma frase de novo. */
+  agradecimento_fim_enviado?: boolean
 }
 
 export interface Estado {
