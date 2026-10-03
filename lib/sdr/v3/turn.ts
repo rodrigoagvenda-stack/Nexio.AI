@@ -17,6 +17,7 @@ import type { Acao, Estado, Etapa } from './types'
 import { corrigirMecanico, norm, sentencas, validar, type Violacao } from './validator'
 import { redigir } from './writer'
 import { atualizarResumoIA } from './resumo'
+import { assessLead } from '../funnel/crm'
 
 type Supabase = ReturnType<typeof createServiceClient>
 
@@ -417,6 +418,24 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
         respostaSdr: blocos.join(' '),
         dadosNovos: extracao.dados,
       }, deps.onUsage)
+    }
+
+    // Prioridade/temperatura (leads.priority/nivel_interesse): o v3 nunca tinha isso -- só segment vinha do
+    // extrator (achado real, Rodrigo, lead Carlos/conv530, 02/10/2026, pedido explícito pro comercial priorizar
+    // o 80/20). Reaproveita o mesmo julgador por IA que o funil antigo já usa (lib/sdr/funnel/crm.ts), rodando só
+    // nas 3 chegadas a um desfecho real -- não a cada turno, que seria caro e prematuro com pouco dado coletado.
+    if (estado.etapa !== estadoAntes.etapa) {
+      const desfecho = estado.etapa === 'agendado' ? 'qualificado' : estado.etapa === 'escalado' ? 'passou_para_pessoa' : estado.etapa === 'encerrado' ? 'recusou' : null
+      if (desfecho) {
+        const resumoParaAvaliar = (lead?.resumo_ia as string | null)
+          ?? Object.entries(estado.dados).filter(([, v]) => v).map(([k, v]) => `- ${k}: ${v}`).join('\n')
+        if (resumoParaAvaliar?.trim()) {
+          const avaliacao = await assessLead(resumoParaAvaliar, desfecho, openai, deps.onUsage).catch(() => null)
+          if (avaliacao) {
+            await supabase.from('leads').update({ priority: avaliacao.prioridade, nivel_interesse: avaliacao.temperatura, updated_at: new Date().toISOString() }).eq('id', ctx.leadId).eq('company_id', ctx.companyId)
+          }
+        }
+      }
     }
   } catch (err: any) {
     console.error(`[SDR v3:${ctx.companyId}] pós-envio falhou (ignorado):`, err?.message)

@@ -72,6 +72,8 @@ export interface Contadores {
   ofertas_horario?: number
   /** Escopo cujo valor já foi enviado por inteiro: pedido repetido recebe só um lembrete curto. */
   preco_enviado?: string
+  /** Já explicamos que "outra frente" (sem preço fechado na config) precisa de análise antes do valor: pedido repetido recebe só um lembrete curto, não o texto inteiro de novo. */
+  outra_frente_valor_explicado?: boolean
 }
 
 export interface Estado {

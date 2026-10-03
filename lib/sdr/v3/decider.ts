@@ -463,9 +463,19 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // 4. preço
   if ((I.has('pergunta_preco') && pedeuPrecoDeVerdade) || (pe && escopoMudouAgora && estado.contadores.escopo_perguntado)) {
     if (ehOutraFrente) {
+      // Achado real, lead Carlos/conv530 (revenda de veículos), 02/10/2026: pediu preço 2x pra uma frente sem
+      // valor fechado na config (gestão de anúncios) e recebeu a mesma frase as duas vezes. Primeira vez explica
+      // por quê (precisa analisar o negócio antes de falar valor); pedido repetido vira lembrete curto, não o
+      // texto inteiro de novo -- mesmo padrão já usado pra preço com escopo definido (linha ~475).
+      if (estado.contadores.outra_frente_valor_explicado) {
+        const a = base('responder_preco', { conteudo: { modo: 'livre', texto: 'Como te falei, preciso analisar seu negócio antes de fechar um valor -- é o Bruno quem faz essa análise com você.' } })
+        a.contexto.push('Você já explicou isso nesta conversa. Relembre em uma frase curta, sem repetir o texto todo.')
+        return { estado, acao: comPergunta(a) }
+      }
+      estado.contadores.outra_frente_valor_explicado = true
       return {
         estado,
-        acao: comPergunta(base('responder_preco', { conteudo: { modo: 'literal', texto: 'Pra essa frente, o valor certinho o Bruno define junto com você, olhando o seu caso.' } })),
+        acao: comPergunta(base('responder_preco', { conteudo: { modo: 'literal', texto: 'Pra essa frente, preciso analisar o seu negócio antes de poder falar de valores com precisão -- é o Bruno quem faz essa análise e te passa o número certo pro seu caso.' } })),
       }
     }
     if (pe && opcao) {
