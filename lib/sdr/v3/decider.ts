@@ -195,7 +195,9 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // Depois de já ter explicado "como funciona" uma vez nesta conversa, uma nova pergunta_como_funciona vira
   // pergunta_fato de verdade (RAG): nunca repete o mesmo texto fixo de novo, e responde o que o lead pediu.
   if (I.has('pergunta_como_funciona') && (!config.como_funciona || estado.contadores.como_funciona_explicado)) I.add('pergunta_fato')
-  const perguntaFato = ex.pergunta_fato ?? (I.has('pergunta_como_funciona') ? 'Como funciona o serviço da empresa?' : null)
+  // Junta todas as dúvidas distintas num só texto pro RAG: o extrator agora guarda uma por item (array), não só a
+  // primeira -- nunca perde pergunta com fato pronto só porque veio colada com outra sem fato na mesma mensagem.
+  const perguntaFato = ex.pergunta_fato.length > 0 ? ex.pergunta_fato.join('\n') : (I.has('pergunta_como_funciona') ? 'Como funciona o serviço da empresa?' : null)
   const reacaoSocial = I.has('social')
   if (reacaoSocial) estado.ultima_reacao_social_turno = turno
 
@@ -604,14 +606,8 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // lead perguntou algo fora do roteiro por conta própria: merece só a resposta. A qualificação segue normal
   // na mensagem seguinte dele, sem perder nada, só sem forçar a virada na mesma respirada.
   if (I.has('pergunta_fato') && perguntaFato) {
-    // Achado real, lead Edevane/conv535, 02/10/2026: o extrator só guarda UMA pergunta_fato por turno (campo
-    // string, não lista). Quando o lead manda várias perguntas juntas ("pode ser amanhã? só segunda? vocês são
-    // de onde?"), o extrator pegou a de agendamento (sem fato que responda) e descartou "vocês são de onde"
-    // (que tinha fato pronto: Botucatu-SP, atende o Brasil todo) -- o SDR escalou pela pergunta errada e nunca
-    // tentou a que sabia responder. Manda a mensagem bruta do lead junto no RAG, não só o campo estreito do
-    // extrator, pra não perder pergunta nenhuma quando vêm várias juntas.
     const a = base('responder_fato', {
-      consulta_rag: ctx.mensagemLead ? `${perguntaFato}\n\n${ctx.mensagemLead}` : perguntaFato,
+      consulta_rag: perguntaFato,
       fatos: (config.fatos ?? []).map((f) => ({ id: f.id, texto: f.texto })),
     })
     return { estado, acao: handoffSeTravado(a) }

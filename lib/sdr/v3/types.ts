@@ -40,7 +40,8 @@ export interface Extracao {
   intencoes: Intencao[]
   social: Social | null
   objecao_id: string | null
-  pergunta_fato: string | null
+  /** Todas as dúvidas distintas sobre a empresa/planos na mensagem, uma por item -- nunca só a primeira (achado real, lead Edevane/conv535, 02/10/2026: perdia pergunta com fato pronto quando vinha junto com outra sem fato). */
+  pergunta_fato: string[]
   /** Só o que o lead disse. Chaves: campos da qualificação + nome, segmento, cidade, email, disponibilidade, cpf_cnpj. */
   dados: Record<string, string>
   /** Data e hora escolhidas pelo lead, ISO 8601 sem fuso (ex.: 2026-09-30T14:00:00), quando escolheu horário. */

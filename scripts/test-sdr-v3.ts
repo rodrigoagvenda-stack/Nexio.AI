@@ -48,7 +48,7 @@ const ok = (nome: string, cond: boolean, extra = '') => {
   if (!cond) falhas++
   console.log(`${cond ? 'OK   ' : 'FALHA'} ${nome}${extra ? ' :: ' + extra : ''}`)
 }
-const ex = (p: Partial<Extracao>): Extracao => ({ intencoes: ['outro'], social: null, objecao_id: null, pergunta_fato: null, dados: {}, horario_escolhido: null, tom_do_lead: 'informal', confianca: 'alta', resposta_automatica: false, ...p })
+const ex = (p: Partial<Extracao>): Extracao => ({ intencoes: ['outro'], social: null, objecao_id: null, pergunta_fato: [], dados: {}, horario_escolhido: null, tom_do_lead: 'informal', confianca: 'alta', resposta_automatica: false, ...p })
 const ctx = (p: Partial<DecisorCtx> = {}): DecisorCtx => ({ temCalendario: true, cobrancaAtiva: false, primeiraMensagemNossa: false, pushName: null, contextoOutbound: null, origemAnuncio: null, reuniaoExistente: null, temReuniaoAtiva: false, mensagemLead: '', ...p })
 const est = (p: Partial<Estado> = {}): Estado => ({ ...ESTADO_INICIAL(2), etapa: 'qualificando', ...p })
 const txt = (a: any) => [a.conteudo?.texto ?? ''].flat().join('\n')
@@ -247,7 +247,7 @@ const escopoTravado = est({
   ],
   turno: 6,
 })
-d = decidir(ex({ intencoes: ['pergunta_fato'], pergunta_fato: 'Você podia fazer uma análise?' }), escopoTravado, config, ctx())
+d = decidir(ex({ intencoes: ['pergunta_fato'], pergunta_fato: ['Você podia fazer uma análise?'] }), escopoTravado, config, ctx())
 ok('pergunta obrigatória travada 2x: escala (handoff) mesmo respondendo a dúvida do turno', d.acao.tipo === 'responder_fato' && !!d.acao.handoff, JSON.stringify(d.acao.handoff))
 d = decidir(ex({ intencoes: ['social'], social: { tipo: 'cumprimento', texto_do_lead: 'oi' } }), escopoTravado, config, ctx())
 ok('pergunta obrigatória travada 2x, turno sem nada relevante: aguarda mas ainda assim escala', d.acao.tipo === 'aguardar' && !!d.acao.handoff, JSON.stringify(d.acao))
@@ -256,14 +256,14 @@ const escopoUmaVez = est({
   perguntas_feitas: [{ id: 'escopo', turno: 4, respondida: false }],
   turno: 6,
 })
-d = decidir(ex({ intencoes: ['pergunta_fato'], pergunta_fato: 'Você podia fazer uma análise?' }), escopoUmaVez, config, ctx())
+d = decidir(ex({ intencoes: ['pergunta_fato'], pergunta_fato: ['Você podia fazer uma análise?'] }), escopoUmaVez, config, ctx())
 ok('pergunta obrigatória feita só 1x ainda: NÃO escala (ainda tem tentativa)', !d.acao.handoff, JSON.stringify(d.acao.handoff))
 
 // regressão real (lead Rodrigo/conv530, 30/09/2026): depois de escalar 1x por pergunta travada, nada desistia
 // dela — toda vez que o resto do funil terminava de novo (outras respostas chegando normal), a MESMA trava
 // disparava handoff de novo, pausando a conversa repetidamente pro sempre a cada novo turno.
 {
-  d = decidir(ex({ intencoes: ['pergunta_fato'], pergunta_fato: 'Você podia fazer uma análise?' }), escopoTravado, config, ctx())
+  d = decidir(ex({ intencoes: ['pergunta_fato'], pergunta_fato: ['Você podia fazer uma análise?'] }), escopoTravado, config, ctx())
   ok('escalou 1x: desiste do campo travado (marca preenchido, não fica pra sempre com buraco)', d.estado.dados.escopo === '(sem resposta)', d.estado.dados.escopo)
   // próximo turno, com o estado já "desistido": mesmo sem o lead ter respondido nada de novo, NÃO escala de novo
   const d2 = decidir(ex({ intencoes: ['social'], social: { tipo: 'cumprimento', texto_do_lead: 'oi' } }), d.estado, config, ctx())
@@ -273,7 +273,7 @@ ok('pergunta obrigatória feita só 1x ainda: NÃO escala (ainda tem tentativa)'
 // pergunta_fato NÃO cola a próxima pergunta de qualificação por cima (achado real, 01/10/2026: lead
 // perguntou "quais serviços tem?", recebeu a resposta certa e já veio a próxima pergunta colada na mesma
 // respirada, sem pausa — parece bot). Responde só o que foi perguntado; a qualificação segue no turno seguinte.
-d = decidir(ex({ intencoes: ['pergunta_fato'], pergunta_fato: 'Quais serviços vocês têm?' }), est({ dados: { negocio: 'dentista' } }), config, ctx())
+d = decidir(ex({ intencoes: ['pergunta_fato'], pergunta_fato: ['Quais serviços vocês têm?'] }), est({ dados: { negocio: 'dentista' } }), config, ctx())
 ok('pergunta_fato: responde sem colar a próxima pergunta do roteiro', d.acao.tipo === 'responder_fato' && !d.acao.proxima_pergunta, JSON.stringify(d.acao.proxima_pergunta))
 
 // 7g objeção classificada mas sem id reconhecido na lista configurada: antes era ignorada em silêncio
@@ -297,7 +297,7 @@ ok('pagamento com escopo já conhecido: segue pro CPF/CNPJ normalmente', d.acao.
 // regressão real (lead Ana/conv63358, 02/10/2026): pediu "quais os dados" e "chave Pix" na mesma mensagem — o
 // extrator marca pede_pagamento E pergunta_fato juntos, e pergunta_fato rodava primeiro, respondendo "não
 // tenho essa lista" em vez de escalar de verdade. Pedido de pagamento tem que vencer sempre.
-d = decidir(ex({ intencoes: ['pede_pagamento', 'pergunta_fato'], pergunta_fato: 'Quais dados são necessários para emitir o contrato?' }), est(), config, ctx())
+d = decidir(ex({ intencoes: ['pede_pagamento', 'pergunta_fato'], pergunta_fato: ['Quais dados são necessários para emitir o contrato?'] }), est(), config, ctx())
 ok('pede_pagamento + pergunta_fato juntos: pagamento vence, escala de verdade (não responde fato genérico)', d.acao.tipo === 'escalar', d.acao.tipo)
 
 // 7c qualificação nunca completa sem o escopo (Start ou Essencial)
@@ -412,10 +412,16 @@ ok('fora da abertura: a IA classificando pergunta_como_funciona continua valendo
 
 // 7b3 já explicou "como funciona" uma vez: nunca repete o texto fixo de novo; nova dúvida vira pergunta_fato (RAG)
 const jaExplicado = est({ contadores: { ...ESTADO_INICIAL(3).contadores, como_funciona_explicado: true } })
-d = decidir(ex({ intencoes: ['pergunta_como_funciona', 'pergunta_fato'], pergunta_fato: 'Precisam de acesso?' }), jaExplicado, config, ctx())
+d = decidir(ex({ intencoes: ['pergunta_como_funciona', 'pergunta_fato'], pergunta_fato: ['Precisam de acesso?'] }), jaExplicado, config, ctx())
 ok('já explicou: 2ª vez vira pergunta_fato de verdade, não repete o texto fixo', d.acao.tipo === 'responder_fato' && d.acao.consulta_rag === 'Precisam de acesso?', d.acao.tipo)
 d = decidir(ex({ intencoes: ['pergunta_como_funciona'] }), jaExplicado, config, ctx())
 ok('já explicou: pergunta_como_funciona genérica de novo também vira pergunta_fato (sem repetir o texto fixo)', d.acao.tipo === 'responder_fato', d.acao.tipo)
+
+// Achado real, lead Edevane/conv535, 02/10/2026: lead mandou "pode ser amanhã? só segunda? vocês são de onde?"
+// numa leva só. Extrator guardava só 1 pergunta_fato (string) e perdia as outras -- agora é array, junta todas no
+// RAG, nenhuma pergunta com fato pronto se perde por vir colada com outra sem fato.
+d = decidir(ex({ intencoes: ['pergunta_fato'], pergunta_fato: ['Pode enviar amanhã ou só segunda?', 'Vocês são de onde?'] }), est(), config, ctx())
+ok('pergunta_fato com várias dúvidas juntas: manda todas no RAG, nenhuma se perde', d.acao.tipo === 'responder_fato' && d.acao.consulta_rag === 'Pode enviar amanhã ou só segunda?\nVocês são de onde?', JSON.stringify(d.acao))
 
 const cfgSemComo: any = { ...config, como_funciona: undefined }
 d = decidir(ex({ intencoes: ['pergunta_como_funciona'] }), est(), cfgSemComo, ctx())
