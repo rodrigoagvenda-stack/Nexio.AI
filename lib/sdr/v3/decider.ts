@@ -644,6 +644,11 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   }
   if (I.has('quer_agendar') || completa) {
     if (!completa) {
+      // Achado real, lead Daiane/conv538, 03/10/2026: ela disse "posso conversar amanhã? Tô caindo de sono" --
+      // o extrator corretamente marcou quer_agendar E pede_espera juntos, mas essa regra rodava primeiro e
+      // colava a próxima pergunta de qualificação de qualquer jeito, ignorando o pedido de espera. O SDR
+      // respondeu "Claro, descansa 😊" e emendou a pergunta na mesma respirada -- contradição na cara do lead.
+      if (I.has('pede_espera')) return { estado, acao: base('aguardar') }
       const a = base('perguntar')
       a.contexto.push('O lead quer agendar. Diga em meia frase que já vai ver o horário e faça a pergunta.')
       return { estado, acao: comPergunta(a) }

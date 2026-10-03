@@ -102,6 +102,12 @@ ok('qualificação completa oferece horários', d.acao.tipo === 'oferecer_horari
 d = decidir(ex({ intencoes: ['quer_agendar'] }), est({ dados: { negocio: 'x' } }), config, ctx())
 ok('quer agendar sem qualificação: NÃO oferece horário, pergunta', d.acao.tipo === 'perguntar' && !!d.acao.proxima_pergunta, d.acao.tipo)
 
+// Achado real, lead Daiane/conv538, 03/10/2026: "posso conversar amanhã? Tô caindo de sono" -- quer_agendar E
+// pede_espera juntos. Antes colava a próxima pergunta mesmo assim ("Claro, descansa 😊" + pergunta na mesma
+// respirada); agora espera, sem pergunta nenhuma.
+d = decidir(ex({ intencoes: ['quer_agendar', 'pede_espera'] }), est({ dados: { negocio: 'x' } }), config, ctx())
+ok('quer agendar + pede espera juntos: só aguarda, não cola pergunta', d.acao.tipo === 'aguardar' && !d.acao.proxima_pergunta, d.acao.tipo)
+
 // 7a oferta de horário: sem disco riscado, filtro do lead, limite
 const jaOfertou = est({ ...completo, etapa: 'oferta_horario', contadores: { ...completo.contadores, horarios_ofertados: true, ofertas_horario: 1 }, dados: { ...completo.dados, _slots: '2026-10-01T09:00:00' } })
 d = decidir(ex({ intencoes: ['social'], social: { tipo: 'cumprimento', texto_do_lead: 'ok' } }), jaOfertou, config, ctx())
