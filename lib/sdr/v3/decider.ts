@@ -604,8 +604,14 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // lead perguntou algo fora do roteiro por conta própria: merece só a resposta. A qualificação segue normal
   // na mensagem seguinte dele, sem perder nada, só sem forçar a virada na mesma respirada.
   if (I.has('pergunta_fato') && perguntaFato) {
+    // Achado real, lead Edevane/conv535, 02/10/2026: o extrator só guarda UMA pergunta_fato por turno (campo
+    // string, não lista). Quando o lead manda várias perguntas juntas ("pode ser amanhã? só segunda? vocês são
+    // de onde?"), o extrator pegou a de agendamento (sem fato que responda) e descartou "vocês são de onde"
+    // (que tinha fato pronto: Botucatu-SP, atende o Brasil todo) -- o SDR escalou pela pergunta errada e nunca
+    // tentou a que sabia responder. Manda a mensagem bruta do lead junto no RAG, não só o campo estreito do
+    // extrator, pra não perder pergunta nenhuma quando vêm várias juntas.
     const a = base('responder_fato', {
-      consulta_rag: perguntaFato,
+      consulta_rag: ctx.mensagemLead ? `${perguntaFato}\n\n${ctx.mensagemLead}` : perguntaFato,
       fatos: (config.fatos ?? []).map((f) => ({ id: f.id, texto: f.texto })),
     })
     return { estado, acao: handoffSeTravado(a) }
