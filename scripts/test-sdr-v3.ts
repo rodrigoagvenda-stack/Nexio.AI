@@ -103,6 +103,17 @@ ok('"outro" 2x seguidas escala', e2.acao.tipo === 'escalar')
 const completo = est({ dados: { negocio: 'dentista', aparece_no_google: 'nao', tem_perfil_google: 'sim', so_indicacao: 'nao', fez_anuncio: 'nao', impacto_atual: 'perde clientes toda semana', urgencia: 'sim', decisor: 'sim', orcamento_declarado: 'sim, tenho orçamento pra isso', escopo: 'gmn' } })
 d = decidir(ex({ intencoes: ['outro'] }), completo, config, ctx())
 ok('qualificação completa oferece horários', d.acao.tipo === 'oferecer_horarios')
+
+// Achado real, lead Jorge Luiz/conv541, 03/10/2026: a pergunta de escopo feita pelo fluxo de preço não ficava
+// registrada em perguntas_feitas, e a regra 13 (próxima pergunta genérica) perguntava de novo, reformulada, 1
+// turno depois -- duas perguntas quase iguais seguidas.
+const { escopo: _escopoCompleto, ...dadosSemEscopo } = completo.dados
+const semEscopo = est({ dados: dadosSemEscopo })
+let dEsc = decidir(ex({ intencoes: ['pergunta_preco'] }), semEscopo, config, ctx())
+ok('pede preço sem escopo: pergunta o escopo', dEsc.acao.tipo === 'responder_preco' && dEsc.estado.contadores.escopo_perguntado === true, dEsc.acao.tipo)
+ok('pergunta de escopo fica registrada em perguntas_feitas (evita duplicar pela regra genérica)', dEsc.estado.perguntas_feitas.some((p) => p.id === 'escopo'), JSON.stringify(dEsc.estado.perguntas_feitas))
+dEsc = decidir(ex({ intencoes: ['resposta_qualificacao'] }), dEsc.estado, config, ctx())
+ok('turno seguinte, lead não respondeu o escopo: NÃO pergunta de novo (janela de 2 turnos)', dEsc.acao.proxima_pergunta?.id !== 'escopo', JSON.stringify(dEsc.acao.proxima_pergunta))
 d = decidir(ex({ intencoes: ['quer_agendar'] }), est({ dados: { negocio: 'x' } }), config, ctx())
 ok('quer agendar sem qualificação: NÃO oferece horário, pergunta', d.acao.tipo === 'perguntar' && !!d.acao.proxima_pergunta, d.acao.tipo)
 

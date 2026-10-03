@@ -456,13 +456,25 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   const opcao = pe && !ehOutraFrente ? pe.opcoes.find((o) => o.valor === escopo) : undefined
   const escopoMudouAgora = !!pe && !!ex.dados?.[pe.campo]?.trim() && ex.dados[pe.campo].trim() !== (entrada.dados[pe.campo] ?? '').trim()
   const blocosDe = (t: string | string[]) => asArr(preencher2(t, estado.dados))
+  // A pergunta de escopo (pe.pergunta) é feita por 3 caminhos diferentes aqui embaixo (como_funciona, pergunta de
+  // preço, pede_pagamento), todos fora do fluxo normal de proxima_pergunta/perguntas_feitas que o resto da
+  // qualificação usa. Achado real, lead Jorge Luiz/conv541, 03/10/2026: a regra 13 (próxima pergunta genérica)
+  // não sabia que o escopo já tinha sido perguntado por um desses 3 caminhos (perguntas_feitas nunca recebia
+  // entrada pra ela) e perguntava de novo, com outras palavras, poucos turnos depois -- duas perguntas quase
+  // iguais seguidas. Registrar em perguntas_feitas aqui faz a janela de 2 turnos que toda pergunta já respeita
+  // valer pro escopo também, não só pras perguntas feitas pelo caminho normal.
+  const perguntaEscopo = pe ? config.qualificacao.perguntas.find((q) => q.campo === pe.campo) : undefined
+  const marcarEscopoPerguntado = () => {
+    estado.contadores.escopo_perguntado = true
+    if (perguntaEscopo) estado.perguntas_feitas.push({ id: perguntaEscopo.id, turno: estado.turno, respondida: false })
+  }
 
   if (I.has('pergunta_como_funciona') && config.como_funciona && pedeuComoFuncionaDeVerdade && !estado.contadores.como_funciona_explicado) {
     let blocos = blocosDe(config.como_funciona.texto)
     if (pe && opcao && I.has('pergunta_preco')) blocos = [...blocos, ...blocosDe(opcao.texto)]
     else if (pe && !opcao && !ehOutraFrente) {
       blocos = [...blocos, ...blocosDe(pe.pergunta)]
-      estado.contadores.escopo_perguntado = true
+      marcarEscopoPerguntado()
     }
     estado.contadores.como_funciona_explicado = true
     const a = base('responder_como_funciona', { conteudo: { modo: 'literal', texto: blocos } })
@@ -502,7 +514,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     estado.pedidos_de_preco += 1
     if (estado.pedidos_de_preco >= config.preco.escalar_apos) return escalar('lead insistiu em saber o valor')
     if (pe) {
-      estado.contadores.escopo_perguntado = true
+      marcarEscopoPerguntado()
       // Reconhece a pergunta antes de pedir o escopo, em vez de ir seco direto pra pergunta (achado real,
       // Rodrigo revisando o lead Anderson, 01/10/2026). Só nesse caminho (pediu preço de verdade): nos outros
       // lugares que também perguntam escopo (combo com como_funciona, pede_pagamento) o reconhecimento não
@@ -594,7 +606,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     if (!ctx.cobrancaAtiva) return escalar('lead pediu para pagar e a cobrança automática não está ativa')
     // Preço por escopo: nunca gera cobrança do valor fixo da config sem saber qual escopo (Start e Essencial têm valores diferentes)
     if (pe && !opcao) {
-      estado.contadores.escopo_perguntado = true
+      marcarEscopoPerguntado()
       return { estado, acao: base('perguntar', { conteudo: { modo: 'literal', texto: blocosDe(pe.pergunta) } }) }
     }
     if (!filled(estado.dados, 'cpf_cnpj')) {
