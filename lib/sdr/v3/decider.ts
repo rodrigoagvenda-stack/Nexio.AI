@@ -203,7 +203,10 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   const reacaoSocial = I.has('social')
   if (reacaoSocial) estado.ultima_reacao_social_turno = turno
 
-  const soOutro = ex.intencoes.length > 0 && ex.intencoes.every((i) => i === 'outro')
+  // "Outro" que trouxe dado (ex.: respondeu fez_anuncio, impacto) é resposta, não "não entendi": não conta pra escalar.
+  // Achado real, lead Guilherme/63558, 05/10/2026: duas respostas com dado caíram em "outro" e a 3ª escalou pro Bruno.
+  const algumDado = Object.values(ex.dados ?? {}).some((v) => typeof v === 'string' && v.trim())
+  const soOutro = ex.intencoes.length > 0 && ex.intencoes.every((i) => i === 'outro') && !algumDado
   estado.contadores.outros_seguidos = soOutro ? estado.contadores.outros_seguidos + 1 : 0
   estado.contadores.baixa_confianca_seguidas = ex.confianca === 'baixa' ? estado.contadores.baixa_confianca_seguidas + 1 : 0
 
@@ -354,8 +357,9 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     return { estado, acao: base('aguardar', { silencio: true, etapa_depois: estado.etapa }) }
   }
 
-  // 1. pede humano / confiança baixa ou "outro" 2x seguidas
-  if (I.has('pede_humano') || estado.contadores.baixa_confianca_seguidas >= 2 || estado.contadores.outros_seguidos >= 2) {
+  // 1. pede humano / confiança baixa 2x seguidas / "não entendi" 3x seguidas (antes era 2x: escalava antes de
+  // tentar reformular a pergunta, ver bloco "Não entendeu" mais abaixo)
+  if (I.has('pede_humano') || estado.contadores.baixa_confianca_seguidas >= 2 || estado.contadores.outros_seguidos >= 3) {
     return escalar(I.has('pede_humano') ? 'lead pediu para falar com uma pessoa' : 'mensagem não entendida duas vezes seguidas')
   }
 
@@ -491,7 +495,9 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   }
 
   // 4. preço
-  if ((I.has('pergunta_preco') && pedeuPrecoDeVerdade) || (pe && escopoMudouAgora && estado.contadores.escopo_perguntado)) {
+  // Achado real, lead Rose/63551, 05/10/2026: responder a pergunta de escopo disparava o preço sem o lead ter
+  // pedido valor nenhum. Escopo respondido só vira preço se o lead já tinha pedido preço antes (pedidos_de_preco > 0).
+  if ((I.has('pergunta_preco') && pedeuPrecoDeVerdade) || (pe && escopoMudouAgora && estado.contadores.escopo_perguntado && estado.pedidos_de_preco > 0)) {
     if (ehOutraFrente) {
       // Achado real, lead Carlos/conv530 (revenda de veículos), 02/10/2026: pediu preço 2x pra uma frente sem
       // valor fechado na config (gestão de anúncios) e recebeu a mesma frase as duas vezes. Primeira vez explica
@@ -509,7 +515,13 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
       }
     }
     if (pe && opcao) {
+      // Achado real, lead Rose/63551, 05/10/2026: o valor saiu com ramo e cidade ainda não informados. Valor só
+      // depois da qualificação completa; antes disso segue a próxima pergunta de qualificação.
+      if (!completa) return { estado, acao: comPergunta(base('perguntar')) }
       estado.pedidos_de_preco += 1
+      // Texto fixo de preço nunca termina em pergunta de call: achado real, lead Rose/63551, 05/10/2026, o convite
+      // "topa marcar 15 minutos?" saiu junto com o preço sem o lead ter pedido reunião. Quem pergunta é o decisor.
+      const blocosPreco = blocosDe(opcao.texto).filter((b) => !b.trim().endsWith('?'))
       // Mesmo escopo, valor já enviado: não despeja o texto inteiro de novo (achado real, conv 530, 28/09: preço
       // idêntico 2x seguidas). Relembra curto, com os mesmos números (o validador confere que não mudou nada).
       if (estado.contadores.preco_enviado === opcao.valor) {
@@ -518,7 +530,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
         return { estado, acao: comPergunta(a) }
       }
       estado.contadores.preco_enviado = opcao.valor
-      return { estado, acao: comPergunta(base('responder_preco', { conteudo: { modo: 'literal', texto: blocosDe(opcao.texto) } })) }
+      return { estado, acao: comPergunta(base('responder_preco', { conteudo: { modo: 'literal', texto: blocosPreco } })) }
     }
     estado.pedidos_de_preco += 1
     if (estado.pedidos_de_preco >= config.preco.escalar_apos) return escalar('lead insistiu em saber o valor')
@@ -720,8 +732,14 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // Não entendeu a mensagem do lead: pede pra repetir a dúvida, em vez de emendar a próxima pergunta do roteiro
   // (achado real, Rodrigo, 05/10/2026: lead perguntou "Como seria?" e o SDR respondeu com outra pergunta, ignorando).
   const naoEntendeu = I.has('outro') && ex.intencoes.every((i) => i === 'outro' || i === 'social') && !I.has('social')
+  // Reformula a última pergunta em linguagem simples, com desculpa curta. Não escala na primeira vez: quem decide
+  // se passa pro Bruno é a regra de "não entendi 3x seguidas" lá em cima.
+  // Achado real, lead Guilherme/63558, 05/10/2026: "Você que decide sobre esse tipo de investimento" (juridiquês)
+  // não foi entendido e o SDR escalou em vez de traduzir a pergunta.
   if (naoEntendeu && !abertura && !temDado) {
-    return { estado, acao: base('perguntar', { conteudo: { modo: 'literal', texto: 'Desculpa, poderia repetir a sua dúvida?' } }) }
+    const a = base('perguntar')
+    a.contexto.push('O lead disse que não entendeu sua última pergunta. Comece com uma desculpa curta ("Desculpa, deixei meio confuso") e refaça a pergunta em palavras simples do dia a dia, sem jargão nem termo corporativo. Não escale e não mude de assunto.')
+    return { estado, acao: comPergunta(a) }
   }
 
   // 13. demais: próxima pergunta (na abertura pode ser qualquer uma, inclusive opcional)

@@ -117,6 +117,10 @@ export async function redigir(
     soReacao?: boolean
     violacoes?: Violacao[]
     anterior?: string[]
+    // Automação (follow, remarketing, anti no-show) que falou por último, fora do v3. Sem isso o redator não sabe
+    // o que o lead está respondendo (achado real, lead Rose/63551, 05/10/2026: o follow disse "já te mandei mensagem,
+    // silêncio total" e o SDR não tinha como contornar quando ela disse que era o primeiro contato).
+    automacao?: { origem: string; conteudo: string } | null
   },
   onUsage?: (c: OpenAI.Chat.ChatCompletion, agent: string) => void,
 ): Promise<RedatorResultado> {
@@ -127,6 +131,9 @@ export async function redigir(
   const evitar = p.frasesEnviadas.slice(-20)
   const user =
     `Últimas mensagens:\n${hist}\n` +
+    (p.automacao
+      ? `\nAntes da resposta do lead, o sistema enviou uma mensagem automática (${p.automacao.origem}):\n"${p.automacao.conteudo}"\nO lead pode estar respondendo a ela. Se ele contestar algo que essa mensagem disse (ex.: "primeiro contato", "não ficou inativa", "não tive silêncio"), reconheça em uma frase, sem discutir e sem se justificar, e siga a conversa de onde ela está.\n`
+      : '') +
     (evitar.length ? `\nFrases que você já enviou nesta conversa (não repita):\n${evitar.map((f) => `- ${f}`).join('\n')}\n` : '') +
     (p.violacoes?.length
       ? `\nSua versão anterior foi recusada:\n${(p.anterior ?? []).map((b) => `> ${b}`).join('\n')}\nMotivos: ${p.violacoes.map((v) => `${v.regra} (${v.detalhe})`).join('; ')}.\nReescreva corrigindo isso.`

@@ -97,7 +97,9 @@ d = decidir(ex({ intencoes: ['pede_espera'] }), est(), config, ctx())
 ok('pede espera: aguardar sem pergunta', d.acao.tipo === 'aguardar' && !d.acao.proxima_pergunta)
 let e2 = decidir(ex({ intencoes: ['outro'] }), est(), config, ctx())
 e2 = decidir(ex({ intencoes: ['outro'] }), e2.estado, config, ctx())
-ok('"outro" 2x seguidas escala', e2.acao.tipo === 'escalar')
+ok('"outro" 2x seguidas: ainda não escala, reformula', e2.acao.tipo === 'perguntar', e2.acao.tipo)
+e2 = decidir(ex({ intencoes: ['outro'] }), e2.estado, config, ctx())
+ok('"outro" 3x seguidas escala', e2.acao.tipo === 'escalar')
 
 // 7 qualificação completa e agendamento
 const completo = est({ dados: { negocio: 'dentista', aparece_no_google: 'nao', tem_perfil_google: 'sim', so_indicacao: 'nao', fez_anuncio: 'nao', impacto_atual: 'perde clientes toda semana', urgencia: 'sim', decisor: 'sim', orcamento_declarado: 'sim, tenho orçamento pra isso', escopo: 'gmn' } })
@@ -162,7 +164,8 @@ ok('horários enviados + "vou ver minha agenda": aguarda', d.acao.tipo === 'agua
 if (config.preco.por_escopo) {
   const pe = config.preco.por_escopo
   const op = pe.opcoes[0]
-  const comEscopo = est({ dados: { [pe.campo]: op.valor }, contadores: { ...ESTADO_INICIAL(2).contadores, escopo_perguntado: true } })
+  // qualificação completa: o valor só sai depois de ramo e cidade (regra nova, lead Rose/63551)
+  const comEscopo = est({ dados: { ...completo.dados, [pe.campo]: op.valor }, contadores: { ...ESTADO_INICIAL(2).contadores, escopo_perguntado: true } })
   let p1 = decidir(ex({ intencoes: ['pergunta_preco'] }), comEscopo, config, ctx())
   ok('1º pedido de preço: texto literal inteiro', p1.acao.tipo === 'responder_preco' && p1.acao.conteudo?.modo === 'literal')
   p1 = decidir(ex({ intencoes: ['pergunta_preco'] }), p1.estado, config, ctx())
@@ -348,25 +351,43 @@ ok('como funciona não solta valor antes de saber o escopo', !txt(d.acao).includ
 const dComoSemNome = decidir(ex({ intencoes: ['pergunta_como_funciona'] }), est(), config, ctx())
 ok('como funciona sem nome conhecido: sem buraco no texto', txt(dComoSemNome.acao).startsWith('A gente cuida da presença digital'), txt(dComoSemNome.acao).slice(0, 50))
 const aposComo = d.estado
-d = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), aposComo, config, ctx())
-ok('escopo gmn (depois de perguntado): sai o Start, Pix e 3x sem juros', d.acao.tipo === 'responder_preco' && txt(d.acao).includes('R$ 1.199') && txt(d.acao).includes('3x de R$ 399,67') && txt(d.acao).includes('sem juros'), txt(d.acao).slice(0, 80))
+// Lead pediu valor antes (pedidos_de_preco: 1) e agora responde o escopo: sai o valor, mas só com qualificação completa
+const aposComoCompleto = est({ dados: { ...completo.dados, escopo: '' }, contadores: { ...ESTADO_INICIAL(3).contadores, escopo_perguntado: true }, pedidos_de_preco: 1 })
+d = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), aposComoCompleto, config, ctx())
+ok('escopo gmn (depois de pedido de preço e qualificação completa): sai o Start, Pix e 3x sem juros', d.acao.tipo === 'responder_preco' && txt(d.acao).includes('R$ 1.199') && txt(d.acao).includes('3x de R$ 399,67') && txt(d.acao).includes('sem juros'), txt(d.acao).slice(0, 80))
 ok('escopo gmn: não fala do site nem do Prime', !/2\.200|\bprime\b/i.test(txt(d.acao)))
-d = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'site' } }), aposComo, config, ctx())
+d = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'site' } }), aposComoCompleto, config, ctx())
 ok('escopo site: sai o Essencial, 2.200 no Pix e 6x com juros', txt(d.acao).includes('R$ 2.200') && txt(d.acao).includes('6x de R$ 397,03') && txt(d.acao).includes('com juros') && !/prime/i.test(txt(d.acao)))
-d = decidir(ex({ intencoes: ['pergunta_preco'] }), est({ dados: { escopo: 'gmn' } }), config, ctx())
-ok('preço com escopo já conhecido: responde direto', d.acao.tipo === 'responder_preco' && txt(d.acao).includes('R$ 1.199'))
-d = decidir(ex({ intencoes: ['pergunta_preco', 'pergunta_como_funciona'] }), est({ dados: { escopo: 'site' } }), config, ctx())
+d = decidir(ex({ intencoes: ['pergunta_preco'] }), est({ dados: { ...completo.dados } }), config, ctx())
+ok('preço com escopo e qualificação já conhecidos: responde direto', d.acao.tipo === 'responder_preco' && txt(d.acao).includes('R$ 1.199'))
+// Achado real, lead Rose/63551: escopo respondido sem pedido de preço não pode virar valor
+d = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), est({ dados: { nome: 'Rose' }, contadores: { ...ESTADO_INICIAL(3).contadores, escopo_perguntado: true } }), config, ctx())
+ok('Rose: respondeu o escopo sem pedir preço: NÃO solta valor', d.acao.tipo !== 'responder_preco' && !txt(d.acao).includes('R$'), d.acao.tipo)
+// Achado real, lead Rose/63551: pediu preço, respondeu escopo, mas ramo e cidade ainda faltam: pergunta a qualificação, não o valor
+d = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), est({ dados: { nome: 'Rose', escopo: '' }, contadores: { ...ESTADO_INICIAL(3).contadores, escopo_perguntado: true }, pedidos_de_preco: 1 }), config, ctx())
+ok('Rose: pediu preço, escopo respondido, qualificação incompleta: NÃO solta valor e pergunta a qualificação', d.acao.tipo !== 'responder_preco' && !txt(d.acao).includes('R$') && !!d.acao.proxima_pergunta, d.acao.tipo)
+// Achado real, lead Guilherme/63558, 05/10/2026: "não entendi" na pergunta do decisor escalou pro Bruno na 2ª vez
+d = decidir(ex({ intencoes: ['outro'] }), est({ dados: { nome: 'Guilherme' }, contadores: { ...ESTADO_INICIAL(3).contadores, outros_seguidos: 0 } }), config, ctx())
+ok('não entendi (1ª vez): reformula a pergunta, não escala', d.acao.tipo === 'perguntar' && !d.acao.handoff, d.acao.tipo)
+ok('não entendi: instrução de desculpa curta e linguagem simples', (d.acao.contexto ?? []).some((c) => c.includes('Desculpa') && c.includes('sem jargão')))
+d = decidir(ex({ intencoes: ['outro'] }), est({ dados: { nome: 'Guilherme' }, contadores: { ...ESTADO_INICIAL(3).contadores, outros_seguidos: 1 } }), config, ctx())
+ok('não entendi (2ª vez seguida): ainda não escala', !d.acao.handoff, d.acao.tipo)
+d = decidir(ex({ intencoes: ['outro'] }), est({ dados: { nome: 'Guilherme' }, contadores: { ...ESTADO_INICIAL(3).contadores, outros_seguidos: 2 } }), config, ctx())
+ok('não entendi 3x seguidas: escala', d.acao.tipo === 'escalar' && !!d.acao.handoff, d.acao.tipo)
+d = decidir(ex({ intencoes: ['outro'], dados: { fez_anuncio: 'nao' } }), est({ dados: { nome: 'Guilherme' }, contadores: { ...ESTADO_INICIAL(3).contadores, outros_seguidos: 2 } }), config, ctx())
+ok('"outro" que trouxe dado não conta pra escalar (reseta o contador)', d.estado.contadores.outros_seguidos === 0 && d.acao.tipo !== 'escalar', d.acao.tipo)
+d = decidir(ex({ intencoes: ['pergunta_preco', 'pergunta_como_funciona'] }), est({ dados: { ...completo.dados, escopo: 'site' } }), config, ctx())
 ok('valor + como funciona com escopo conhecido: explica e já dá o valor, sem re-perguntar', txt(d.acao).toLowerCase().includes('a gente cuida da presença digital') && txt(d.acao).includes('R$ 2.200') && !txt(d.acao).includes('ou precisa de um site também?'))
 d = decidir(ex({ intencoes: ['pergunta_preco'] }), est({ dados: { nome: 'Ana' }, pedidos_de_preco: 1, contadores: { ...ESTADO_INICIAL(3).contadores, escopo_perguntado: true } }), config, ctx())
 ok('insistiu no valor sem responder o escopo: chama o Bruno (não fica sem resposta)', d.acao.tipo === 'escalar')
 ok('escopo dito sem ninguém ter perguntado: só guarda, não solta valor', decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), est(), config, ctx()).acao.tipo !== 'responder_preco')
 
-// preço com CTA de agendamento embutido na config (Rodrigo, 30/09/2026): o texto já termina em "?", então
-// NUNCA cola uma pergunta de qualificação por cima, mesmo com qualificação incompleta
+// Achado real, lead Rose/63551: o texto fixo de preço não pode carregar convite de call ("topa marcar 15 minutos?"),
+// o decisor é quem pergunta. Com qualificação completa, o valor sai sem pergunta colada no fim.
 {
-  const p = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), aposComo, config, ctx())
-  ok('preço com CTA: termina no CTA, sem pergunta de qualificação colada', txt(p.acao).trim().endsWith('?') && !p.acao.proxima_pergunta, JSON.stringify(p.acao.proxima_pergunta))
-  ok('preço com CTA: convida a marcar 15 minutos', txt(p.acao).includes('topa marcar 15 minutos'))
+  const p = decidir(ex({ intencoes: ['pergunta_preco'] }), est({ dados: { ...completo.dados } }), config, ctx())
+  ok('preço completo: sem convite de call no texto fixo', !txt(p.acao).includes('topa marcar 15 minutos') && !txt(p.acao).includes('marcar 15 minutos'), txt(p.acao).slice(-80))
+  ok('preço completo: não cola pergunta de qualificação por cima', !p.acao.proxima_pergunta)
 }
 
 // trava de orçamento (encerrar_se_nao): "não" claro na pergunta de qualificação financeira encerra na hora,

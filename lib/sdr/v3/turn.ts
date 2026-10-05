@@ -330,10 +330,10 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
   const escrever = async (violacoes?: Violacao[], anterior?: string[]): Promise<string[]> => {
     usouLLM = true
     if (acao.bloco_fixo) {
-      const r = acao.reacao_social ? await redigir(openai, { config, acao, historico, frasesEnviadas: estado.frases_enviadas, soReacao: true, violacoes, anterior }, deps.onUsage) : { blocos: [], fatos_usados: [] }
+      const r = acao.reacao_social ? await redigir(openai, { config, acao, historico, frasesEnviadas: estado.frases_enviadas, soReacao: true, violacoes, anterior, automacao: contextoAutomacao }, deps.onUsage) : { blocos: [], fatos_usados: [] }
       return [...r.blocos.slice(0, 1), ...acao.bloco_fixo.split(/\n\n+/)]
     }
-    const r = await redigir(openai, { config, acao, historico, frasesEnviadas: estado.frases_enviadas, violacoes, anterior }, deps.onUsage)
+    const r = await redigir(openai, { config, acao, historico, frasesEnviadas: estado.frases_enviadas, violacoes, anterior, automacao: contextoAutomacao }, deps.onUsage)
     fatosUsados = r.fatos_usados
     return r.blocos
   }
