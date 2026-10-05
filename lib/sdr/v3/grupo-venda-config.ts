@@ -242,6 +242,27 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
       prioridade: 5,
     },
     {
+      // Preço de gestão de anúncios (outra frente): não tem valor fechado na config, então o SDR combina a análise com o Bruno.
+      id: 'preco_anuncios',
+      titulo: 'Preço de gestão de anúncios (outra frente)',
+      gatilhos: [
+        'quanto custa gestão de anúncios',
+        'quanto custa tráfego pago',
+        'quanto é pra anunciar',
+        'qual o valor de anúncio',
+        'quanto cobra pra gerenciar anúncio',
+      ],
+      modo: 'literal',
+      resposta: [
+        'Fala, {nome}! Pelo que você me contou, o Bruno, nosso CEO, já separou o seu caso por aqui.',
+        'Sobre os valores, ele vai te apresentar o custo exato do projeto nessa conversa, desenhado sob medida pra realidade da sua operação, e entender a verba que você tem reservada pra isso.',
+        'Qual dia e horário fica melhor pra você?',
+      ],
+      proxima_acao: 'aguardar',
+      conta_como_recusa: false,
+      prioridade: 5,
+    },
+    {
       id: 'nao_e_decisor',
       titulo: 'Não é o decisor',
       gatilhos: ['quem decide é meu sócio', 'não sou eu que decido', 'preciso falar com meu chefe'],
