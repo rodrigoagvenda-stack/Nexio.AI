@@ -3279,13 +3279,26 @@ async function isAgentePausadoAtivo(
   // foi o próprio bot (handoff automático) e ninguém humano assumiu de fato a conversa depois.
   const { data: ultimaNossa } = await supabase
     .from('mensagens_do_whatsapp')
-    .select('sender_type')
+    .select('sender_type, carimbo_de_data_e_hora')
     .eq('id_da_conversacao', conversationId)
     .eq('direcao', 'outbound')
     .order('carimbo_de_data_e_hora', { ascending: false })
     .limit(1)
     .maybeSingle()
-  if (ultimaNossa?.sender_type === 'human') return true
+  // Lead falou depois do humano: o humano não está mais na conversa, o bot volta a responder (ex.: áudio que
+  // chegou enquanto a conversa estava pausada). Só pausa enquanto a última palavra for do humano.
+  if (ultimaNossa?.sender_type === 'human') {
+    const { data: ultimoLead } = await supabase
+      .from('mensagens_do_whatsapp')
+      .select('carimbo_de_data_e_hora')
+      .eq('id_da_conversacao', conversationId)
+      .eq('direcao', 'inbound')
+      .order('carimbo_de_data_e_hora', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const ultimoHumano = ultimaNossa.carimbo_de_data_e_hora
+    if (!ultimoLead || !ultimoHumano || new Date(ultimoLead.carimbo_de_data_e_hora).getTime() < new Date(ultimoHumano).getTime()) return true
+  }
 
   if (!conv?.agente_pausado) return false
 
