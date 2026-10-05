@@ -731,7 +731,11 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
 
   // Não entendeu a mensagem do lead: pede pra repetir a dúvida, em vez de emendar a próxima pergunta do roteiro
   // (achado real, Rodrigo, 05/10/2026: lead perguntou "Como seria?" e o SDR respondeu com outra pergunta, ignorando).
-  const naoEntendeu = I.has('outro') && ex.intencoes.every((i) => i === 'outro' || i === 'social') && !I.has('social')
+  // Só reformula quando o lead SINALIZA confusão de fato. "Outro" genérico (ex.: "beleza", "ok") ou dúvida que o
+  // extrator não reconheceu não entram aqui: pedir desculpa por confusão nesses casos seria erro.
+  const NAO_ENTENDI_RE = /\b(nao entendi|nao entendo|nao compreendi|nao consegui entender|nao ficou claro|nao sei o que|como assim|o que voce quis dizer|hein)\b|^\s*\?+\s*$/
+  const sinalConfusao = NAO_ENTENDI_RE.test(norm(ctx.mensagemLead ?? ''))
+  const naoEntendeu = I.has('outro') && ex.intencoes.every((i) => i === 'outro' || i === 'social') && !I.has('social') && sinalConfusao
   // Reformula a última pergunta em linguagem simples, com desculpa curta. Não escala na primeira vez: quem decide
   // se passa pro Bruno é a regra de "não entendi 3x seguidas" lá em cima.
   // Achado real, lead Guilherme/63558, 05/10/2026: "Você que decide sobre esse tipo de investimento" (juridiquês)
