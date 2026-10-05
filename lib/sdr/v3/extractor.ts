@@ -176,6 +176,7 @@ REGRAS
 - Para o campo "negocio": preencha com o que o lead disse do negócio (nome, ramo, cidade) em uma frase curta. Preencha também cidade quando ele disse.
 - Para o campo "segmento": escolha SOMENTE uma destas categorias fixas (nunca escreva texto livre, nunca invente uma categoria nova): ${SEGMENTO_OPCOES.join(', ')}. Escolha a que mais se aproxima do negócio do lead; se nenhuma encaixar bem, use "Outros". Deixe null se o ramo do negócio ainda não foi dito.
 - Para os campos de sim ou não (perfil no Google, decisor, site, anúncio, indicação): responda "sim" ou "nao" e, se ele deu detalhe (link, print, nome da pessoa), acrescente depois de dois-pontos. Print ou link enviado como resposta a "tem perfil no Google?" vale "sim".
+- Decisor: resposta curta com erro de digitação ou gíria que diga que ele mesmo decide ("do fez", "eu faço", "sou eu", "eu que decido", "só eu", "não, eu mesmo") vale decisor = "sim". Só use "nao" quando disser que outra pessoa decide. Não marque "outro" nem confiança baixa por causa de typo numa resposta desse tipo.
 - nome_completo só quando o lead deu nome e sobrenome.
 - tom_do_lead: curto_informal (poucas palavras, abreviações), informal, ou formal.
 - confianca: baixa quando você não tem certeza do que o lead quis dizer.
