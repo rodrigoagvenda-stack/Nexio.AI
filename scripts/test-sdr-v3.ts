@@ -143,6 +143,9 @@ ok('horários enviados + "vou ver minha agenda": aguarda', d.acao.tipo === 'agua
   ok('filtro: "só à tarde" deixa só tarde', !!f2 && f2.periodos.join() === 'tarde')
   const f3 = filtroDisponibilidade('depois das 18h')
   ok('filtro: "depois das 18h"', f3?.depoisDe === 18)
+  // Achado real, lead Edivaldo, 04/10/2026: "após as 17" não era reconhecido, oferecia horário de manhã.
+  const f4 = filtroDisponibilidade('por enquanto só consigo após as 17')
+  ok('filtro: "após as 17" vira depoisDe 17', f4?.depoisDe === 17, JSON.stringify(f4))
   ok('filtro: sem restrição devolve null', filtroDisponibilidade('qualquer horário') === null)
   const hojeIso = '2026-10-01', amanhaIso = '2026-10-02'
   ok('filtro aplica: 9h fora quando manhã não dá', !passaFiltro(new Date('2026-10-02T09:00:00-03:00'), f1, hojeIso, amanhaIso))

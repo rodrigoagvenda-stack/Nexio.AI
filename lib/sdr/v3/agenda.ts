@@ -61,7 +61,9 @@ export function filtroDisponibilidade(texto: string | undefined | null): FiltroH
   for (const m of t.matchAll(new RegExp(`\\b(nao|n)\\s+(da|posso|consigo|rola|tenho como|vai dar)\\b[^.,;]{0,20}?\\b${P}`, 'g'))) nao.add(m[3] as Periodo)
   for (const m of t.matchAll(new RegExp(`\\b(so|somente|apenas|prefiro|melhor|pode ser)\\s+(de |a |pela |na |no )?${P}`, 'g'))) so.add(m[3] as Periodo)
   const f: FiltroHorario = { periodos: so.size ? [...so] : todos.filter((p) => !nao.has(p)) }
-  const depois = t.match(/depois d[ao]s?\s+(\d{1,2})\s*(h|:|horas?)?/)
+  // Achado real, lead Edivaldo, 04/10/2026: "só consigo após as 17" não era reconhecido (só "depois das N"), o
+  // filtro ficava vazio e o SDR ofereceu horário de manhã que ele já tinha recusado, depois escalou pro Bruno.
+  const depois = t.match(/(?:depois|apos)\s+(?:d[ao]s?\s+|as\s+|a\s+)?(\d{1,2})\s*(h|:|horas?)?/)
   const antes = t.match(/antes d[ao]s?\s+(\d{1,2})\s*(h|:|horas?)?/)
   if (depois) f.depoisDe = Number(depois[1])
   if (antes) f.antesDe = Number(antes[1])
