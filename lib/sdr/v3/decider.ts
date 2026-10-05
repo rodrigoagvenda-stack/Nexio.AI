@@ -717,6 +717,13 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // 11. pede espera
   if (I.has('pede_espera')) return { estado, acao: base('aguardar') }
 
+  // Não entendeu a mensagem do lead: pede pra repetir a dúvida, em vez de emendar a próxima pergunta do roteiro
+  // (achado real, Rodrigo, 05/10/2026: lead perguntou "Como seria?" e o SDR respondeu com outra pergunta, ignorando).
+  const naoEntendeu = I.has('outro') && ex.intencoes.every((i) => i === 'outro' || i === 'social') && !I.has('social')
+  if (naoEntendeu && !abertura && !temDado) {
+    return { estado, acao: base('perguntar', { conteudo: { modo: 'literal', texto: 'Desculpa, poderia repetir a sua dúvida?' } }) }
+  }
+
   // 13. demais: próxima pergunta (na abertura pode ser qualquer uma, inclusive opcional)
   const soSocial = I.has('social') && ex.intencoes.every((i) => i === 'social' || i === 'outro')
   const q = proximaPergunta(estado, config, abertura, soSocial)

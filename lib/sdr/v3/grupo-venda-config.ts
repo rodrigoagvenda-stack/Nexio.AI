@@ -231,7 +231,9 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
         'tenho medo de pagar e não dar certo',
         'já paguei e não deu resultado',
       ],
-      modo: 'literal',
+      // Modo livre de propósito: o redator usa estes blocos como base e adapta ao que o lead disse de verdade.
+      // Nunca colar pronto (ficou robótico e sem relação com o que o lead falou, lead 5592986050301, 05/10/2026).
+      modo: 'livre',
       resposta: [
         'Você tem toda razão em pensar assim. Inclusive, acabei de ouvir seu áudio e concordo 100%: o mercado está cheio de gente que só quer cobrar pela avaliação, pegar o dinheiro e sumir, sem se importar se o negócio vai dar certo ou não.',
         'Nós fazemos o oposto. Somos o Grupo Venda, de Botucatu-SP, e nossa premissa nesses 7 anos (com mais de 200 clientes) é olhar seu objetivo e sua situação real antes de sugerir qualquer solução. A meta é fazer funcionar.',

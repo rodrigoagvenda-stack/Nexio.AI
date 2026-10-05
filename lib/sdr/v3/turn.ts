@@ -195,6 +195,14 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
   const decisao = decidir(extracao, estadoIn, config, dctx)
   const estado: Estado = decisao.estado
   let acao: Acao = decisao.acao
+  // Resumo do que já sabemos sobre o lead: o redator usa pra não perguntar de novo o que ele já respondeu.
+  const resumoDoLead = (lead?.resumo_ia as string | null) ?? null
+  if (resumoDoLead?.trim()) acao.contexto.push(`O que já sabemos sobre este lead (não pergunte de novo nada que já está aqui, e não trate como novidade o que já foi dito): ${resumoDoLead.trim()}`)
+  // Achado real, lead Célia/conv (05/10/2026): ela descreveu o problema (ruas erradas, poucas fotos) e o SDR
+  // respondeu a identidade e emendou a próxima pergunta do roteiro, como se não tivesse ouvido. Quando o lead
+  // acabou de trazer dado novo, o redator reconhece isso primeiro, com as palavras dele, antes de seguir.
+  const trouxeDadoNovo = Object.keys(extracao.dados).some((k) => !['nome', 'nome_completo'].includes(k) && !!extracao.dados[k])
+  if (trouxeDadoNovo && acao.proxima_pergunta) acao.contexto.push('O lead acabou de contar algo concreto sobre o negócio dele. Antes da próxima pergunta, reconheça em uma frase curta o que ele trouxe, usando as palavras dele (sem generalizar, sem prometer resultado), e só depois faça a pergunta.')
   const fatosRecuperados: unknown[] = []
   const agendaCtx: AgendaCtx | null = ctx.calendarId
     ? { companyId: ctx.companyId, leadId: ctx.leadId, leadPhone: ctx.leadPhone, calendarId: ctx.calendarId, eventTitleTemplate: ctx.eventTitleTemplate }
