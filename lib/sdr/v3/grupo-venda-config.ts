@@ -220,6 +220,28 @@ export const GRUPO_VENDA_CONFIG: Omit<CompanyConfig, 'version'> = {
       prioridade: 6,
     },
     {
+      // Desconfiança de quem já foi enganado por agência ou só quer receber. Resposta fixa pedida pelo Rodrigo (05/10/2026).
+      id: 'desconfianca_so_quer_receber',
+      titulo: 'Desconfiança: só quer receber / já fui enganado',
+      gatilhos: [
+        'vocês só querem meu dinheiro',
+        'já fui enganado por agência',
+        'desconfio de agência',
+        'vocês só querem receber',
+        'tenho medo de pagar e não dar certo',
+        'já paguei e não deu resultado',
+      ],
+      modo: 'literal',
+      resposta: [
+        'Você tem toda razão em pensar assim. Inclusive, acabei de ouvir seu áudio e concordo 100%: o mercado está cheio de gente que só quer cobrar pela avaliação, pegar o dinheiro e sumir, sem se importar se o negócio vai dar certo ou não.',
+        'Nós fazemos o oposto. Somos o Grupo Venda, de Botucatu-SP, e nossa premissa nesses 7 anos (com mais de 200 clientes) é olhar seu objetivo e sua situação real antes de sugerir qualquer solução. A meta é fazer funcionar.',
+        'O Bruno, nosso CEO, faz exatamente esse papel. Ele separou 15 minutos para fazer um raio-X do seu momento e te mostrar o que está travando sua operação. A análise é sua, sem compromisso nenhum. Se você olhar e vir que faz sentido para o seu objetivo, a gente conversa. Se não, você não perdeu nada e já sabe onde corrigir. Faz sentido abrir a agenda dele para você?',
+      ],
+      proxima_acao: 'aguardar',
+      conta_como_recusa: false,
+      prioridade: 5,
+    },
+    {
       id: 'nao_e_decisor',
       titulo: 'Não é o decisor',
       gatilhos: ['quem decide é meu sócio', 'não sou eu que decido', 'preciso falar com meu chefe'],
