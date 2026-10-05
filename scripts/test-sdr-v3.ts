@@ -49,7 +49,7 @@ const ok = (nome: string, cond: boolean, extra = '') => {
   console.log(`${cond ? 'OK   ' : 'FALHA'} ${nome}${extra ? ' :: ' + extra : ''}`)
 }
 const ex = (p: Partial<Extracao>): Extracao => ({ intencoes: ['outro'], social: null, objecao_id: null, pergunta_fato: [], dados: {}, horario_escolhido: null, tom_do_lead: 'informal', confianca: 'alta', resposta_automatica: false, ...p })
-const ctx = (p: Partial<DecisorCtx> = {}): DecisorCtx => ({ temCalendario: true, cobrancaAtiva: false, primeiraMensagemNossa: false, pushName: null, contextoOutbound: null, origemAnuncio: null, reuniaoExistente: null, temReuniaoAtiva: false, mensagemLead: '', ...p })
+const ctx = (p: Partial<DecisorCtx> = {}): DecisorCtx => ({ temCalendario: true, cobrancaAtiva: false, primeiraMensagemNossa: false, pushName: null, contextoOutbound: null, origemAnuncio: null, reuniaoExistente: null, reuniaoJaAconteceu: false, temReuniaoAtiva: false, mensagemLead: '', ...p })
 const est = (p: Partial<Estado> = {}): Estado => ({ ...ESTADO_INICIAL(2), etapa: 'qualificando', ...p })
 const txt = (a: any) => [a.conteudo?.texto ?? ''].flat().join('\n')
 
@@ -103,6 +103,11 @@ ok('"outro" 2x seguidas escala', e2.acao.tipo === 'escalar')
 const completo = est({ dados: { negocio: 'dentista', aparece_no_google: 'nao', tem_perfil_google: 'sim', so_indicacao: 'nao', fez_anuncio: 'nao', impacto_atual: 'perde clientes toda semana', urgencia: 'sim', decisor: 'sim', orcamento_declarado: 'sim, tenho orçamento pra isso', escopo: 'gmn' } })
 d = decidir(ex({ intencoes: ['outro'] }), completo, config, ctx())
 ok('qualificação completa oferece horários', d.acao.tipo === 'oferecer_horarios')
+
+// Achado real, lead Edevane/conv535, 05/10/2026: reunião já aconteceu (call_status ainda 'agendada') e o SDR voltou
+// a qualificar como se fosse o primeiro contato. Agora passa pra pessoa.
+d = decidir(ex({ intencoes: ['resposta_qualificacao'] }), est({ dados: { negocio: 'x' } }), config, { ...ctx(), reuniaoJaAconteceu: true })
+ok('reunião já aconteceu sem resultado: escala, não reabre qualificação', d.acao.tipo === 'escalar', d.acao.tipo)
 
 // Achado real, lead Jorge Luiz/conv541, 03/10/2026: a pergunta de escopo feita pelo fluxo de preço não ficava
 // registrada em perguntas_feitas, e a regra 13 (próxima pergunta genérica) perguntava de novo, reformulada, 1

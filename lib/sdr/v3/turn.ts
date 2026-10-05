@@ -187,6 +187,7 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
     contextoOutbound,
     origemAnuncio,
     reuniaoExistente,
+    reuniaoJaAconteceu: agendada && !!lead?.call_agendada_para && new Date(lead.call_agendada_para).getTime() <= Date.now(),
     temReuniaoAtiva: agendada,
     respondendoAutomacao: !!origemAutomacao,
     mensagemLead: mensagemAtual,

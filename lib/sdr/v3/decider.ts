@@ -18,6 +18,8 @@ export interface DecisorCtx {
   origemAnuncio: string | null
   /** Data formatada da reunião já agendada e válida (com horário no futuro), se houver. */
   reuniaoExistente: string | null
+  /** Reunião marcada cujo horário já passou e ainda sem resultado registrado (call_status segue 'agendada'). */
+  reuniaoJaAconteceu?: boolean
   /** true quando existe evento real e não cancelado no Calendar, mesmo que o horário já tenha passado
    * (diferente de reuniaoExistente, que só conta reunião com horário no futuro). Usado só pra permitir
    * cancelar: achado real, lead Rodrigo Evangelista/63104, 28/09/2026 — pediu pra cancelar minutos depois
@@ -333,6 +335,13 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     }
     estado.contadores.agradecimento_fim_enviado = true
     return { estado, acao: base('agradecimento_fim', { conteudo: { modo: 'literal', texto: config.agradecimento_fim.frase }, etapa_depois: estado.etapa }) }
+  }
+
+  // Reunião já aconteceu e o resultado não foi registrado: nunca reabre qualificação nem oferece horário por cima.
+  // Achado real, lead Edevane/conv535, 05/10/2026: call às 09:30, depois o SDR voltou a perguntar sobre o Google
+  // como se fosse a primeira vez, porque só reconhecia reunião com horário no futuro. Passa pra pessoa.
+  if (ctx.reuniaoJaAconteceu && !I.has('quer_agendar') && !I.has('escolheu_horario') && !I.has('pede_remarcar') && !I.has('cancela_reuniao')) {
+    return escalar('reunião já aconteceu e o resultado ainda não foi registrado')
   }
 
   // 0. resposta automática da empresa do lead (menu, "em breve retornaremos", horário de atendimento): não responde.
