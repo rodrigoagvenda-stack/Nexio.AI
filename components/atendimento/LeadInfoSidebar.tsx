@@ -137,7 +137,7 @@ export function LeadInfoSidebar({
 
   const isInline = !!className; // com className é a versão de celular (sem cabeçalho próprio)
   const resumo = (lead.resumo_ia || lead.notes || '').trim();
-  const resumoLines = resumo.split('\n').map((l) => l.replace(/^[\s\-•*]+/, '').trim()).filter(Boolean);
+  const resumoLines = resumo.split('\n').map((l) => l.replace(/^[\s\-•*]+/, '').replace(/\*\*/g, '').trim()).filter(Boolean);
   const meeting = lead.call_de_venda && lead.call_agendada_para && lead.call_status !== 'cancelada'
     ? new Date(lead.call_agendada_para).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).replace('.', '')
     : null;
@@ -242,7 +242,7 @@ export function LeadInfoSidebar({
                 </div>
 
                 {resumoLines.length > 0 && (
-                  <section className="flex flex-col gap-2.5 rounded-xl border border-border bg-muted px-4 py-3.5">
+                  <section className="flex min-w-0 flex-col gap-2.5 rounded-xl border border-border bg-muted px-4 py-3.5">
                     <div className="flex items-center justify-between gap-2">
                       <h3 className={heading}>Resumo da IA</h3>
                       <button
@@ -256,7 +256,8 @@ export function LeadInfoSidebar({
                     <ul className="flex flex-col gap-2">
                       {resumoLines.map((l, i) => (
                         <li key={i} className="flex items-start gap-2.5 text-sm leading-normal text-foreground">
-                          <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-muted-foreground" />{l}
+                          <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-muted-foreground" />
+                          <span className="min-w-0 [overflow-wrap:anywhere]">{l}</span>
                         </li>
                       ))}
                     </ul>
