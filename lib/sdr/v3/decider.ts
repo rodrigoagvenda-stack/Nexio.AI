@@ -363,6 +363,16 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     return escalar(I.has('pede_humano') ? 'lead pediu para falar com uma pessoa' : 'mensagem não entendida duas vezes seguidas')
   }
 
+  // 1b. recusa de ligação na hora de agendar. Achado real, lead Henrique/5511949638123, 06/10/2026: depois de
+  // receber horários de call ele disse "ligação não dá, precisa ser por aqui mesmo" e o SDR ofereceu horários de
+  // novo, ignorando o pedido. Passa pra pessoa conversar por mensagem. Restrito à etapa de agendamento, e não vale
+  // se ele já escolheu horário ou fala de videochamada/Meet; "só por aqui" solto (ex.: pedido de valor) não entra.
+  const RECUSA_LIGACAO_RE = /\b(ligacao nao (da|rola|posso|consigo)|nao (posso|consigo) (ligar|atender|falar (por|no) telefone)|nao da pra (ligar|atender|falar (por|no) telefone)|nao (quero|gosto de) (ligacao|ligar|telefone)|precisa ser (por aqui|por mensagem|por escrito)|so (por|no) (aqui|mensagem|whatsapp|texto))\b/
+  const msgNorm = norm(ctx.mensagemLead ?? '')
+  if ((estado.contadores.horarios_ofertados || estado.etapa === 'oferta_horario') && !I.has('escolheu_horario') && !/\b(video|meet|chamada)\b/.test(msgNorm) && RECUSA_LIGACAO_RE.test(msgNorm)) {
+    return escalar('lead não quer ligação, só conversa por mensagem')
+  }
+
   // 2. é robô?
   if (I.has('pergunta_se_e_robo')) {
     return {
@@ -574,7 +584,14 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     // lead nunca recebia resposta nenhuma. Escala em vez de ignorar.
     if (!ex.objecao_id) return escalar('objeção não reconhecida na lista configurada', true)
     const obj: ObjecaoConfig | undefined = config.objecoes.find((o) => o.id === ex.objecao_id)
-    if (obj) {
+    // Achado real, lead Henrique/5511949638123, 06/10/2026: ele respondeu o orçamento ("ainda não tenho, tô no
+    // começo") e o extrator marcou de novo a objeção retorno_imediato, já respondida. Saiu a frase fixa
+    // "quer que eu chame o Bruno?" e a resposta dele foi ignorada. Objeção JÁ respondida + campo de qualificação
+    // preenchido agora = o lead respondeu a pergunta, não repetiu a objeção: segue o fluxo. Fica de fora:
+    // objeção que conta como recusa e qualquer turno com intenção de recusa (esses mantêm a frase de sempre).
+    const trouxeDadoNovo = Object.entries(ex.dados ?? {}).some(([campo, v]) => typeof v === 'string' && v.trim() && !(entrada.dados[campo] ?? '').trim())
+    const pularRepetida = !!obj && estado.objecoes_respondidas.includes(obj.id) && !obj.conta_como_recusa && !I.has('recusa') && trouxeDadoNovo
+    if (obj && !pularRepetida) {
       if (obj.conta_como_recusa) estado.recusas += 1
       if (estado.recusas >= config.limites.recusas_para_encerrar && obj.conta_como_recusa) {
         return encerrar(config.encerramento_recusas?.frase ?? config.escala.frase)

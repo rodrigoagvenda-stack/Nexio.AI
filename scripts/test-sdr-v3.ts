@@ -78,6 +78,46 @@ ok('golpe volta à qualificação', !!d.acao.proxima_pergunta)
 d = decidir(ex({ intencoes: ['objecao'], objecao_id: 'golpe' }), d.estado, config, ctx())
 ok('objeção repetida', d.acao.tipo === 'objecao_repetida')
 
+// 4b objeção já respondida: só pula a frase fixa quando o lead respondeu a pergunta (campo novo), nunca em recusa
+// Achado real, lead Henrique/5511949638123, 06/10/2026: respondeu o orçamento e recebeu "quer que eu chame o Bruno?"
+{
+  const jaRespondida = est({ objecoes_respondidas: ['retorno_imediato'], dados: { nome: 'Henrique' } })
+  let r = decidir(ex({ intencoes: ['resposta_qualificacao', 'objecao'], objecao_id: 'retorno_imediato', dados: { orcamento_declarado: 'ainda não tenho orçamento definido' } }), jaRespondida, config, ctx())
+  ok('objeção já respondida + campo novo respondido: NÃO manda a frase de objeção repetida', r.acao.tipo !== 'objecao_repetida', r.acao.tipo)
+  ok('objeção já respondida + campo novo: guarda o dado e segue o fluxo', r.estado.dados.orcamento_declarado === 'ainda não tenho orçamento definido' && (r.acao.tipo === 'perguntar' || r.acao.tipo === 'oferecer_horarios' || r.acao.tipo === 'aguardar'), r.acao.tipo)
+  r = decidir(ex({ intencoes: ['objecao'], objecao_id: 'retorno_imediato' }), jaRespondida, config, ctx())
+  ok('objeção já respondida SEM dado novo: mantém a frase de objeção repetida', r.acao.tipo === 'objecao_repetida', r.acao.tipo)
+  r = decidir(ex({ intencoes: ['objecao'], objecao_id: 'retorno_imediato', dados: { nome: 'Henrique' } }), jaRespondida, config, ctx())
+  ok('objeção já respondida, só repetiu dado que já tínhamos: mantém a frase', r.acao.tipo === 'objecao_repetida', r.acao.tipo)
+  r = decidir(ex({ intencoes: ['resposta_qualificacao', 'objecao', 'recusa'], objecao_id: 'retorno_imediato', dados: { orcamento_declarado: 'não tenho' } }), jaRespondida, config, ctx())
+  ok('objeção já respondida + dado novo + recusa: mantém o tratamento de recusa', r.acao.tipo === 'objecao_repetida' || r.acao.tipo === 'encerrar', r.acao.tipo)
+  const cfgRecusa: any = { ...config, objecoes: config.objecoes.map((o: any) => (o.id === 'retorno_imediato' ? { ...o, conta_como_recusa: true } : o)) }
+  r = decidir(ex({ intencoes: ['resposta_qualificacao', 'objecao'], objecao_id: 'retorno_imediato', dados: { orcamento_declarado: 'não tenho' } }), jaRespondida, cfgRecusa, ctx())
+  ok('objeção que conta como recusa + dado novo: mantém o tratamento antigo (não pula)', r.acao.tipo === 'objecao_repetida' || r.acao.tipo === 'encerrar', r.acao.tipo)
+  r = decidir(ex({ intencoes: ['objecao'], objecao_id: 'retorno_imediato' }), est({ dados: { nome: 'Henrique' } }), config, ctx())
+  ok('1ª vez da objeção: continua respondendo a objeção normal', r.acao.tipo === 'responder_objecao', r.acao.tipo)
+}
+
+// 4c recusa de ligação na hora de agendar passa pra pessoa; fora da etapa de agendamento não muda nada
+// Achado real, lead Henrique/5511949638123, 06/10/2026: "Ligação não dá, precisa ser por aqui mesmo" e o SDR reofereceu horários
+{
+  const emAgenda = est({ etapa: 'oferta_horario', contadores: { ...ESTADO_INICIAL(2).contadores, horarios_ofertados: true } })
+  let r = decidir(ex({ intencoes: ['quer_agendar'], confianca: 'media' }), emAgenda, config, ctx({ mensagemLead: 'Ligação não dá, precisa ser por aqui mesmo...' }))
+  ok('recusa de ligação na oferta de horário: escala pra conversar por mensagem', r.acao.tipo === 'escalar' && !!r.acao.handoff, r.acao.tipo)
+  r = decidir(ex({ intencoes: ['quer_agendar'] }), emAgenda, config, ctx({ mensagemLead: 'Não posso atender ligação agora' }))
+  ok('"não posso atender ligação" na oferta de horário: escala', r.acao.tipo === 'escalar', r.acao.tipo)
+  r = decidir(ex({ intencoes: ['escolheu_horario'], horario_escolhido: '2026-10-06T16:00:00' }), emAgenda, config, ctx({ mensagemLead: 'Ligação não dá, mas pode ser às 16h por videochamada' }))
+  ok('recusa de ligação + videochamada/horário escolhido: NÃO escala', r.acao.tipo !== 'escalar', r.acao.tipo)
+  r = decidir(ex({ intencoes: ['quer_agendar'] }), emAgenda, config, ctx({ mensagemLead: 'pode ser por meet, ligação não dá' }))
+  ok('recusa de ligação + Meet: NÃO escala', r.acao.tipo !== 'escalar', r.acao.tipo)
+  r = decidir(ex({ intencoes: ['pergunta_preco'] }), est({ dados: { negocio: 'dentista', aparece_no_google: 'nao', tem_perfil_google: 'sim', so_indicacao: 'nao', fez_anuncio: 'nao', impacto_atual: 'perde clientes', urgencia: 'sim', decisor: 'sim', orcamento_declarado: 'sim, tenho orçamento', escopo: 'gmn' } }), config, ctx({ mensagemLead: 'me passa o valor só por aqui mesmo' }))
+  ok('"só por aqui" fora do agendamento (pedido de valor): NÃO escala', r.acao.tipo !== 'escalar', r.acao.tipo)
+  r = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { negocio: 'dentista' } }), est(), config, ctx({ mensagemLead: 'ligação não dá, sou dentista' }))
+  ok('"ligação não dá" antes da etapa de agendamento: NÃO escala', r.acao.tipo !== 'escalar', r.acao.tipo)
+  r = decidir(ex({ intencoes: ['escolheu_horario'], horario_escolhido: '2026-10-07T11:00:00' }), emAgenda, config, ctx({ mensagemLead: 'amanhã às 11h' }))
+  ok('escolha normal de horário na etapa de agendamento: NÃO escala', r.acao.tipo !== 'escalar', r.acao.tipo)
+}
+
 // 5 encerrar por orçamento
 d = decidir(ex({ intencoes: ['objecao'], objecao_id: 'sem_orcamento' }), est(), config, ctx())
 ok('sem orçamento encerra', d.acao.tipo === 'responder_objecao' && d.estado.etapa === 'encerrado')
