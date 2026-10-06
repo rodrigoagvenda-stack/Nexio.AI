@@ -77,6 +77,8 @@ export interface Contadores {
   outra_frente_valor_explicado?: boolean
   /** Já mandou a frase fixa de despedida (agradecimento_fim) nesta conversa: próximo agradecimento do lead fica em silêncio, nunca repete a mesma frase de novo. */
   agradecimento_fim_enviado?: boolean
+  /** O lead pediu valor junto com "como funciona" e recebeu a pergunta de escopo: a resposta ao escopo destrava o valor (sem contar como insistência de preço). */
+  preco_pedido_no_como_funciona?: boolean
 }
 
 export interface Estado {

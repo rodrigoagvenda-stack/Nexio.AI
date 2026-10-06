@@ -438,6 +438,38 @@ d = decidir(ex({ intencoes: ['pergunta_preco'] }), est({ dados: { nome: 'Ana' },
 ok('insistiu no valor sem responder o escopo: chama o Bruno (não fica sem resposta)', d.acao.tipo === 'escalar')
 ok('escopo dito sem ninguém ter perguntado: só guarda, não solta valor', decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), est(), config, ctx()).acao.tipo !== 'responder_preco')
 
+// Achado real, lead Eduardo/5562995226886, 06/10/2026: pediu valor + "o que vocês oferecem" com escopo outra_frente e o valor sumiu
+{
+  const base0 = est({ dados: { nome: 'Eduardo', negocio: 'ferro e aço em Goiânia', cidade: 'Goiânia', escopo: 'outra_frente' } })
+  let e = decidir(ex({ intencoes: ['pergunta_preco', 'pergunta_como_funciona'] }), base0, config, ctx({ mensagemLead: 'E qual valor do seu serviço' }))
+  ok('Eduardo: valor + como funciona com outra_frente: explica, diz que anúncio é personalizado e pergunta site ou sem', e.acao.tipo === 'responder_como_funciona' && txt(e.acao).includes('personalizado') && txt(e.acao).includes('criação de um site') && !txt(e.acao).includes('R$'), e.acao.tipo)
+  ok('Eduardo: marca escopo perguntado e que o valor foi pedido, sem contar insistência de preço', e.estado.contadores.escopo_perguntado === true && e.estado.contadores.preco_pedido_no_como_funciona === true && e.estado.pedidos_de_preco === 0)
+  ok('Eduardo: no máximo 3 blocos na mensagem', Array.isArray(e.acao.conteudo?.texto) && e.acao.conteudo!.texto.length <= 3, String(Array.isArray(e.acao.conteudo?.texto) ? e.acao.conteudo!.texto.length : 0))
+  const apos = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), e.estado, config, ctx({ mensagemLead: 'Só o Google' }))
+  ok('Eduardo: respondeu "só o Google" depois: recebe o valor do Start', apos.acao.tipo === 'responder_preco' && txt(apos.acao).includes('R$ 1.199'), apos.acao.tipo)
+  const aposSite = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'site' } }), e.estado, config, ctx({ mensagemLead: 'Com site também' }))
+  ok('Eduardo: respondeu "com site" depois: recebe o valor do Essencial', aposSite.acao.tipo === 'responder_preco' && txt(aposSite.acao).includes('R$ 2.200'), aposSite.acao.tipo)
+  // sem pedir valor: nada muda (não fala de preço de anúncio, não marca nada)
+  e = decidir(ex({ intencoes: ['pergunta_como_funciona'] }), base0, config, ctx({ mensagemLead: 'E o que vc me oferece' }))
+  ok('outra_frente, só pediu como funciona: NÃO fala de valor nem marca o pedido', !txt(e.acao).includes('personalizado') && !e.estado.contadores.preco_pedido_no_como_funciona, e.acao.tipo)
+  // escopo já perguntado antes: não repete a pergunta
+  e = decidir(ex({ intencoes: ['pergunta_preco', 'pergunta_como_funciona'] }), { ...base0, contadores: { ...base0.contadores, escopo_perguntado: true } }, config, ctx({ mensagemLead: 'qual o valor? como funciona?' }))
+  ok('outra_frente, escopo já perguntado: NÃO repete a pergunta de site', !txt(e.acao).includes('Sobre o valor'), e.acao.tipo)
+  // fluxo real sem contador forçado na mão: valor + como funciona sem escopo, depois a resposta do escopo
+  e = decidir(ex({ intencoes: ['pergunta_preco', 'pergunta_como_funciona'] }), est({ dados: { nome: 'Luciano' } }), config, ctx({ mensagemLead: 'como funciona e qual o valor?' }))
+  const aposReal = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), e.estado, config, ctx({ mensagemLead: 'só o Google' }))
+  ok('fluxo real: valor + como funciona, depois escopo respondido: recebe o valor', aposReal.acao.tipo === 'responder_preco' && txt(aposReal.acao).includes('R$ 1.199'), aposReal.acao.tipo)
+  const repetiu = decidir(ex({ intencoes: ['pergunta_preco'] }), e.estado, config, ctx({ mensagemLead: 'e o valor?' }))
+  ok('fluxo real: repetiu o pedido sem responder o escopo: não escala na 1ª repetição', repetiu.acao.tipo !== 'escalar', repetiu.acao.tipo)
+  // sem pedir valor e escopo respondido depois: continua sem soltar valor (regra da Rose preservada)
+  const semValor = decidir(ex({ intencoes: ['pergunta_como_funciona'] }), est({ dados: { nome: 'Rose' } }), config, ctx({ mensagemLead: 'como funciona?' }))
+  const roseAposComo = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), semValor.estado, config, ctx({ mensagemLead: 'só o Google' }))
+  ok('Rose preservada: só perguntou como funciona e respondeu o escopo: NÃO solta valor', roseAposComo.acao.tipo !== 'responder_preco' && !txt(roseAposComo.acao).includes('R$'), roseAposComo.acao.tipo)
+  // escopo conhecido + valor + como funciona: valor sem convite de call
+  e = decidir(ex({ intencoes: ['pergunta_preco', 'pergunta_como_funciona'] }), est({ dados: { nome: 'Ana', escopo: 'gmn' } }), config, ctx({ mensagemLead: 'como funciona e qual o valor?' }))
+  ok('escopo conhecido + valor + como funciona: valor sem "marcar 15 minutos" no texto fixo', txt(e.acao).includes('R$ 1.199') && !txt(e.acao).includes('marcar 15 minutos'), e.acao.tipo)
+}
+
 // Achado real, lead Rose/63551: o texto fixo de preço não pode carregar convite de call ("topa marcar 15 minutos?"),
 // o decisor é quem pergunta. Com qualificação completa, o valor sai sem pergunta colada no fim.
 {

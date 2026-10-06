@@ -499,10 +499,22 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
 
   if (I.has('pergunta_como_funciona') && config.como_funciona && pedeuComoFuncionaDeVerdade && !estado.contadores.como_funciona_explicado) {
     let blocos = blocosDe(config.como_funciona.texto)
-    if (pe && opcao && I.has('pergunta_preco')) blocos = [...blocos, ...blocosDe(opcao.texto)]
+    const pediuValorJunto = I.has('pergunta_preco') && pedeuPrecoDeVerdade
+    // Convite de call no fim do texto fixo de preço nunca sai aqui também (mesma regra da regra 4, lead Rose/63551).
+    if (pe && opcao && I.has('pergunta_preco')) blocos = [...blocos, ...blocosDe(opcao.texto).filter((b) => !b.trim().endsWith('?'))]
     else if (pe && !opcao && !ehOutraFrente) {
       blocos = [...blocos, ...blocosDe(pe.pergunta)]
       marcarEscopoPerguntado()
+      // Pediu valor junto: a resposta ao escopo destrava o valor. Sem esse marcador a trava "só com pedido de preço"
+      // (lead Rose/63551) segurava o valor depois dessa pergunta, e o lead nunca recebia.
+      if (pediuValorJunto) estado.contadores.preco_pedido_no_como_funciona = true
+    } else if (pe && ehOutraFrente && pediuValorJunto && !estado.contadores.escopo_perguntado) {
+      // Achado real, lead Eduardo/5562995226886, 06/10/2026: perguntou "qual valor" e "o que vocês oferecem" já com
+      // escopo outra_frente, e o valor foi descartado em silêncio. Anúncio: valor personalizado com o Bruno.
+      // Google Meu Negócio: pergunta com site ou sem, que destrava o valor fixo. Mesmo bloco pra não passar de 3 blocos.
+      blocos = [...blocos, `Sobre o valor: anúncio é personalizado e o Bruno passa na call. Já o Google Meu Negócio tem valor fixo. ${blocosDe(pe.pergunta).join(' ')}`]
+      marcarEscopoPerguntado()
+      estado.contadores.preco_pedido_no_como_funciona = true
     }
     estado.contadores.como_funciona_explicado = true
     const a = base('responder_como_funciona', { conteudo: { modo: 'literal', texto: blocos } })
@@ -512,7 +524,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // 4. preço
   // Achado real, lead Rose/63551, 05/10/2026: responder a pergunta de escopo disparava o preço sem o lead ter
   // pedido valor nenhum. Escopo respondido só vira preço se o lead já tinha pedido preço antes (pedidos_de_preco > 0).
-  if ((I.has('pergunta_preco') && pedeuPrecoDeVerdade) || (pe && escopoMudouAgora && estado.contadores.escopo_perguntado && estado.pedidos_de_preco > 0)) {
+  if ((I.has('pergunta_preco') && pedeuPrecoDeVerdade) || (pe && escopoMudouAgora && estado.contadores.escopo_perguntado && (estado.pedidos_de_preco > 0 || estado.contadores.preco_pedido_no_como_funciona))) {
     // Achado real, lead Douglas/5517996427654, 05/10/2026: pediu valor falando de anúncio e de Google. Antes de
     // mandar tudo pro Bruno, pergunta o escopo do GMN/site (que tem preço fixo). Anúncio: valor personalizado na call.
     if ((ehOutraFrente || anuncioSemEscopo) && pe && !estado.contadores.escopo_perguntado) {

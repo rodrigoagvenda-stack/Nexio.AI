@@ -213,5 +213,14 @@ export async function runV3LiveSelfTest(companyId = 30): Promise<{ configVersion
   r = await turno(openai, config, estFollow, [{ role: 'assistant', content: 'Olá, tudo bem? Sou a Laura, atendente do Grupo Venda. Qual o seu nome?' }], mensagem, {}, { origem: 'follow:follow_geral', conteudo: '[Áudio que enviamos, dizia] Oi, tudo bem? Aqui é o Bruno do Grupo Venda. Eu já te mandei mensagem, porém ficou um silêncio total. Eu vou parar de te procurar aqui.' })
   registrar('14. Lead contesta o áudio do follow dizendo que é o primeiro contato (Rose) (depende do modelo)', mensagem, 'Reconhece em uma frase, sem se justificar, e segue a conversa; NÃO escala', r, !r.acao.handoff && r.blocos.length > 0)
 
+  // 15. valor + "o que vocês oferecem" com escopo outra_frente (Eduardo): anúncio com o Bruno, Google pergunta site ou sem
+  const estEduardo: Estado = { ...ESTADO_INICIAL(v), etapa: 'qualificando', turno: 6, dados: { nome: 'Eduardo', negocio: 'empresa de ferro e aço em Goiânia', cidade: 'Goiânia', aparece_no_google: 'sim', fez_anuncio: 'nao', escopo: 'outra_frente' }, contadores: { ...contadores, ultimo_id_perguntado: 'canal_aquisicao' } }
+  mensagem = 'E qual valor do seu serviço? E o que vc me oferece'
+  r = await turno(openai, config, estEduardo, [{ role: 'assistant', content: 'Hoje, você vive só de indicação e boca a boca?' }], mensagem, {})
+  registrar('15a. Pede valor e o que oferecemos, já com interesse em anúncio (Eduardo)', mensagem, 'Explica, diz que anúncio é personalizado (Bruno na call) e pergunta se o Google é só configuração ou com site; sem R$ ainda', r, /personaliz/i.test(textoSdr(r)) && /site/i.test(textoSdr(r)) && !textoSdr(r).includes('R$'))
+  mensagem = 'Só o Google mesmo'
+  r = await turno(openai, config, r.estado, [{ role: 'user', content: 'E qual valor do seu serviço?' }, { role: 'assistant', content: 'Sobre o valor: anúncio é personalizado e o Bruno passa na call. Já o Google Meu Negócio tem valor fixo. Para eu entender o seu cenário: o seu foco agora é apenas estruturar e posicionar o seu Google Meu Negócio, ou você também precisa da criação de um site?' }], mensagem, {})
+  registrar('15b. Responde o escopo depois (Eduardo)', mensagem, 'Recebe o valor do Start (R$ 1.199)', r, r.acao.tipo === 'responder_preco' && textoSdr(r).includes('1.199'))
+
   return { configVersion: cfgRow.version, resultados, passou: resultados.every((x) => x.passou) }
 }
