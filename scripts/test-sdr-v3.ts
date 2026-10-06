@@ -366,6 +366,16 @@ ok('Rose: respondeu o escopo sem pedir preço: NÃO solta valor', d.acao.tipo !=
 // Achado real, lead Rose/63551: pediu preço, respondeu escopo, mas ramo e cidade ainda faltam: pergunta a qualificação, não o valor
 d = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), est({ dados: { nome: 'Rose', escopo: '' }, contadores: { ...ESTADO_INICIAL(3).contadores, escopo_perguntado: true }, pedidos_de_preco: 1 }), config, ctx())
 ok('Rose: pediu preço, escopo respondido, qualificação incompleta: NÃO solta valor e pergunta a qualificação', d.acao.tipo !== 'responder_preco' && !txt(d.acao).includes('R$') && !!d.acao.proxima_pergunta, d.acao.tipo)
+// Achado real, lead Cris/5591984385343, 06/10/2026: pediu valor com escopo gmn conhecido e qualificação incompleta: tem que receber o valor
+d = decidir(ex({ intencoes: ['pergunta_preco', 'resposta_qualificacao'], dados: { escopo: 'gmn' } }), est({ dados: { nome: 'Cris', escopo: 'gmn' } }), config, ctx({ mensagemLead: 'Qual valor?' }))
+ok('pediu valor, qualificação incompleta, escopo conhecido: responde o valor', d.acao.tipo === 'responder_preco' && txt(d.acao).includes('R$ 1.199'), d.acao.tipo)
+// Achado real, lead Douglas/5517996427654, 05/10/2026: menção a anúncio não pode apagar escopo GMN já escolhido
+d = decidir(ex({ intencoes: ['pergunta_preco', 'interesse_outra_frente'] }), est({ dados: { ...completo.dados, escopo: 'gmn' } }), config, ctx({ mensagemLead: 'quanto custa o google e o trafego' }))
+ok('anúncio + GMN já escolhido: mantém o escopo GMN e sai o valor do Google', d.estado.dados.escopo === 'gmn' && d.acao.tipo === 'responder_preco' && txt(d.acao).includes('R$ 1.199'), d.acao.tipo)
+// Achado real, lead Douglas/5517996427654: pediu valor falando de anúncio, sem escopo ainda: não manda tudo pro Bruno sem perguntar o GMN
+d = decidir(ex({ intencoes: ['pergunta_preco', 'interesse_outra_frente'] }), est({ dados: { ...completo.dados, escopo: '' } }), config, ctx({ mensagemLead: 'quanto custa o google e o trafego' }))
+ok('anúncio sem escopo: diz que anúncio é personalizado e pergunta o escopo do GMN, sem valor', txt(d.acao).includes('personalizado') && !txt(d.acao).includes('R$') && d.acao.tipo === 'responder_preco', d.acao.tipo)
+
 // Achado real, lead Guilherme/63558, 05/10/2026: "não entendi" na pergunta do decisor escalou pro Bruno na 2ª vez
 d = decidir(ex({ intencoes: ['outro'] }), est({ dados: { nome: 'Guilherme' }, contadores: { ...ESTADO_INICIAL(3).contadores, outros_seguidos: 0 } }), config, ctx({ mensagemLead: 'Não entendi' }))
 ok('não entendi (1ª vez): reformula a pergunta, não escala', d.acao.tipo === 'perguntar' && !d.acao.handoff, d.acao.tipo)

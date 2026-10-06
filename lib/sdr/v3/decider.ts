@@ -445,7 +445,12 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // escalar de verdade. Agora passa TODOS os fatos como candidatos (igual a regra genérica de pergunta_fato,
   // linha ~540), com consulta_rag = mensagem do lead: quem escolhe qual fato citar é quem lê o texto de
   // verdade, não uma lista fixa de 1 item só.
-  if (I.has('interesse_outra_frente') && (estado.dados.escopo ?? '').trim() !== 'outra_frente') {
+  // Achado real, lead Douglas/5517996427654, 05/10/2026: mencionar anúncio apagava o escopo GMN/site já escolhido,
+  // e todo valor (inclusive o do Google, que tem preço fixo) ia pro Bruno. Escolha real de GMN/site não é sobrescrita.
+  const escopoRealConhecido = (config.preco.por_escopo?.opcoes ?? []).some((o) => o.valor === (estado.dados.escopo ?? '').trim())
+  const anuncioSemEscopo = I.has('interesse_outra_frente') && !escopoRealConhecido
+  // Pedido de valor de verdade não entra aqui: quem trata valor é a regra de preço logo abaixo.
+  if (I.has('interesse_outra_frente') && (estado.dados.escopo ?? '').trim() !== 'outra_frente' && !escopoRealConhecido && !(I.has('pergunta_preco') && pedeuPrecoDeVerdade)) {
     estado.dados.escopo = 'outra_frente'
     if (!filled(estado.dados, 'aparece_no_google')) estado.dados.aparece_no_google = 'n/a'
     if (!filled(estado.dados, 'tem_perfil_google')) estado.dados.tem_perfil_google = 'n/a'
@@ -498,6 +503,13 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // Achado real, lead Rose/63551, 05/10/2026: responder a pergunta de escopo disparava o preço sem o lead ter
   // pedido valor nenhum. Escopo respondido só vira preço se o lead já tinha pedido preço antes (pedidos_de_preco > 0).
   if ((I.has('pergunta_preco') && pedeuPrecoDeVerdade) || (pe && escopoMudouAgora && estado.contadores.escopo_perguntado && estado.pedidos_de_preco > 0)) {
+    // Achado real, lead Douglas/5517996427654, 05/10/2026: pediu valor falando de anúncio e de Google. Antes de
+    // mandar tudo pro Bruno, pergunta o escopo do GMN/site (que tem preço fixo). Anúncio: valor personalizado na call.
+    if ((ehOutraFrente || anuncioSemEscopo) && pe && !estado.contadores.escopo_perguntado) {
+      marcarEscopoPerguntado()
+      estado.pedidos_de_preco += 1
+      return { estado, acao: base('responder_preco', { conteudo: { modo: 'literal', texto: ['Pra anúncio, o valor é personalizado e o Bruno passa na call. Já o Google Meu Negócio tem valor fixo.', ...blocosDe(pe.pergunta)] } }) }
+    }
     if (ehOutraFrente) {
       // Achado real, lead Carlos/conv530 (revenda de veículos), 02/10/2026: pediu preço 2x pra uma frente sem
       // valor fechado na config (gestão de anúncios) e recebeu a mesma frase as duas vezes. Primeira vez explica
@@ -517,7 +529,9 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     if (pe && opcao) {
       // Achado real, lead Rose/63551, 05/10/2026: o valor saiu com ramo e cidade ainda não informados. Valor só
       // depois da qualificação completa; antes disso segue a próxima pergunta de qualificação.
-      if (!completa) return { estado, acao: comPergunta(base('perguntar')) }
+      // Achado real, lead Cris/5591984385343, 06/10/2026: pediu o valor 3x e nunca recebeu, porque esta trava
+      // segurava o preço mesmo com pedido explícito. Pedido explícito de valor sempre é respondido.
+      if (!completa && !(I.has('pergunta_preco') && pedeuPrecoDeVerdade)) return { estado, acao: comPergunta(base('perguntar')) }
       estado.pedidos_de_preco += 1
       // Texto fixo de preço nunca termina em pergunta de call: achado real, lead Rose/63551, 05/10/2026, o convite
       // "topa marcar 15 minutos?" saiu junto com o preço sem o lead ter pedido reunião. Quem pergunta é o decisor.
