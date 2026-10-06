@@ -108,6 +108,8 @@ ok('objeção repetida', d.acao.tipo === 'objecao_repetida')
   ok('"não posso atender ligação" na oferta de horário: escala', r.acao.tipo === 'escalar', r.acao.tipo)
   r = decidir(ex({ intencoes: ['escolheu_horario'], horario_escolhido: '2026-10-06T16:00:00' }), emAgenda, config, ctx({ mensagemLead: 'Ligação não dá, mas pode ser às 16h por videochamada' }))
   ok('recusa de ligação + videochamada/horário escolhido: NÃO escala', r.acao.tipo !== 'escalar', r.acao.tipo)
+  r = decidir(ex({ intencoes: ['quer_agendar'] }), emAgenda, config, ctx({ mensagemLead: 'pode ser por videochamada, ligação não dá' }))
+  ok('recusa de ligação + "videochamada" sem horário na frase: NÃO escala', r.acao.tipo !== 'escalar', r.acao.tipo)
   r = decidir(ex({ intencoes: ['quer_agendar'] }), emAgenda, config, ctx({ mensagemLead: 'pode ser por meet, ligação não dá' }))
   ok('recusa de ligação + Meet: NÃO escala', r.acao.tipo !== 'escalar', r.acao.tipo)
   r = decidir(ex({ intencoes: ['pergunta_preco'] }), est({ dados: { negocio: 'dentista', aparece_no_google: 'nao', tem_perfil_google: 'sim', so_indicacao: 'nao', fez_anuncio: 'nao', impacto_atual: 'perde clientes', urgencia: 'sim', decisor: 'sim', orcamento_declarado: 'sim, tenho orçamento', escopo: 'gmn' } }), config, ctx({ mensagemLead: 'me passa o valor só por aqui mesmo' }))
@@ -403,9 +405,11 @@ ok('preço com escopo e qualificação já conhecidos: responde direto', d.acao.
 // Achado real, lead Rose/63551: escopo respondido sem pedido de preço não pode virar valor
 d = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), est({ dados: { nome: 'Rose' }, contadores: { ...ESTADO_INICIAL(3).contadores, escopo_perguntado: true } }), config, ctx())
 ok('Rose: respondeu o escopo sem pedir preço: NÃO solta valor', d.acao.tipo !== 'responder_preco' && !txt(d.acao).includes('R$'), d.acao.tipo)
-// Achado real, lead Rose/63551: pediu preço, respondeu escopo, mas ramo e cidade ainda faltam: pergunta a qualificação, não o valor
+// Lead pediu preço, o SDR perguntou o escopo e ele respondeu: recebe o valor, mesmo com a qualificação incompleta
+// (senão repete o erro da Cris/5591984385343, que pediu valor 3x e não recebeu)
 d = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), est({ dados: { nome: 'Rose', escopo: '' }, contadores: { ...ESTADO_INICIAL(3).contadores, escopo_perguntado: true }, pedidos_de_preco: 1 }), config, ctx())
-ok('Rose: pediu preço, escopo respondido, qualificação incompleta: NÃO solta valor e pergunta a qualificação', d.acao.tipo !== 'responder_preco' && !txt(d.acao).includes('R$') && !!d.acao.proxima_pergunta, d.acao.tipo)
+ok('pediu preço, escopo respondido, qualificação incompleta: recebe o valor', d.acao.tipo === 'responder_preco' && txt(d.acao).includes('R$ 1.199'), d.acao.tipo)
+ok('pediu preço, escopo respondido: texto do valor sem convite de call no fim', !txt(d.acao).includes('marcar 15 minutos'))
 // Achado real, lead Cris/5591984385343, 06/10/2026: pediu valor com escopo gmn conhecido e qualificação incompleta: tem que receber o valor
 d = decidir(ex({ intencoes: ['pergunta_preco', 'resposta_qualificacao'], dados: { escopo: 'gmn' } }), est({ dados: { nome: 'Cris', escopo: 'gmn' } }), config, ctx({ mensagemLead: 'Qual valor?' }))
 ok('pediu valor, qualificação incompleta, escopo conhecido: responde o valor', d.acao.tipo === 'responder_preco' && txt(d.acao).includes('R$ 1.199'), d.acao.tipo)

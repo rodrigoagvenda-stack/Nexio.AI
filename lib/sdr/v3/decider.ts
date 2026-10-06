@@ -369,7 +369,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // se ele já escolheu horário ou fala de videochamada/Meet; "só por aqui" solto (ex.: pedido de valor) não entra.
   const RECUSA_LIGACAO_RE = /\b(ligacao nao (da|rola|posso|consigo)|nao (posso|consigo) (ligar|atender|falar (por|no) telefone)|nao da pra (ligar|atender|falar (por|no) telefone)|nao (quero|gosto de) (ligacao|ligar|telefone)|precisa ser (por aqui|por mensagem|por escrito)|so (por|no) (aqui|mensagem|whatsapp|texto))\b/
   const msgNorm = norm(ctx.mensagemLead ?? '')
-  if ((estado.contadores.horarios_ofertados || estado.etapa === 'oferta_horario') && !I.has('escolheu_horario') && !/\b(video|meet|chamada)\b/.test(msgNorm) && RECUSA_LIGACAO_RE.test(msgNorm)) {
+  if ((estado.contadores.horarios_ofertados || estado.etapa === 'oferta_horario') && !I.has('escolheu_horario') && !/(video|meet|chamada)/.test(msgNorm) && RECUSA_LIGACAO_RE.test(msgNorm)) {
     return escalar('lead não quer ligação, só conversa por mensagem')
   }
 
@@ -537,11 +537,10 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
       }
     }
     if (pe && opcao) {
-      // Achado real, lead Rose/63551, 05/10/2026: o valor saiu com ramo e cidade ainda não informados. Valor só
-      // depois da qualificação completa; antes disso segue a próxima pergunta de qualificação.
-      // Achado real, lead Cris/5591984385343, 06/10/2026: pediu o valor 3x e nunca recebeu, porque esta trava
-      // segurava o preço mesmo com pedido explícito. Pedido explícito de valor sempre é respondido.
-      if (!completa && !(I.has('pergunta_preco') && pedeuPrecoDeVerdade)) return { estado, acao: comPergunta(base('perguntar')) }
+      // Quem chega aqui pediu valor (agora, ou antes, com o escopo respondido só depois). Lead que NÃO pediu valor
+      // nunca entra: a condição do bloco exige pedidos_de_preco > 0 (achado real, lead Rose/63551, 05/10/2026).
+      // Achado real, lead Cris/5591984385343, 06/10/2026: uma trava de "qualificação completa" aqui deixou ela
+      // pedir o valor 3x sem receber. Quem pediu valor recebe o valor, mesmo com a qualificação incompleta.
       estado.pedidos_de_preco += 1
       // Texto fixo de preço nunca termina em pergunta de call: achado real, lead Rose/63551, 05/10/2026, o convite
       // "topa marcar 15 minutos?" saiu junto com o preço sem o lead ter pedido reunião. Quem pergunta é o decisor.
