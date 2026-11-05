@@ -105,7 +105,8 @@ export default async function DashboardLayout({
   }
 
   // Server-side trial gate: redirect before rendering any content
-  if (trialExpiredForGuard) {
+  // Admin da plataforma nunca é preso pelo bloqueio de teste vencido (senão o "voltar" do /admin vira loop)
+  if (trialExpiredForGuard && !adminUser) {
     const headersList = await headers();
     const pathname = headersList.get('x-pathname') ?? '/';
     const GATE_ALLOWED_EXACT = ['/configuracoes', '/planos'];
@@ -144,7 +145,7 @@ export default async function DashboardLayout({
     >
     <FeaturesProvider features={features}>
     <div className="flex h-screen bg-background">
-      <TrialGuard trialExpired={trialExpiredForGuard} reason={gateReason} />
+      <TrialGuard trialExpired={trialExpiredForGuard && !adminUser} reason={gateReason} />
       <ZaapliLoader minDuration={900} />
       <Sidebar
         isAdmin={isAdmin}

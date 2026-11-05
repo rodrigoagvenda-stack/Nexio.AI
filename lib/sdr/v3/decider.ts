@@ -38,6 +38,11 @@ export interface Decisao {
   estado: Estado
 }
 
+/** Última frase depois de um valor com texto fixo: pergunta aberta e leve, nunca convite de call. */
+// Black November (05/11/2026): o preço agora fecha com CTA de vaga, não com a pergunta solta "Faz sentido pra você?".
+// Pedido do Rodrigo: a mensagem de preço terminava em "...5 dias úteis." sem chamar pra ação. Para voltar ao
+// fechamento antigo (achado do lead Rose/63551, convite de call sem o lead pedir), troque de volta por 'Faz sentido pra você?'.
+const FECHAMENTO_PRECO = 'Quer garantir uma das vagas? Eu te passo os horários do Bruno pra fechar.'
 const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim()
 
 /** O número (em reais) que o LEAD disse na resposta, se ele disse algum ("uns 200", "consigo 300 por mês",
@@ -501,7 +506,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     let blocos = blocosDe(config.como_funciona.texto)
     const pediuValorJunto = I.has('pergunta_preco') && pedeuPrecoDeVerdade
     // Convite de call no fim do texto fixo de preço nunca sai aqui também (mesma regra da regra 4, lead Rose/63551).
-    if (pe && opcao && I.has('pergunta_preco')) blocos = [...blocos, ...blocosDe(opcao.texto).filter((b) => !b.trim().endsWith('?'))]
+    if (pe && opcao && I.has('pergunta_preco')) blocos = [...blocos, ...blocosDe(opcao.texto).filter((b) => !b.trim().endsWith('?')), FECHAMENTO_PRECO]
     else if (pe && !opcao && !ehOutraFrente) {
       blocos = [...blocos, ...blocosDe(pe.pergunta)]
       marcarEscopoPerguntado()
@@ -538,14 +543,14 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
       // por quê (precisa analisar o negócio antes de falar valor); pedido repetido vira lembrete curto, não o
       // texto inteiro de novo -- mesmo padrão já usado pra preço com escopo definido (linha ~475).
       if (estado.contadores.outra_frente_valor_explicado) {
-        const a = base('responder_preco', { conteudo: { modo: 'livre', texto: 'Como te falei, preciso analisar seu negócio antes de fechar um valor -- é o Bruno quem faz essa análise com você.' } })
+        const a = base('responder_preco', { conteudo: { modo: 'livre', texto: 'Como te falei, preciso analisar seu negócio antes de fechar um valor. É o Bruno quem faz essa análise com você.' } })
         a.contexto.push('Você já explicou isso nesta conversa. Relembre em uma frase curta, sem repetir o texto todo.')
         return { estado, acao: comPergunta(a) }
       }
       estado.contadores.outra_frente_valor_explicado = true
       return {
         estado,
-        acao: comPergunta(base('responder_preco', { conteudo: { modo: 'literal', texto: 'Pra essa frente, preciso analisar o seu negócio antes de poder falar de valores com precisão -- é o Bruno quem faz essa análise e te passa o número certo pro seu caso.' } })),
+        acao: comPergunta(base('responder_preco', { conteudo: { modo: 'literal', texto: 'Pra essa frente, preciso analisar o seu negócio antes de poder falar de valores com precisão. É o Bruno quem faz essa análise e te passa o número certo pro seu caso.' } })),
       }
     }
     if (pe && opcao) {
@@ -556,7 +561,11 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
       estado.pedidos_de_preco += 1
       // Texto fixo de preço nunca termina em pergunta de call: achado real, lead Rose/63551, 05/10/2026, o convite
       // "topa marcar 15 minutos?" saiu junto com o preço sem o lead ter pedido reunião. Quem pergunta é o decisor.
-      const blocosPreco = blocosDe(opcao.texto).filter((b) => !b.trim().endsWith('?'))
+      // Fecha com pergunta aberta e leve (não de call, não de qualificação): "Faz sentido pra você?". Por terminar
+      // em "?", o comPergunta não cola a próxima pergunta de qualificação em cima (parecia fora de lugar logo
+      // depois do valor). A conversa segue na resposta dele: com qualificação incompleta, volta a qualificar;
+      // completa, oferece horário.
+      const blocosPreco = [...blocosDe(opcao.texto).filter((b) => !b.trim().endsWith('?')), FECHAMENTO_PRECO]
       // Mesmo escopo, valor já enviado: não despeja o texto inteiro de novo (achado real, conv 530, 28/09: preço
       // idêntico 2x seguidas). Relembra curto, com os mesmos números (o validador confere que não mudou nada).
       if (estado.contadores.preco_enviado === opcao.valor) {
@@ -575,7 +584,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
       // Rodrigo revisando o lead Anderson, 01/10/2026). Só nesse caminho (pediu preço de verdade): nos outros
       // lugares que também perguntam escopo (combo com como_funciona, pede_pagamento) o reconhecimento não
       // cabe, por isso fica aqui, não dentro do texto de pe.pergunta.
-      return { estado, acao: base('responder_preco', { conteudo: { modo: 'literal', texto: ['Excelente pergunta! A gente tem soluções que se adaptam ao momento de cada negócio, por isso o valor depende do escopo.', ...blocosDe(pe.pergunta)] } }) }
+      return { estado, acao: base('responder_preco', { conteudo: { modo: 'literal', texto: ['A gente tem soluções que se adaptam ao momento de cada negócio, por isso o valor depende do escopo.', ...blocosDe(pe.pergunta)] } }) }
     }
     const antes = config.preco.frases_antes_qualificacao
     const frase = completa ? config.preco.frase_depois_qualificacao : antes[(estado.pedidos_de_preco - 1) % antes.length]
