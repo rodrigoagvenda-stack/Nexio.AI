@@ -40,6 +40,17 @@ export async function runReengageHandoff(): Promise<{ processed: number; errors:
 
   for (const conv of convs ?? []) {
     try {
+      // Achado ao vivo (Michel, Grupo Venda, 10/11/2026) : o lead já tinha COMPRADO
+      // (leads.status='Fechado') quando o lembrete chegou, parecendo robô burro
+      // cobrando um humano que não precisava mais responder nada. Lead fechado ou
+      // perdido não recebe lembrete de jeito nenhum, a conversa acabou de verdade.
+      const { data: leadRow } = await supabase
+        .from('leads')
+        .select('status')
+        .eq('id', conv.id_do_lead)
+        .maybeSingle()
+      if (leadRow?.status === 'Fechado' || leadRow?.status === 'Perdido') continue
+
       // mesma checagem do engine.ts (isAgentePausadoAtivo) : se a última mensagem
       // nossa já foi de um humano de verdade, ele está ativo ali, não manda nada
       const { data: ultimaNossa } = await supabase

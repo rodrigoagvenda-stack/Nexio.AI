@@ -195,6 +195,25 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
   const decisao = decidir(extracao, estadoIn, config, dctx)
   const estado: Estado = decisao.estado
   let acao: Acao = decisao.acao
+  // Achado ao vivo (Michel/lead63561, Grupo Venda, 09/11/2026): lead já tinha COMPRADO (status='Fechado') e
+  // escreveu de novo (só "9k"/"Ok"); o motor normal tratou como qualificação ativa e tentou reagendar reunião
+  // do nada, sem contexto nenhum pro humano entender por quê, parecendo robô burro cobrando cliente que já
+  // fechou. Lead fechado NUNCA roda qualificação/agendamento de novo, não importa o que ele escreva: sempre
+  // escala pra um humano, a decisão normal do motor é descartada nesse caso.
+  if (lead?.status === 'Fechado') {
+    acao = {
+      ...acao,
+      tipo: 'escalar',
+      conteudo: { modo: 'literal', texto: config.escala.frase },
+      proxima_pergunta: null,
+      fatos: [],
+      bloco_fixo: undefined,
+      consulta_rag: undefined,
+      handoff: { motivo: 'lead já fechado, escreveu de novo' },
+      etapa_depois: 'escalado',
+    }
+    estado.etapa = 'escalado'
+  }
   // Resumo do que já sabemos sobre o lead: o redator usa pra não perguntar de novo o que ele já respondeu.
   const resumoDoLead = (lead?.resumo_ia as string | null) ?? null
   if (resumoDoLead?.trim()) acao.contexto.push(`O que já sabemos sobre este lead (não pergunte de novo nada que já está aqui, e não trate como novidade o que já foi dito): ${resumoDoLead.trim()}`)
