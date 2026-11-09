@@ -577,15 +577,24 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
       return { estado, acao: comPergunta(base('responder_preco', { conteudo: { modo: 'literal', texto: blocosPreco } })) }
     }
     estado.pedidos_de_preco += 1
-    if (estado.pedidos_de_preco >= config.preco.escalar_apos) return escalar('lead insistiu em saber o valor')
     if (pe) {
+      // Achado real, lead Jonas/conv1023 (Grupo Venda), 09/11/2026: o escopo nunca foi respondido de verdade
+      // (o lead respondeu outra pergunta pendente no mesmo turno), mas escopo_perguntado já tinha ficado true.
+      // No próximo pedido de preço, o teto de insistência (escalar_apos, checado ANTES desse bloco) batia e
+      // escalava pro Bruno sem nunca ter dado uma segunda chance clara de responder o escopo — o lead nunca
+      // recebeu o preço fixo do Google Meu Negócio por isso. Chegar aqui com `pe` definido SEMPRE significa
+      // escopo ainda desconhecido (linhas 535-577 já resolvem e retornam os casos de escopo conhecido ou
+      // outra_frente antes desse ponto), então pedido de preço com escopo vazio sempre reper­gunta o escopo,
+      // nunca escala por aqui. O teto de insistência (abaixo) só se aplica quando `pe` não existe pra essa
+      // empresa (preço sem modelo por escopo).
       marcarEscopoPerguntado()
       // Reconhece a pergunta antes de pedir o escopo, em vez de ir seco direto pra pergunta (achado real,
       // Rodrigo revisando o lead Anderson, 01/10/2026). Só nesse caminho (pediu preço de verdade): nos outros
       // lugares que também perguntam escopo (combo com como_funciona, pede_pagamento) o reconhecimento não
       // cabe, por isso fica aqui, não dentro do texto de pe.pergunta.
-      return { estado, acao: base('responder_preco', { conteudo: { modo: 'literal', texto: ['A gente tem soluções que se adaptam ao momento de cada negócio, por isso o valor depende do escopo.', ...blocosDe(pe.pergunta)] } }) }
+      return { estado, acao: base('responder_preco', { conteudo: { modo: 'literal', texto: ['Antes de te passar o valor, preciso entender uma coisa.', ...blocosDe(pe.pergunta)] } }) }
     }
+    if (estado.pedidos_de_preco >= config.preco.escalar_apos) return escalar('lead insistiu em saber o valor')
     const antes = config.preco.frases_antes_qualificacao
     const frase = completa ? config.preco.frase_depois_qualificacao : antes[(estado.pedidos_de_preco - 1) % antes.length]
     return { estado, acao: comPergunta(base('responder_preco', { conteudo: { modo: 'literal', texto: frase } })) }
