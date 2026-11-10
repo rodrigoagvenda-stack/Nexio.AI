@@ -743,19 +743,6 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     return { estado, acao: base('aguardar') }
   }
   if (I.has('quer_agendar') || completa) {
-    // Achado real, lead Rafael/5535997494720 (Grupo Venda), 10/11/2026: ele respondeu a pergunta de escopo
-    // (a última obrigatória) sem nunca ter pedido preço, "completa" virou true no mesmo turno, e o SDR pulou
-    // direto pra oferecer horário de reunião sem o lead saber que existe um Start (R$1.199) e um Essencial
-    // (R$2.200) — ele marcaria call sem noção nenhuma de valor. O texto de preço por escopo (opcao.texto) é
-    // a única porta configurada pro convite de call ("topa marcar 15 minutos?"); regra 10 não pode abrir uma
-    // porta paralela pra reunião sem preço. Só pula essa etapa quando o lead pediu agendar explicitamente
-    // (sabe o que está pedindo) ou o preço já foi mandado nesta conversa.
-    if (completa && !I.has('quer_agendar') && pe && opcao && estado.contadores.preco_enviado !== opcao.valor) {
-      estado.pedidos_de_preco += 1
-      estado.contadores.preco_enviado = opcao.valor
-      const blocosPreco = [...blocosDe(opcao.texto).filter((b) => !b.trim().endsWith('?')), FECHAMENTO_PRECO]
-      return { estado, acao: comPergunta(base('responder_preco', { conteudo: { modo: 'literal', texto: blocosPreco } })) }
-    }
     if (!completa) {
       // Achado real, lead Daiane/conv538, 03/10/2026: ela disse "posso conversar amanhã? Tô caindo de sono" --
       // o extrator corretamente marcou quer_agendar E pede_espera juntos, mas essa regra rodava primeiro e
