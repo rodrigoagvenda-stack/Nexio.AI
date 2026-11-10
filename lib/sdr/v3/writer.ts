@@ -17,7 +17,8 @@ const TOM: Record<Acao['tom_do_lead'], string> = {
 const asList = (t: string | string[]) => (Array.isArray(t) ? t : [t])
 
 function descreverAcao(a: Acao, soReacao: boolean): string {
-  if (soReacao) return 'Escreva SOMENTE uma reação social curta ao que o lead disse (1 frase, sem pergunta, sem oferecer nada). Outro conteúdo será enviado separadamente pelo sistema.'
+  if (soReacao)
+    return 'Escreva SOMENTE uma frase curta reagindo à mensagem mais recente do lead: se foi algo social, responda como uma pessoa responderia; se ele contou algo ou respondeu uma pergunta, mostre que entendeu o que ele disse, com as palavras dele. Sem pergunta, sem oferecer nada, sem prometer resultado. Outro conteúdo será enviado logo depois pelo sistema.'
   const linhas: string[] = []
   switch (a.tipo) {
     case 'aguardar':
@@ -70,7 +71,9 @@ export function promptRedator(config: CompanyConfig, acao: Acao, soReacao: boole
   const termos = (config.validador?.terminologia ?? []).map((t) => `- Diga "${t.usar}", não "${t.evitar}"${t.excecao ? ` (exceção: ${t.excecao})` : ''}.`).join('\n')
   const social = acao.reacao_social && acao.social
     ? `Reação social do lead (${acao.social.tipo}): "${acao.social.texto_do_lead}". Responda a ela primeiro, como uma pessoa faria. Se perguntou "tudo bem?" ou "e você?", diga que está bem, com naturalidade, sem devolver a pergunta. Se agradeceu, receba o agradecimento. Se desabafou, reconheça antes de seguir.`
-    : 'Não há reação social a responder.'
+    : soReacao
+      ? 'Não há reação social a responder: a frase reage ao que o lead contou ou respondeu.'
+      : 'Não há reação social a responder.'
   return `Você é ${p.nome_agente}, do ${p.empresa}, conversando no WhatsApp.
 Escreva como uma pessoa real escreveria, no tom ${p.tom}. Fale no gênero de quem você é (ex.: uma Laura diz "obrigada", nunca "obrigado").
 
@@ -132,7 +135,7 @@ export async function redigir(
   const user =
     `Últimas mensagens:\n${hist}\n` +
     (p.automacao
-      ? `\nAntes da resposta do lead, o sistema enviou uma mensagem automática (${p.automacao.origem}):\n"${p.automacao.conteudo}"\nO lead pode estar respondendo a ela. Se ele contestar algo que essa mensagem disse (ex.: "primeiro contato", "não ficou inativa", "não tive silêncio"), reconheça em uma frase, sem discutir e sem se justificar, e siga a conversa de onde ela está.\n`
+      ? `\nAntes da resposta do lead, o sistema enviou uma mensagem automática (${p.automacao.origem}):\n"${p.automacao.conteudo}"\nO lead pode estar respondendo a ela. Se ele contestar algo que essa mensagem disse (ex.: "primeiro contato", "não ficou inativa", "não tive silêncio"), peça desculpa pela confusão em uma frase curta, SEM confirmar nem negar o que ele disse sobre o histórico (você não tem como saber se houve contato antes: nunca escreva "esse é o nosso primeiro contato" nem "você tem razão" sobre isso), sem discutir e sem se justificar, e siga a conversa de onde ela está.\n`
       : '') +
     (evitar.length ? `\nFrases que você já enviou nesta conversa (não repita):\n${evitar.map((f) => `- ${f}`).join('\n')}\n` : '') +
     (p.violacoes?.length

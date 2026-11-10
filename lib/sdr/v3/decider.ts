@@ -87,11 +87,31 @@ export function qualificacaoCompleta(estado: Estado, config: CompanyConfig): boo
   return config.qualificacao.perguntas.filter((q) => q.obrigatoria).every((q) => filled(estado.dados, q.campo))
 }
 
+export const ID_CONFIRMA_ESCOPO = 'confirma_escopo'
+
+/** Pergunta de confirmação do escopo entendido, quando há um aguardando o lead confirmar. */
+export function perguntaConfirmacaoEscopo(estado: Estado, config: CompanyConfig): { id: string; texto: string } | null {
+  const pe = config.preco.por_escopo
+  const valor = (estado.dados._escopo_a_confirmar ?? '').trim()
+  if (!pe || !valor) return null
+  const op = pe.opcoes.find((o) => o.valor === valor)
+  return { id: ID_CONFIRMA_ESCOPO, texto: `Só pra confirmar se entendi: ${op?.descricao ?? valor}. É isso?` }
+}
+
+/** Instrução pro redator quando a pergunta do turno é a confirmação do escopo. */
+const CONTEXTO_CONFIRMA_ESCOPO =
+  'A pergunta deste turno confirma se você entendeu certo o que o lead precisa. Pode usar as palavras dele, mas a pergunta TEM que deixar claro o mesmo sentido da pergunta de referência (com site ou sem site). Nunca troque esse sentido, mesmo que a mensagem dele pareça dizer outra coisa: se estiver errado, ele mesmo corrige. Não fale de preço, plano nem horário nesta mensagem.'
+
 /** Próxima pergunta permitida: uma por turno, nunca a respondida, nunca a do turno anterior sem resposta. */
 export function proximaPergunta(estado: Estado, config: CompanyConfig, abertura: boolean, ignorarJanela = false): { id: string; texto: string; reformulada: boolean; reformulacaoFixa: boolean } | null {
   const ordenadas = [...config.qualificacao.perguntas].sort((a, b) => a.ordem - b.ordem)
   for (const q of ordenadas) {
     if (filled(estado.dados, q.campo)) continue
+    // Escopo respondido e aguardando o lead confirmar: a "pergunta da vez" é a confirmação, nunca a pergunta de
+    // escopo de novo (ele acabou de responder). Vem antes da janela de 2 turnos de propósito: a confirmação é
+    // sempre no turno logo depois da resposta.
+    const conf = perguntaConfirmacaoEscopo(estado, config)
+    if (conf && q.campo === config.preco.por_escopo?.campo) return { ...conf, reformulada: false, reformulacaoFixa: false }
     if (!q.obrigatoria && !abertura) continue
     const feitas = estado.perguntas_feitas.filter((p) => p.id === q.id)
     const ultima = feitas[feitas.length - 1]
@@ -144,6 +164,49 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // perdia pra sempre, mesmo ele repetindo. Precisa ser incondicional, igual ex.dados, não só dentro da regra 9.
   if (ex.horario_escolhido) estado.dados.horario_escolhido = ex.horario_escolhido
 
+  // 0a. Escopo só vale depois de o lead confirmar o que a IA entendeu. Achado real, lead Rafael/5535997494720,
+  // 10/11/2026: ele disse num áudio que queria o Google mandando cliente direto pro WhatsApp, sem site; a IA
+  // gravou escopo="site" e o SDR seguiu em frente com o plano errado. Nenhuma lista de exemplos cobre todo
+  // jeito de falar: quem confere é o próprio lead, como um vendedor faz ("então é X, certo?"). Enquanto não
+  // confirma, o valor fica em _escopo_a_confirmar e o campo de verdade continua vazio.
+  const peEscopo = config.preco.por_escopo
+  let escopoConfirmadoAgora = false
+  let reperguntarEscopo = false
+  if (peEscopo) {
+    const campo = peEscopo.campo
+    const antes = (entrada.dados[campo] ?? '').trim()
+    const novo = (ex.dados?.[campo] ?? '').trim()
+    const pendente = (entrada.dados._escopo_a_confirmar ?? '').trim()
+    const voltarAoAnterior = () => {
+      if (antes) estado.dados[campo] = antes
+      else delete estado.dados[campo]
+    }
+    const aceitar = (valor: string) => {
+      estado.dados[campo] = valor
+      delete estado.dados._escopo_a_confirmar
+      escopoConfirmadoAgora = valor !== antes
+    }
+    if (pendente) {
+      if (ex.confirmacao === 'sim') aceitar(pendente)
+      else if (novo && novo !== pendente) aceitar(novo) // corrigiu dizendo o que precisa: a correção já confirma
+      else if (novo === pendente && ex.confirmacao !== 'nao') aceitar(pendente) // repetiu o mesmo com outras palavras
+      else if (ex.confirmacao === 'nao') {
+        voltarAoAnterior()
+        delete estado.dados._escopo_a_confirmar
+        reperguntarEscopo = true
+      } else voltarAoAnterior() // falou de outra coisa: a confirmação continua pendente
+    } else if (novo && novo !== antes) {
+      // Já confirmou uma vez nesta conversa (ou corrigiu depois de um "não"): aceita direto, confirmar de novo vira robô
+      if ((estado.contadores.escopo_confirmacoes ?? 0) >= 1) aceitar(novo)
+      else {
+        voltarAoAnterior()
+        estado.dados._escopo_a_confirmar = novo
+        estado.contadores.escopo_confirmacoes = (estado.contadores.escopo_confirmacoes ?? 0) + 1
+      }
+    }
+  }
+  const escopoPendente = !!peEscopo && !!(estado.dados._escopo_a_confirmar ?? '').trim()
+
   // 0b. implicação lógica entre campos: acabou de preencher um campo que, por si só, já responde outro campo
   // ainda vazio (ex.: fez_anuncio="sim" já implica so_indicacao="nao"). Nunca sobrescreve resposta real do lead.
   for (const imp of config.qualificacao.implicacoes ?? []) {
@@ -155,6 +218,9 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
 
   const campoDe = (id: string) => config.qualificacao.perguntas.find((q) => q.id === id)?.campo
   for (const p of estado.perguntas_feitas) if (!p.respondida && campoDe(p.id) && filled(estado.dados, campoDe(p.id)!)) p.respondida = true
+  // Escopo aguardando confirmação: o lead respondeu, só falta conferir. Não conta como pergunta sem resposta
+  // (senão a trava de "obrigatória sem resposta 2x" escalaria pro Bruno no meio da confirmação).
+  if (escopoPendente) for (const p of estado.perguntas_feitas) if (campoDe(p.id) === peEscopo!.campo) p.respondida = true
 
   // Desiste de uma pergunta obrigatória travada depois de escalar por causa dela uma vez: sem isso, toda vez que
   // o resto da qualificação fica completo em volta desse buraco, a mesma trava dispara handoff de novo, pausando
@@ -199,6 +265,8 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   if (decisaoOrcamento) return decisaoOrcamento
 
   const I = new Set(ex.intencoes)
+  // "Não" à confirmação do escopo é correção do que a IA entendeu, nunca recusa do serviço
+  if (entrada.dados._escopo_a_confirmar && ex.confirmacao === 'nao') I.delete('recusa')
   // Depois de já ter explicado "como funciona" uma vez nesta conversa, uma nova pergunta_como_funciona vira
   // pergunta_fato de verdade (RAG): nunca repete o mesmo texto fixo de novo, e responde o que o lead pediu.
   if (I.has('pergunta_como_funciona') && (!config.como_funciona || estado.contadores.como_funciona_explicado)) I.add('pergunta_fato')
@@ -246,7 +314,9 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     fatos: [],
     proxima_pergunta: null,
     tom_do_lead: ex.tom_do_lead,
-    contexto: [],
+    contexto: reperguntarEscopo
+      ? ['O lead disse que você entendeu errado o que ele precisa. Reconheça em meia frase (ex.: "Opa, entendi errado então"), sem repetir o entendimento errado, e siga.']
+      : [],
     etapa_depois: etapaAvanca(estado.etapa, 'qualificando'),
     ...extra,
   })
@@ -275,6 +345,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     const q = proximaPergunta(estado, config, false)
     if (q) {
       a.proxima_pergunta = { id: q.id, texto: q.texto }
+      if (q.id === ID_CONFIRMA_ESCOPO) a.contexto.push(CONTEXTO_CONFIRMA_ESCOPO)
       comentar(a)
       if (q.reformulada && !q.reformulacaoFixa) a.contexto.push('Esta pergunta já foi feita antes e não foi respondida: reformule com outras palavras, sem cobrar.')
     } else if (!a.handoff) {
@@ -297,6 +368,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     const q = proximaPergunta(estado, config, false)
     if (q) {
       a.proxima_pergunta = { id: q.id, texto: q.texto }
+      if (q.id === ID_CONFIRMA_ESCOPO) a.contexto.push(CONTEXTO_CONFIRMA_ESCOPO)
       comentar(a)
       if (q.reformulada && !q.reformulacaoFixa) a.contexto.push('Esta pergunta já foi feita antes e não foi respondida: reformule com outras palavras, sem cobrar.')
     }
@@ -467,6 +539,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // Pedido de valor de verdade não entra aqui: quem trata valor é a regra de preço logo abaixo.
   if (I.has('interesse_outra_frente') && (estado.dados.escopo ?? '').trim() !== 'outra_frente' && !escopoRealConhecido && !(I.has('pergunta_preco') && pedeuPrecoDeVerdade)) {
     estado.dados.escopo = 'outra_frente'
+    delete estado.dados._escopo_a_confirmar // o lead mudou de assunto pra outra frente: não há mais o que confirmar
     if (!filled(estado.dados, 'aparece_no_google')) estado.dados.aparece_no_google = 'n/a'
     if (!filled(estado.dados, 'tem_perfil_google')) estado.dados.tem_perfil_google = 'n/a'
     if ((config.fatos ?? []).length > 0) {
@@ -487,7 +560,16 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   const escopo = pe ? (estado.dados[pe.campo] ?? '').trim() : ''
   const ehOutraFrente = escopo === 'outra_frente'
   const opcao = pe && !ehOutraFrente ? pe.opcoes.find((o) => o.valor === escopo) : undefined
-  const escopoMudouAgora = !!pe && !!ex.dados?.[pe.campo]?.trim() && ex.dados[pe.campo].trim() !== (entrada.dados[pe.campo] ?? '').trim()
+  // Escopo só "muda" quando o lead confirma (regra 0a): o valor que a IA entendeu sozinho não destrava preço
+  const escopoMudouAgora = !!pe && escopoConfirmadoAgora
+  /** Escopo entendido e aguardando o lead confirmar: em vez de perguntar o escopo de novo, pergunta se entendeu certo. */
+  const acaoConfirmarEscopo = (tipo: Acao['tipo'], extraContexto?: string): Acao => {
+    const a = base(tipo, { proxima_pergunta: perguntaConfirmacaoEscopo(estado, config) })
+    a.contexto.push(CONTEXTO_CONFIRMA_ESCOPO)
+    if (extraContexto) a.contexto.push(extraContexto)
+    return a
+  }
+  const PRECO_DEPOIS_DA_CONFIRMACAO = 'O lead também perguntou o valor: diga em meia frase que passa o valor assim que confirmar isso.'
   const blocosDe = (t: string | string[]) => asArr(preencher2(t, estado.dados))
   // A pergunta de escopo (pe.pergunta) é feita por 3 caminhos diferentes aqui embaixo (como_funciona, pergunta de
   // preço, pede_pagamento), todos fora do fluxo normal de proxima_pergunta/perguntas_feitas que o resto da
@@ -506,8 +588,15 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     let blocos = blocosDe(config.como_funciona.texto)
     const pediuValorJunto = I.has('pergunta_preco') && pedeuPrecoDeVerdade
     // Convite de call no fim do texto fixo de preço nunca sai aqui também (mesma regra da regra 4, lead Rose/63551).
-    if (pe && opcao && I.has('pergunta_preco')) blocos = [...blocos, ...blocosDe(opcao.texto).filter((b) => !b.trim().endsWith('?')), FECHAMENTO_PRECO]
-    else if (pe && !opcao && !ehOutraFrente) {
+    if (pe && opcao && I.has('pergunta_preco') && !escopoPendente) blocos = [...blocos, ...blocosDe(opcao.texto).filter((b) => !b.trim().endsWith('?')), FECHAMENTO_PRECO]
+    else if (pe && !ehOutraFrente && escopoPendente) {
+      // Escopo já respondido, só falta o lead confirmar: a confirmação vai como pergunta (comPergunta abaixo), e se
+      // ele pediu valor junto, a confirmação destrava o valor no próximo turno.
+      if (pediuValorJunto) {
+        estado.contadores.escopo_perguntado = true
+        estado.contadores.preco_pedido_no_como_funciona = true
+      }
+    } else if (pe && !opcao && !ehOutraFrente) {
       blocos = [...blocos, ...blocosDe(pe.pergunta)]
       marcarEscopoPerguntado()
       // Pediu valor junto: a resposta ao escopo destrava o valor. Sem esse marcador a trava "só com pedido de preço"
@@ -523,7 +612,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     }
     estado.contadores.como_funciona_explicado = true
     const a = base('responder_como_funciona', { conteudo: { modo: 'literal', texto: blocos } })
-    return { estado, acao: pe && !opcao && !ehOutraFrente ? a : comPergunta(a) }
+    return { estado, acao: pe && !opcao && !ehOutraFrente && !escopoPendente ? a : comPergunta(a) }
   }
 
   // 4. preço
@@ -532,10 +621,18 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   if ((I.has('pergunta_preco') && pedeuPrecoDeVerdade) || (pe && escopoMudouAgora && estado.contadores.escopo_perguntado && (estado.pedidos_de_preco > 0 || estado.contadores.preco_pedido_no_como_funciona))) {
     // Achado real, lead Douglas/5517996427654, 05/10/2026: pediu valor falando de anúncio e de Google. Antes de
     // mandar tudo pro Bruno, pergunta o escopo do GMN/site (que tem preço fixo). Anúncio: valor personalizado na call.
-    if ((ehOutraFrente || anuncioSemEscopo) && pe && !estado.contadores.escopo_perguntado) {
+    if ((ehOutraFrente || anuncioSemEscopo) && pe && !estado.contadores.escopo_perguntado && !escopoPendente) {
       marcarEscopoPerguntado()
       estado.pedidos_de_preco += 1
       return { estado, acao: base('responder_preco', { conteudo: { modo: 'literal', texto: ['Pra anúncio, o valor é personalizado e o Bruno passa na call. Já o Google Meu Negócio tem valor fixo.', ...blocosDe(pe.pergunta)] } }) }
+    }
+    if (pe && escopoPendente) {
+      // O lead acabou de dizer o que precisa (ou trocou de plano) e ainda não confirmou: nenhum valor sai antes
+      // disso, nem o do plano anterior. Confirma; o "sim" dele destrava o valor no próximo turno
+      // (escopo_perguntado + pedidos_de_preco > 0 na condição desta regra).
+      estado.pedidos_de_preco += 1
+      estado.contadores.escopo_perguntado = true
+      return { estado, acao: acaoConfirmarEscopo('perguntar', PRECO_DEPOIS_DA_CONFIRMACAO) }
     }
     if (ehOutraFrente) {
       // Achado real, lead Carlos/conv530 (revenda de veículos), 02/10/2026: pediu preço 2x pra uma frente sem
@@ -686,6 +783,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   if (I.has('pede_pagamento')) {
     if (!ctx.cobrancaAtiva) return escalar('lead pediu para pagar e a cobrança automática não está ativa')
     // Preço por escopo: nunca gera cobrança do valor fixo da config sem saber qual escopo (Start e Essencial têm valores diferentes)
+    if (pe && escopoPendente) return { estado, acao: acaoConfirmarEscopo('perguntar') }
     if (pe && !opcao) {
       marcarEscopoPerguntado()
       return { estado, acao: base('perguntar', { conteudo: { modo: 'literal', texto: blocosDe(pe.pergunta) } }) }
@@ -812,6 +910,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   const a = base('perguntar')
   if (q) {
     a.proxima_pergunta = { id: q.id, texto: q.texto }
+    if (q.id === ID_CONFIRMA_ESCOPO) a.contexto.push(CONTEXTO_CONFIRMA_ESCOPO)
     if (!abertura) comentar(a)
     if (q.reformulada && !q.reformulacaoFixa) a.contexto.push('Esta pergunta já foi feita antes e não foi respondida: reformule com outras palavras, sem cobrar.')
   } else if (!abertura) {

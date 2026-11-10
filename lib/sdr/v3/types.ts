@@ -49,6 +49,10 @@ export interface Extracao {
   tom_do_lead: TomLead
   confianca: 'alta' | 'media' | 'baixa'
   resposta_automatica: boolean
+  /** Resposta do lead à confirmação do escopo ("entendi que você precisa de X, é isso?"). null fora dessa situação. */
+  confirmacao?: 'sim' | 'nao' | null
+  /** Campos que a IA preencheu sem trecho da fala do lead que sustente: descartados (fica no sdr_turn_log pra auditoria). */
+  descartados?: string[]
 }
 
 export type Etapa = 'abertura' | 'qualificando' | 'oferta_horario' | 'confirmando' | 'agendado' | 'escalado' | 'encerrado'
@@ -79,6 +83,8 @@ export interface Contadores {
   agradecimento_fim_enviado?: boolean
   /** O lead pediu valor junto com "como funciona" e recebeu a pergunta de escopo: a resposta ao escopo destrava o valor (sem contar como insistência de preço). */
   preco_pedido_no_como_funciona?: boolean
+  /** Quantas vezes o SDR já pediu pro lead confirmar o escopo entendido: da segunda resposta em diante aceita direto. */
+  escopo_confirmacoes?: number
 }
 
 export interface Estado {

@@ -80,7 +80,7 @@ export function schemaExtracao(config: CompanyConfig) {
   return {
     type: 'object',
     additionalProperties: false,
-    required: ['intencoes', 'social', 'objecao_id', 'pergunta_fato', 'dados', 'horario_escolhido', 'tom_do_lead', 'confianca', 'resposta_automatica'],
+    required: ['intencoes', 'social', 'objecao_id', 'pergunta_fato', 'evidencias', 'dados', 'confirmacao', 'horario_escolhido', 'tom_do_lead', 'confianca', 'resposta_automatica'],
     properties: {
       intencoes: { type: 'array', items: { type: 'string', enum: INTENCOES } },
       social: {
@@ -96,6 +96,14 @@ export function schemaExtracao(config: CompanyConfig) {
       },
       objecao_id: ids.length ? { type: ['string', 'null'], enum: [...ids, null] } : { type: 'null' },
       pergunta_fato: { type: 'array', items: { type: 'string' } },
+      // Vem ANTES de "dados" de propósito: o modelo escreve o trecho do lead primeiro e só depois o valor.
+      evidencias: {
+        type: 'object',
+        additionalProperties: false,
+        required: campos,
+        properties: Object.fromEntries(campos.map((c) => [c, { type: ['string', 'null'] }])),
+      },
+      confirmacao: { type: ['string', 'null'], enum: ['sim', 'nao', null] },
       dados: {
         type: 'object',
         additionalProperties: false,
@@ -138,6 +146,14 @@ function promptSistema(config: CompanyConfig, estado: Estado, agoraSp: string, a
   const escopo = pe
     ? `\nCampo "${pe.campo}" (o que o lead precisa; use SOMENTE um destes valores ou null):\n${pe.opcoes.map((o) => `- "${o.valor}": ${o.descricao}`).join('\n')}\nSó preencha quando o lead disser CLARAMENTE o que precisa (ex.: "só quero o Google", "quero site também", "os dois"). Citar o nome de um produto ou anúncio (ex.: "vi o anúncio do Google Meu Negócio") NÃO é resposta a isso: deixe null.\n`
     : ''
+  const pendente = pe ? (estado.dados._escopo_a_confirmar ?? '').trim() : ''
+  const opPendente = pendente ? pe!.opcoes.find((o) => o.valor === pendente) : undefined
+  const confirmacao = pendente
+    ? `\nCONFIRMAÇÃO PENDENTE: a última pergunta do agente foi pra confirmar se entendeu certo que o lead precisa de: "${opPendente?.descricao ?? pendente}".
+- confirmacao = "sim" se o lead confirmou; "nao" se disse que não é isso ou corrigiu; null se a mensagem não responde a isso.
+- Um "não" aqui é correção do entendimento, NUNCA recusa: não marque recusa só por causa dele.
+- Se ele corrigiu dizendo o que precisa, preencha o campo "${pe!.campo}" com o valor certo (com o trecho dele em evidencias).\n`
+    : '\nconfirmacao: sempre null.\n'
   return `Você só ENTENDE a mensagem de um lead de WhatsApp para a empresa ${config.persona.empresa}. Você não responde ao lead.
 Data e hora agora (America/Sao_Paulo): ${agoraSp}.
 
@@ -168,9 +184,10 @@ ${objecoes || '(nenhuma)'}
 
 Campos de qualificação e as perguntas que os preenchem:
 ${perguntas}
-${escopo}
+${escopo}${confirmacao}
 REGRAS
 - "dados" recebe SOMENTE o que o LEAD disse em qualquer mensagem do trecho abaixo. Nada inferido, nada que o agente tenha escrito, nada do nome de perfil do WhatsApp. Uma resposta curta ("sim", "não", "sou eu") vale para a pergunta que o agente acabou de fazer. Campo sem informação = null.
+- "evidencias": para CADA campo que você preencher em "dados", copie em evidencias o trecho EXATO, palavra por palavra, em que o LEAD diz aquilo (de qualquer mensagem do lead no trecho, inclusive transcrição de áudio). Ache o trecho PRIMEIRO e só depois decida o valor: o valor tem que dizer o mesmo que o trecho, nunca o contrário. Trecho em que o lead nega, recusa ou diz que não quer, não precisa ou não tem tempo pra algo NÃO prova que ele quer isso. Se a resposta foi curta ("sim", "só eu"), o trecho é essa resposta curta. Sem trecho do lead que sustente o valor, deixe o campo null em "dados" e em "evidencias".
 - NÃO se limite ao campo da última pergunta feita: se a MESMA mensagem do lead, com as próprias palavras dele, também responder a OUTRO campo da lista (ainda não perguntado ou perguntado antes), preencha os dois. Isso não é inferir: é o que ele literalmente disse, só que de uma vez só. Exemplo real: perguntado se aparece no Google, respondeu "sim, só queria aparecer em primeiro, já tenho bastante avaliação" — isso responde "aparece_no_google" (sim) E também "tem_perfil_google" (sim, já que avaliação só existe em um perfil criado), mesmo sem a pergunta do perfil ter sido feita ainda. Nunca repita uma pergunta cujo campo a própria resposta do lead já deixou claro.
 - A primeira mensagem do lead costuma ser o texto fixo do próprio anúncio (ex.: "Vi o anúncio e quero saber por que meu negócio não aparece no Google"), igual para todo mundo que clicou, não uma frase que ele escreveu sobre a empresa dele. NUNCA preencha nenhum campo de dados a partir dessa frase de gancho (ex.: NÃO preencha "aparece no Google" como "nao" só porque essa é a frase padrão do anúncio): só preenche quando o lead disser isso com as próprias palavras, fora do gancho do anúncio.
 - Para o campo "negocio": preencha com o que o lead disse do negócio (nome, ramo, cidade) em uma frase curta. Preencha também cidade quando ele disse.
@@ -211,7 +228,21 @@ export async function extrair(
   onUsage?.(completion, 'v3_extrator')
   const raw = JSON.parse(completion.choices[0]?.message?.content || '{}')
   const dados: Record<string, string> = {}
-  for (const [k, v] of Object.entries((raw.dados ?? {}) as Record<string, string | null>)) if (typeof v === 'string' && v.trim()) dados[k] = v.trim()
+  // Trava em código (não depende da IA se autoavaliar): campo só entra se o trecho citado existe de verdade na
+  // fala do lead. Achado real, lead Rafael/5535997494720, 10/11/2026: a IA gravou escopo="site" com confiança
+  // "alta" a partir de um áudio em que ele dizia justamente que não queria site.
+  const falaDoLead = normEv([...p.historico.filter((m) => m.role === 'user').map((m) => m.content), p.mensagemAtual].join(' '))
+  const evidencias = (raw.evidencias ?? {}) as Record<string, string | null>
+  const descartados: string[] = []
+  for (const [k, v] of Object.entries((raw.dados ?? {}) as Record<string, string | null>)) {
+    if (typeof v !== 'string' || !v.trim()) continue
+    // Print/imagem não tem texto pra citar: o trecho seria a descrição da imagem, não a fala do lead
+    if (!/print|imagem|foto|https?:\/\//i.test(v) && !trechoExiste(evidencias[k], falaDoLead)) {
+      descartados.push(`${k}=${v.trim()}`)
+      continue
+    }
+    dados[k] = v.trim()
+  }
   const ids = new Set(p.config.objecoes.map((o) => o.id))
   const extracao: Extracao = {
     intencoes: Array.isArray(raw.intencoes) && raw.intencoes.length ? raw.intencoes : ['outro'],
@@ -223,6 +254,24 @@ export async function extrair(
     tom_do_lead: raw.tom_do_lead ?? 'informal',
     confianca: raw.confianca ?? 'media',
     resposta_automatica: raw.resposta_automatica === true,
+    confirmacao: raw.confirmacao === 'sim' || raw.confirmacao === 'nao' ? raw.confirmacao : null,
+    ...(descartados.length ? { descartados } : {}),
   }
   return extracao
+}
+
+export const normEv = (t: string) =>
+  t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9@.\s]/g, ' ').replace(/\s+/g, ' ').trim()
+
+/** O trecho citado pela IA existe na fala do lead? Literal, ou quase (80% das palavras, tolera vírgula/typo
+ * que o modelo corrigiu ao copiar). Trecho curto ("sim", "só eu") só vale literal. */
+export function trechoExiste(trecho: unknown, falaDoLead: string): boolean {
+  if (typeof trecho !== 'string') return false
+  const t = normEv(trecho)
+  if (!t) return false
+  if (falaDoLead.includes(t)) return true
+  const palavras = t.split(' ').filter((w) => w.length >= 3)
+  if (palavras.length < 3) return false
+  const vocab = new Set(falaDoLead.split(' '))
+  return palavras.filter((w) => vocab.has(w)).length / palavras.length >= 0.8
 }

@@ -1,6 +1,6 @@
 import { GRUPO_VENDA_CONFIG } from '@/lib/sdr/v3/grupo-venda-config'
 import { decidir, valorDitoPeloLead, type DecisorCtx } from '@/lib/sdr/v3/decider'
-import { chatV3, MODELO_V3, MODELO_V3_FALLBACK, schemaExtracao } from '@/lib/sdr/v3/extractor'
+import { chatV3, MODELO_V3, MODELO_V3_FALLBACK, normEv, schemaExtracao, trechoExiste } from '@/lib/sdr/v3/extractor'
 import { corrigirMecanico, validar } from '@/lib/sdr/v3/validator'
 import { validateCompanyConfig } from '@/lib/sdr/v3/config-validate'
 import { filtroDisponibilidade, passaFiltro } from '@/lib/sdr/v3/agenda'
@@ -52,6 +52,9 @@ const ex = (p: Partial<Extracao>): Extracao => ({ intencoes: ['outro'], social: 
 const ctx = (p: Partial<DecisorCtx> = {}): DecisorCtx => ({ temCalendario: true, cobrancaAtiva: false, primeiraMensagemNossa: false, pushName: null, contextoOutbound: null, origemAnuncio: null, reuniaoExistente: null, reuniaoJaAconteceu: false, temReuniaoAtiva: false, mensagemLead: '', ...p })
 const est = (p: Partial<Estado> = {}): Estado => ({ ...ESTADO_INICIAL(2), etapa: 'qualificando', ...p })
 const txt = (a: any) => [a.conteudo?.texto ?? ''].flat().join('\n')
+// Escopo dito pelo lead só vale depois de ele confirmar o que a IA entendeu (lead Rafael, 10/11/2026)
+const pediuConfirmacao = (d: { acao: any }) => d.acao.proxima_pergunta?.id === 'confirma_escopo'
+const confirmar = (d: { estado: Estado }) => decidir(ex({ intencoes: ['resposta_qualificacao'], confirmacao: 'sim' }), d.estado, config, ctx({ mensagemLead: 'isso mesmo' }))
 
 // 1 abertura com pushName como palpite
 let d = decidir(ex({ intencoes: ['social'], social: { tipo: 'cumprimento', texto_do_lead: 'boa tarde, vi o anúncio' } }), ESTADO_INICIAL(2), config, ctx({ primeiraMensagemNossa: true, pushName: 'Carla Souza' }))
@@ -215,7 +218,9 @@ if (config.preco.por_escopo) {
   const outra = pe.opcoes[1]
   if (outra) {
     p1 = decidir(ex({ intencoes: ['pergunta_preco'], dados: { [pe.campo]: outra.valor } }), { ...p1.estado, pedidos_de_preco: 0 }, config, ctx())
-    ok('escopo mudou: manda o valor novo inteiro', p1.acao.conteudo?.modo === 'literal', p1.acao.tipo)
+    ok('escopo mudou + pediu valor: confirma o plano novo antes, sem valor nenhum (nem o do plano antigo)', pediuConfirmacao(p1) && !txt(p1.acao).includes('R$'), p1.acao.tipo)
+    p1 = confirmar(p1)
+    ok('escopo mudou: depois do "sim", manda o valor novo inteiro', p1.acao.conteudo?.modo === 'literal' && p1.estado.dados[pe.campo] === outra.valor, p1.acao.tipo)
   }
 }
 
@@ -396,9 +401,11 @@ const aposComo = d.estado
 // Lead pediu valor antes (pedidos_de_preco: 1) e agora responde o escopo: sai o valor, mas só com qualificação completa
 const aposComoCompleto = est({ dados: { ...completo.dados, escopo: '' }, contadores: { ...ESTADO_INICIAL(3).contadores, escopo_perguntado: true }, pedidos_de_preco: 1 })
 d = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), aposComoCompleto, config, ctx())
+ok('escopo gmn respondido: confirma antes, sem valor e sem oferecer horário', pediuConfirmacao(d) && d.acao.tipo === 'perguntar' && !txt(d.acao).includes('R$'), d.acao.tipo)
+d = confirmar(d)
 ok('escopo gmn (depois de pedido de preço e qualificação completa): sai o Start, Pix e 3x sem juros', d.acao.tipo === 'responder_preco' && txt(d.acao).includes('R$ 1.199') && txt(d.acao).includes('3x de R$ 399,67') && txt(d.acao).includes('sem juros'), txt(d.acao).slice(0, 80))
 ok('escopo gmn: não fala do site nem do Prime', !/2\.200|\bprime\b/i.test(txt(d.acao)))
-d = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'site' } }), aposComoCompleto, config, ctx())
+d = confirmar(decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'site' } }), aposComoCompleto, config, ctx()))
 ok('escopo site: sai o Essencial, 2.200 no Pix e 6x com juros', txt(d.acao).includes('R$ 2.200') && txt(d.acao).includes('6x de R$ 397,03') && txt(d.acao).includes('com juros') && !/prime/i.test(txt(d.acao)))
 d = decidir(ex({ intencoes: ['pergunta_preco'] }), est({ dados: { ...completo.dados } }), config, ctx())
 ok('preço com escopo e qualificação já conhecidos: responde direto', d.acao.tipo === 'responder_preco' && txt(d.acao).includes('R$ 1.199'))
@@ -407,8 +414,8 @@ d = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } 
 ok('Rose: respondeu o escopo sem pedir preço: NÃO solta valor', d.acao.tipo !== 'responder_preco' && !txt(d.acao).includes('R$'), d.acao.tipo)
 // Lead pediu preço, o SDR perguntou o escopo e ele respondeu: recebe o valor, mesmo com a qualificação incompleta
 // (senão repete o erro da Cris/5591984385343, que pediu valor 3x e não recebeu)
-d = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), est({ dados: { nome: 'Rose', escopo: '' }, contadores: { ...ESTADO_INICIAL(3).contadores, escopo_perguntado: true }, pedidos_de_preco: 1 }), config, ctx())
-ok('pediu preço, escopo respondido, qualificação incompleta: recebe o valor', d.acao.tipo === 'responder_preco' && txt(d.acao).includes('R$ 1.199'), d.acao.tipo)
+d = confirmar(decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), est({ dados: { nome: 'Rose', escopo: '' }, contadores: { ...ESTADO_INICIAL(3).contadores, escopo_perguntado: true }, pedidos_de_preco: 1 }), config, ctx()))
+ok('pediu preço, escopo respondido e confirmado, qualificação incompleta: recebe o valor', d.acao.tipo === 'responder_preco' && txt(d.acao).includes('R$ 1.199'), d.acao.tipo)
 ok('pediu preço, escopo respondido: texto do valor sem convite de call no fim', !txt(d.acao).includes('marcar 15 minutos'))
 // Achado real, lead Cris/5591984385343, 06/10/2026: pediu valor com escopo gmn conhecido e qualificação incompleta: tem que receber o valor
 d = decidir(ex({ intencoes: ['pergunta_preco', 'resposta_qualificacao'], dados: { escopo: 'gmn' } }), est({ dados: { nome: 'Cris', escopo: 'gmn' } }), config, ctx({ mensagemLead: 'Qual valor?' }))
@@ -438,6 +445,57 @@ d = decidir(ex({ intencoes: ['pergunta_preco'] }), est({ dados: { nome: 'Ana' },
 ok('insistiu no valor sem responder o escopo: chama o Bruno (não fica sem resposta)', d.acao.tipo === 'escalar')
 ok('escopo dito sem ninguém ter perguntado: só guarda, não solta valor', decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), est(), config, ctx()).acao.tipo !== 'responder_preco')
 
+// Achado real, lead Rafael/5535997494720, 10/11/2026: áudio dizendo que NÃO quer site, a IA entendeu "site" e o SDR
+// foi direto pros horários. Agora o escopo entendido é confirmado com o lead antes de valer.
+{
+  const audio = 'Então, que eu trabalho mais pelo Whatsapp, que daí eu já queria que direcionasse os clientes da página do Google direto pro Whatsapp'
+  const estR = est({ dados: { ...completo.dados, nome: 'Rafael', escopo: '' }, perguntas_feitas: [{ id: 'escopo', turno: 1, respondida: false }], turno: 1 })
+  const d1 = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'site' } }), estR, config, ctx({ mensagemLead: audio }))
+  ok('Rafael: escopo entendido NÃO vale ainda: pergunta se entendeu certo', pediuConfirmacao(d1) && d1.acao.tipo === 'perguntar' && !d1.estado.dados.escopo && d1.estado.dados._escopo_a_confirmar === 'site', d1.acao.tipo)
+  ok('Rafael: não oferece horário, não fala valor e não escala na confirmação', d1.acao.tipo !== 'oferecer_horarios' && !txt(d1.acao).includes('R$') && !d1.acao.handoff)
+  ok('Rafael: instrução pro redator não trocar o sentido (com site / sem site)', (d1.acao.contexto ?? []).some((c) => c.includes('com site ou sem site')))
+
+  const corrigiu = decidir(ex({ intencoes: ['recusa', 'resposta_qualificacao'], confirmacao: 'nao', dados: { escopo: 'gmn' } }), d1.estado, config, ctx({ mensagemLead: 'Não, só quero o Google mandando pro meu WhatsApp' }))
+  ok('Rafael corrigiu ("não, só o Google"): aceita a correção sem confirmar de novo', corrigiu.estado.dados.escopo === 'gmn' && !corrigiu.estado.dados._escopo_a_confirmar, corrigiu.estado.dados.escopo)
+  ok('Rafael corrigiu: "não" da correção NÃO conta como recusa', corrigiu.estado.recusas === 0 && corrigiu.acao.tipo !== 'objecao_repetida', corrigiu.acao.tipo)
+  ok('Rafael corrigiu, qualificação completa, não pediu valor: segue pros horários sem soltar valor (regra da Rose)', corrigiu.acao.tipo === 'oferecer_horarios' && !txt(corrigiu.acao).includes('R$'), corrigiu.acao.tipo)
+
+  const soNao = decidir(ex({ intencoes: ['recusa'], confirmacao: 'nao' }), d1.estado, config, ctx({ mensagemLead: 'Não' }))
+  ok('só "não": pede desculpa e pergunta o escopo de novo, sem recusa e sem escalar', soNao.acao.proxima_pergunta?.id === 'escopo' && soNao.estado.recusas === 0 && !soNao.acao.handoff && !soNao.estado.dados.escopo, soNao.acao.proxima_pergunta?.id ?? soNao.acao.tipo)
+  ok('só "não": redator sabe que entendeu errado', (soNao.acao.contexto ?? []).some((c) => c.includes('entendeu errado')))
+  const respondeuDeNovo = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), soNao.estado, config, ctx({ mensagemLead: 'Só o Google' }))
+  ok('depois do "não", respondeu o escopo de novo: aceita direto (não confirma 2x)', respondeuDeNovo.estado.dados.escopo === 'gmn' && !pediuConfirmacao(respondeuDeNovo), respondeuDeNovo.acao.tipo)
+
+  const sim = confirmar(d1)
+  ok('"sim": escopo confirmado vale e a conversa segue', sim.estado.dados.escopo === 'site' && !sim.estado.dados._escopo_a_confirmar && sim.acao.tipo === 'oferecer_horarios', sim.acao.tipo)
+  const mudouDepois = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), sim.estado, config, ctx({ mensagemLead: 'pensando bem, só o Google' }))
+  ok('já confirmou uma vez e mudou de ideia depois: aceita direto', mudouDepois.estado.dados.escopo === 'gmn' && !pediuConfirmacao(mudouDepois), mudouDepois.acao.tipo)
+
+  const ignorou = decidir(ex({ intencoes: ['pergunta_fato'], pergunta_fato: ['Vocês atendem Pouso Alegre?'] }), d1.estado, config, ctx({ mensagemLead: 'Vocês atendem Pouso Alegre?' }))
+  ok('lead ignorou a confirmação e perguntou outra coisa: responde a dúvida e a confirmação continua pendente', ignorou.acao.tipo === 'responder_fato' && ignorou.estado.dados._escopo_a_confirmar === 'site' && !ignorou.estado.dados.escopo, ignorou.acao.tipo)
+  const voltou = decidir(ex({ intencoes: ['social'], social: { tipo: 'agradecimento', texto_do_lead: 'Ah legal, obrigado' } }), ignorou.estado, config, ctx({ mensagemLead: 'Ah legal, obrigado' }))
+  ok('turno seguinte sem resposta à confirmação: pergunta a confirmação de novo, nunca o escopo inteiro', pediuConfirmacao(voltou), voltou.acao.proxima_pergunta?.id ?? voltou.acao.tipo)
+
+  const pediuValor = decidir(ex({ intencoes: ['pergunta_preco', 'resposta_qualificacao'], dados: { escopo: 'gmn' } }), estR, config, ctx({ mensagemLead: 'só o Google, quanto fica?' }))
+  ok('respondeu o escopo e pediu valor junto: confirma antes, sem valor', pediuConfirmacao(pediuValor) && !txt(pediuValor.acao).includes('R$'), pediuValor.acao.tipo)
+  const valorDepois = confirmar(pediuValor)
+  ok('...e o "sim" destrava o valor do plano confirmado', valorDepois.acao.tipo === 'responder_preco' && txt(valorDepois.acao).includes('R$ 1.199'), valorDepois.acao.tipo)
+
+  const pagar = decidir(ex({ intencoes: ['pede_pagamento'] }), d1.estado, config, ctx({ cobrancaAtiva: true, mensagemLead: 'me manda o pix' }))
+  ok('pediu pra pagar com escopo não confirmado: confirma antes, nunca gera cobrança do plano errado', pediuConfirmacao(pagar) && pagar.acao.tipo !== 'gerar_cobranca', pagar.acao.tipo)
+}
+
+// Trava do trecho: campo só entra se o trecho citado pela IA existe na fala do lead
+{
+  const fala = 'Então, que eu trabalho mais pelo Whatsapp, que daí eu já queria que direcionasse os clientes da página do Google direto pro Whatsapp, porque ficar entrando em site assim, às vezes eu não tenho tempo.'
+  const f = normEv(fala)
+  ok('trecho: citação literal existe', trechoExiste('direcionasse os clientes da página do Google direto pro Whatsapp', f))
+  ok('trecho: tolera acento e pontuação diferentes', trechoExiste('direcionasse os clientes da pagina do google, direto pro WhatsApp', f))
+  ok('trecho: frase inventada (o lead nunca disse) é descartada', !trechoExiste('quero um site completo pra minha empresa', f))
+  ok('trecho: vazio ou ausente é descartado', !trechoExiste(null, f) && !trechoExiste('', f))
+  ok('trecho: resposta curta só vale literal', trechoExiste('sim', normEv('Sim só indicação')) && !trechoExiste('não', normEv('Sim só indicação')))
+}
+
 // Achado real, lead Eduardo/5562995226886, 06/10/2026: pediu valor + "o que vocês oferecem" com escopo outra_frente e o valor sumiu
 {
   const base0 = est({ dados: { nome: 'Eduardo', negocio: 'ferro e aço em Goiânia', cidade: 'Goiânia', escopo: 'outra_frente' } })
@@ -445,10 +503,10 @@ ok('escopo dito sem ninguém ter perguntado: só guarda, não solta valor', deci
   ok('Eduardo: valor + como funciona com outra_frente: explica, diz que anúncio é personalizado e pergunta site ou sem', e.acao.tipo === 'responder_como_funciona' && txt(e.acao).includes('personalizado') && txt(e.acao).includes('criação de um site') && !txt(e.acao).includes('R$'), e.acao.tipo)
   ok('Eduardo: marca escopo perguntado e que o valor foi pedido, sem contar insistência de preço', e.estado.contadores.escopo_perguntado === true && e.estado.contadores.preco_pedido_no_como_funciona === true && e.estado.pedidos_de_preco === 0)
   ok('Eduardo: no máximo 3 blocos na mensagem', Array.isArray(e.acao.conteudo?.texto) && e.acao.conteudo!.texto.length <= 3, String(Array.isArray(e.acao.conteudo?.texto) ? e.acao.conteudo!.texto.length : 0))
-  const apos = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), e.estado, config, ctx({ mensagemLead: 'Só o Google' }))
-  ok('Eduardo: respondeu "só o Google" depois: recebe o valor do Start', apos.acao.tipo === 'responder_preco' && txt(apos.acao).includes('R$ 1.199'), apos.acao.tipo)
-  const aposSite = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'site' } }), e.estado, config, ctx({ mensagemLead: 'Com site também' }))
-  ok('Eduardo: respondeu "com site" depois: recebe o valor do Essencial', aposSite.acao.tipo === 'responder_preco' && txt(aposSite.acao).includes('R$ 2.200'), aposSite.acao.tipo)
+  const apos = confirmar(decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), e.estado, config, ctx({ mensagemLead: 'Só o Google' })))
+  ok('Eduardo: respondeu "só o Google" e confirmou: recebe o valor do Start', apos.acao.tipo === 'responder_preco' && txt(apos.acao).includes('R$ 1.199'), apos.acao.tipo)
+  const aposSite = confirmar(decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'site' } }), e.estado, config, ctx({ mensagemLead: 'Com site também' })))
+  ok('Eduardo: respondeu "com site" e confirmou: recebe o valor do Essencial', aposSite.acao.tipo === 'responder_preco' && txt(aposSite.acao).includes('R$ 2.200'), aposSite.acao.tipo)
   // sem pedir valor: nada muda (não fala de preço de anúncio, não marca nada)
   e = decidir(ex({ intencoes: ['pergunta_como_funciona'] }), base0, config, ctx({ mensagemLead: 'E o que vc me oferece' }))
   ok('outra_frente, só pediu como funciona: NÃO fala de valor nem marca o pedido', !txt(e.acao).includes('personalizado') && !e.estado.contadores.preco_pedido_no_como_funciona, e.acao.tipo)
@@ -457,8 +515,8 @@ ok('escopo dito sem ninguém ter perguntado: só guarda, não solta valor', deci
   ok('outra_frente, escopo já perguntado: NÃO repete a pergunta de site', !txt(e.acao).includes('Sobre o valor'), e.acao.tipo)
   // fluxo real sem contador forçado na mão: valor + como funciona sem escopo, depois a resposta do escopo
   e = decidir(ex({ intencoes: ['pergunta_preco', 'pergunta_como_funciona'] }), est({ dados: { nome: 'Luciano' } }), config, ctx({ mensagemLead: 'como funciona e qual o valor?' }))
-  const aposReal = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), e.estado, config, ctx({ mensagemLead: 'só o Google' }))
-  ok('fluxo real: valor + como funciona, depois escopo respondido: recebe o valor', aposReal.acao.tipo === 'responder_preco' && txt(aposReal.acao).includes('R$ 1.199'), aposReal.acao.tipo)
+  const aposReal = confirmar(decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { escopo: 'gmn' } }), e.estado, config, ctx({ mensagemLead: 'só o Google' })))
+  ok('fluxo real: valor + como funciona, depois escopo respondido e confirmado: recebe o valor', aposReal.acao.tipo === 'responder_preco' && txt(aposReal.acao).includes('R$ 1.199'), aposReal.acao.tipo)
   const repetiu = decidir(ex({ intencoes: ['pergunta_preco'] }), e.estado, config, ctx({ mensagemLead: 'e o valor?' }))
   ok('fluxo real: repetiu o pedido sem responder o escopo: não escala na 1ª repetição', repetiu.acao.tipo !== 'escalar', repetiu.acao.tipo)
   // sem pedir valor e escopo respondido depois: continua sem soltar valor (regra da Rose preservada)
@@ -468,6 +526,26 @@ ok('escopo dito sem ninguém ter perguntado: só guarda, não solta valor', deci
   // escopo conhecido + valor + como funciona: valor sem convite de call
   e = decidir(ex({ intencoes: ['pergunta_preco', 'pergunta_como_funciona'] }), est({ dados: { nome: 'Ana', escopo: 'gmn' } }), config, ctx({ mensagemLead: 'como funciona e qual o valor?' }))
   ok('escopo conhecido + valor + como funciona: valor sem "marcar 15 minutos" no texto fixo', txt(e.acao).includes('R$ 1.199') && !txt(e.acao).includes('marcar 15 minutos'), e.acao.tipo)
+}
+
+// Fechamento depois do valor: "Faz sentido pra você?", sem convite de call e sem pergunta de qualificação colada
+{
+  const qualificacaoIncompleta = est({ dados: { nome: 'Cris', escopo: 'gmn' } })
+  let f = decidir(ex({ intencoes: ['pergunta_preco'] }), qualificacaoIncompleta, config, ctx({ mensagemLead: 'Qual valor?' }))
+  const blocosF = [f.acao.conteudo?.texto ?? []].flat()
+  ok('valor com qualificação incompleta: último bloco é "Faz sentido pra você?"', f.acao.tipo === 'responder_preco' && blocosF[blocosF.length - 1] === 'Faz sentido pra você?', String(blocosF[blocosF.length - 1]))
+  ok('valor com qualificação incompleta: NÃO cola pergunta de qualificação nem convite de call', !f.acao.proxima_pergunta && !txt(f.acao).includes('marcar 15 minutos'))
+  // a conversa segue na resposta dele: sem qualificação completa volta a qualificar; completa, oferece horário
+  const aposSim = decidir(ex({ intencoes: ['resposta_qualificacao'] }), f.estado, config, ctx({ mensagemLead: 'faz sim' }))
+  ok('"faz sim" com qualificação incompleta: volta a qualificar, não escala', aposSim.acao.tipo === 'perguntar' && !aposSim.acao.handoff, aposSim.acao.tipo)
+  f = decidir(ex({ intencoes: ['pergunta_preco'] }), est({ dados: { ...completo.dados } }), config, ctx({ mensagemLead: 'Qual valor?' }))
+  const aposSimCompleto = decidir(ex({ intencoes: ['resposta_qualificacao'] }), f.estado, config, ctx({ mensagemLead: 'faz sim' }))
+  ok('"faz sim" com qualificação completa: oferece horário', aposSimCompleto.acao.tipo === 'oferecer_horarios', aposSimCompleto.acao.tipo)
+  f = decidir(ex({ intencoes: ['pergunta_preco', 'pergunta_como_funciona'] }), est({ dados: { nome: 'Ana', escopo: 'gmn' } }), config, ctx({ mensagemLead: 'como funciona e qual o valor?' }))
+  const blocosComo = [f.acao.conteudo?.texto ?? []].flat()
+  ok('valor + como funciona com escopo conhecido: também fecha com "Faz sentido pra você?"', blocosComo[blocosComo.length - 1] === 'Faz sentido pra você?', String(blocosComo[blocosComo.length - 1]))
+  f = decidir(ex({ intencoes: ['pergunta_preco'] }), est({ dados: { nome: 'Ana' } }), config, ctx({ mensagemLead: 'qual o valor?' }))
+  ok('valor sem escopo: sem elogio "Excelente pergunta", mantém o aviso de que depende do escopo', !txt(f.acao).includes('Excelente pergunta') && txt(f.acao).includes('o valor depende do escopo'), txt(f.acao).slice(0, 60))
 }
 
 // Achado real, lead Rose/63551: o texto fixo de preço não pode carregar convite de call ("topa marcar 15 minutos?"),

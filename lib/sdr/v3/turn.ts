@@ -344,12 +344,20 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
   let usouLLM = false
   let fatosUsados: string[] = []
   const literal = acao.conteudo?.modo === 'literal' ? asList(acao.conteudo.texto) : null
-  const soLiteral = !!literal && !acao.reacao_social && !acao.proxima_pergunta && !acao.bloco_fixo
+  // Achado real, lead Rafael/5535997494720, 10/11/2026: ele respondeu num áudio o que precisava e recebeu só
+  // "Tenho hoje às 14h...", texto pronto do código, sem uma palavra sobre o que ele disse. Texto pronto (horários,
+  // agendamento, frase fixa da config) só chamava a IA quando a mensagem era social ("tudo bem?"). Agora chama
+  // também quando o lead trouxe conteúdo, pra reconhecer o que ele disse antes do texto pronto.
+  const reagirAoLead = acao.reacao_social || trouxeDadoNovo
+  const soLiteral = !!literal && !reagirAoLead && !acao.proxima_pergunta && !acao.bloco_fixo
+  if (literal && reagirAoLead && !acao.reacao_social) {
+    acao.contexto.push('Antes do conteúdo exato, escreva uma frase curta (bloco separado) mostrando que entendeu o que o lead acabou de dizer, com as palavras dele.')
+  }
 
   const escrever = async (violacoes?: Violacao[], anterior?: string[]): Promise<string[]> => {
     usouLLM = true
     if (acao.bloco_fixo) {
-      const r = acao.reacao_social ? await redigir(openai, { config, acao, historico, frasesEnviadas: estado.frases_enviadas, soReacao: true, violacoes, anterior, automacao: contextoAutomacao }, deps.onUsage) : { blocos: [], fatos_usados: [] }
+      const r = reagirAoLead ? await redigir(openai, { config, acao, historico, frasesEnviadas: estado.frases_enviadas, soReacao: true, violacoes, anterior, automacao: contextoAutomacao }, deps.onUsage) : { blocos: [], fatos_usados: [] }
       return [...r.blocos.slice(0, 1), ...acao.bloco_fixo.split(/\n\n+/)]
     }
     const r = await redigir(openai, { config, acao, historico, frasesEnviadas: estado.frases_enviadas, violacoes, anterior, automacao: contextoAutomacao }, deps.onUsage)
