@@ -88,6 +88,8 @@ export function qualificacaoCompleta(estado: Estado, config: CompanyConfig): boo
 }
 
 export const ID_CONFIRMA_ESCOPO = 'confirma_escopo'
+/** contadores.preco_enviado quando o valor de todas as opções saiu junto (preco.por_escopo.texto_sem_escopo). */
+const TODAS_AS_OPCOES = '_todas'
 
 /** Pergunta de confirmação do escopo entendido, quando há um aguardando o lead confirmar. */
 export function perguntaConfirmacaoEscopo(estado: Estado, config: CompanyConfig): { id: string; texto: string } | null {
@@ -157,7 +159,14 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   const turno = estado.turno
 
   // 0. merge dos dados (só o que o lead disse) e fechamento das perguntas respondidas
-  for (const [k, v] of Object.entries(ex.dados ?? {})) if (typeof v === 'string' && v.trim()) estado.dados[k] = v.trim()
+  for (const [k, v] of Object.entries(ex.dados ?? {})) {
+    if (typeof v !== 'string' || !v.trim()) continue
+    // "Outros" é a categoria de quando nada encaixa: nunca apaga uma categoria de verdade já anotada. Achado real,
+    // auditoria 16/11/2026, Roberto/conv1098: mandou só o nome da empresa ("Oliveira telhado") e o segmento
+    // "Construção Civil", certo, virou "Outros" no painel.
+    if (k === 'segmento' && v.trim() === 'Outros' && filled(estado.dados, 'segmento') && estado.dados.segmento !== 'Outros') continue
+    estado.dados[k] = v.trim()
+  }
   // horario_escolhido é campo separado de "dados" no extrator (não fica dentro de ex.dados), e por isso não
   // entrava no merge acima. Bug real (lead Cícero, 27/09): quando o mesmo turno também casava com uma regra de
   // prioridade maior (ex.: pergunta_como_funciona), a regra 9 nunca rodava e a escolha de horário do lead se
@@ -344,7 +353,14 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // Conteúdo fixo que já termina em pergunta (ex.: preço com CTA de agendamento embutido no texto da config,
   // "...topa marcar 15 minutos?"): nunca cola uma segunda pergunta em cima. Regra geral, vale pra qualquer
   // empresa que termine um bloco literal com "?", não só preço.
-  const literalJaTerminaEmPergunta = (a: Acao) => a.conteudo?.modo === 'literal' && asArr(a.conteudo.texto).join(' ').trim().endsWith('?')
+  // Vale também quando a pergunta está no último bloco mas não é a última frase (ex.: FECHAMENTO_PRECO, "Quer garantir
+  // uma das vagas? Eu te passo os horários do Bruno pra fechar."): achado real, auditoria 16/11/2026, Joviano/conv1050
+  // e Jean/conv1061, o preço saía com o convite E a pergunta de quem decide colada, duas perguntas de uma vez.
+  const literalJaTerminaEmPergunta = (a: Acao) => {
+    if (a.conteudo?.modo !== 'literal') return false
+    const blocos = asArr(a.conteudo.texto)
+    return (blocos[blocos.length - 1] ?? '').includes('?')
+  }
 
   /** Primeira mensagem nossa: apresentação + nome. Antes só a regra 13 (lead que só cumprimenta) fazia isso; lead
    * que chegava pedindo algo ("Quero anunciar no Google", botão do anúncio) caía em outra regra, a abertura era
@@ -557,6 +573,25 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // e todo valor (inclusive o do Google, que tem preço fixo) ia pro Bruno. Escolha real de GMN/site não é sobrescrita.
   const escopoRealConhecido = (config.preco.por_escopo?.opcoes ?? []).some((o) => o.valor === (estado.dados.escopo ?? '').trim())
   const anuncioSemEscopo = I.has('interesse_outra_frente') && !escopoRealConhecido
+
+  // 3a'. Empresa que transfere a outra frente pra pessoa (config.outra_frente): o SDR confirma que a empresa faz e
+  // passa a conversa na hora, sem seguir o roteiro do Google nem falar valor (que é sempre com a pessoa). Pedido do
+  // Rodrigo, 16/11/2026, depois da auditoria: Everson/conv1097 (gasta R$ 9 mil/mês em Google Ads) recebeu o texto
+  // do Google Meu Negócio "do zero" e depois horários secos, sem resposta pra "vocês trabalham com ADS?".
+  // A trava da abertura (gancho do anúncio, linha ~313) continua valendo: na primeira mensagem nunca transfere.
+  const transferirOutraFrente = (): Decisao => {
+    estado.dados.escopo = 'outra_frente'
+    delete estado.dados._escopo_a_confirmar
+    return {
+      estado: { ...estado, etapa: 'escalado' },
+      acao: base('escalar', {
+        conteudo: { modo: 'literal', texto: preencher(config.outra_frente!.frase_transferencia, estado.dados) },
+        handoff: { motivo: 'lead quer outra frente (tráfego/anúncio/social): valor e explicação com a pessoa' },
+        etapa_depois: 'escalado',
+      }),
+    }
+  }
+  if (config.outra_frente && I.has('interesse_outra_frente')) return transferirOutraFrente()
   // Pedido de valor de verdade não entra aqui: quem trata valor é a regra de preço logo abaixo.
   if (I.has('interesse_outra_frente') && (estado.dados.escopo ?? '').trim() !== 'outra_frente' && !escopoRealConhecido && !(I.has('pergunta_preco') && pedeuPrecoDeVerdade)) {
     estado.dados.escopo = 'outra_frente'
@@ -607,18 +642,30 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
 
   if (I.has('pergunta_como_funciona') && config.como_funciona && pedeuComoFuncionaDeVerdade && !estado.contadores.como_funciona_explicado) {
     let blocos = blocosDe(config.como_funciona.texto)
+    let anexouPerguntaDoPlano = false
     const pediuValorJunto = I.has('pergunta_preco') && pedeuPrecoDeVerdade
     // Convite de call no fim do texto fixo de preço nunca sai aqui também (mesma regra da regra 4, lead Rose/63551).
     if (pe && opcao && I.has('pergunta_preco') && !escopoPendente) blocos = [...blocos, ...blocosDe(opcao.texto).filter((b) => !b.trim().endsWith('?')), FECHAMENTO_PRECO]
-    else if (pe && !ehOutraFrente && escopoPendente) {
+    else if (pe?.texto_sem_escopo && !ehOutraFrente) {
+      // Empresa com o valor de todas as opções num texto só (ver regra 4): explica e, se o lead pediu valor junto,
+      // já passa os valores. Nunca prende a explicação nem o valor atrás da pergunta do plano (auditoria 16/11/2026).
+      // Sem pedido de valor, a conversa segue pela próxima pergunta do roteiro (comPergunta abaixo).
+      if (pediuValorJunto && estado.contadores.preco_enviado !== TODAS_AS_OPCOES) {
+        estado.pedidos_de_preco += 1
+        estado.contadores.preco_enviado = TODAS_AS_OPCOES
+        blocos = [...blocos, ...blocosDe(pe.texto_sem_escopo)]
+      }
+    } else if (pe && !ehOutraFrente && escopoPendente) {
       // Escopo já respondido, só falta o lead confirmar: a confirmação vai como pergunta (comPergunta abaixo), e se
       // ele pediu valor junto, a confirmação destrava o valor no próximo turno.
       if (pediuValorJunto) {
         estado.contadores.escopo_perguntado = true
         estado.contadores.preco_pedido_no_como_funciona = true
       }
-    } else if (pe && !opcao && !ehOutraFrente) {
+    } else if (pe && !opcao && !ehOutraFrente && !abertura) {
+      // (Na primeira mensagem não: a vez é da apresentação e do nome, ver comPergunta/contextoAbertura.)
       blocos = [...blocos, ...blocosDe(pe.pergunta)]
+      anexouPerguntaDoPlano = true
       marcarEscopoPerguntado()
       // Pediu valor junto: a resposta ao escopo destrava o valor. Sem esse marcador a trava "só com pedido de preço"
       // (lead Rose/63551) segurava o valor depois dessa pergunta, e o lead nunca recebia.
@@ -633,13 +680,18 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     }
     estado.contadores.como_funciona_explicado = true
     const a = base('responder_como_funciona', { conteudo: { modo: 'literal', texto: blocos } })
-    return { estado, acao: pe && !opcao && !ehOutraFrente && !escopoPendente ? a : comPergunta(a) }
+    // Já terminou na pergunta do plano: nada mais. Senão, comPergunta cola a próxima pergunta e, na primeira mensagem
+    // da conversa, a apresentação e o nome (achado real, 16/11/2026: Lidiney/conv1087, Carlos/conv1108 e
+    // Gleide/conv1110 chegaram com "como funciona" e nunca foram perguntados o nome).
+    return { estado, acao: anexouPerguntaDoPlano ? a : comPergunta(a) }
   }
 
   // 4. preço
   // Achado real, lead Rose/63551, 05/10/2026: responder a pergunta de escopo disparava o preço sem o lead ter
   // pedido valor nenhum. Escopo respondido só vira preço se o lead já tinha pedido preço antes (pedidos_de_preco > 0).
   if ((I.has('pergunta_preco') && pedeuPrecoDeVerdade) || (pe && escopoMudouAgora && estado.contadores.escopo_perguntado && (estado.pedidos_de_preco > 0 || estado.contadores.preco_pedido_no_como_funciona))) {
+    // Valor de outra frente é sempre com a pessoa, quando a empresa transfere (config.outra_frente).
+    if (config.outra_frente && ehOutraFrente) return transferirOutraFrente()
     // Achado real, lead Douglas/5517996427654, 05/10/2026: pediu valor falando de anúncio e de Google. Antes de
     // mandar tudo pro Bruno, pergunta o escopo do GMN/site (que tem preço fixo). Anúncio: valor personalizado na call.
     if ((ehOutraFrente || anuncioSemEscopo) && pe && !estado.contadores.escopo_perguntado && !escopoPendente) {
@@ -647,7 +699,8 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
       estado.pedidos_de_preco += 1
       return { estado, acao: base('responder_preco', { conteudo: { modo: 'literal', texto: ['Pra anúncio, o valor é personalizado e o Bruno passa na call. Já o Google Meu Negócio tem valor fixo.', ...blocosDe(pe.pergunta)] } }) }
     }
-    if (pe && escopoPendente) {
+    if (pe && escopoPendente && !pe.texto_sem_escopo) {
+      // (Com texto_sem_escopo o valor de todas as opções sai logo abaixo, sem esperar a confirmação.)
       // O lead acabou de dizer o que precisa (ou trocou de plano) e ainda não confirmou: nenhum valor sai antes
       // disso, nem o do plano anterior. Confirma; o "sim" dele destrava o valor no próximo turno
       // (escopo_perguntado + pedidos_de_preco > 0 na condição desta regra).
@@ -695,6 +748,19 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
       return { estado, acao: comPergunta(base('responder_preco', { conteudo: { modo: 'literal', texto: blocosPreco } })) }
     }
     estado.pedidos_de_preco += 1
+    if (pe?.texto_sem_escopo) {
+      // Escopo desconhecido e a empresa tem o valor de todas as opções num texto só: passa os valores direto, como o
+      // Bruno faz ("Tenho dois planos: o Essencial é R$..., o Prime é R$..."), e o lead escolhe. Nunca prende o valor
+      // atrás de uma pergunta (achado real, auditoria 16/11/2026: Luzia/conv1051 ouviu a pergunta do plano 3 vezes;
+      // conv1060 pediu "me passa cada valor individual" e recebeu a mesma pergunta palavra por palavra).
+      if (estado.contadores.preco_enviado === TODAS_AS_OPCOES) {
+        const a = base('responder_preco', { conteudo: { modo: 'livre', texto: asArr(blocosDe(pe.texto_sem_escopo))[0] } })
+        a.contexto.push('Você já passou os valores nesta conversa. Relembre em uma frase curta, começando com algo como "Como te passei", sem repetir o texto todo e sem mudar nenhum número.')
+        return { estado, acao: comPergunta(a) }
+      }
+      estado.contadores.preco_enviado = TODAS_AS_OPCOES
+      return { estado, acao: comPergunta(base('responder_preco', { conteudo: { modo: 'literal', texto: blocosDe(pe.texto_sem_escopo) } })) }
+    }
     if (pe) {
       // Achado real, lead Jonas/conv1023 (Grupo Venda), 09/11/2026: o escopo nunca foi respondido de verdade
       // (o lead respondeu outra pergunta pendente no mesmo turno), mas escopo_perguntado já tinha ficado true.
@@ -861,17 +927,8 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   if (I.has('pede_espera') && !I.has('quer_agendar') && !I.has('escolheu_horario') && !I.has('informou_email') && !ex.horario_escolhido) {
     return { estado, acao: base('aguardar') }
   }
-  if (I.has('quer_agendar') || completa) {
-    if (!completa) {
-      // Achado real, lead Daiane/conv538, 03/10/2026: ela disse "posso conversar amanhã? Tô caindo de sono" --
-      // o extrator corretamente marcou quer_agendar E pede_espera juntos, mas essa regra rodava primeiro e
-      // colava a próxima pergunta de qualificação de qualquer jeito, ignorando o pedido de espera. O SDR
-      // respondeu "Claro, descansa 😊" e emendou a pergunta na mesma respirada -- contradição na cara do lead.
-      if (I.has('pede_espera')) return { estado, acao: base('aguardar') }
-      const a = base('perguntar')
-      a.contexto.push('O lead quer agendar. Diga em meia frase que já vai ver o horário e faça a pergunta.')
-      return { estado, acao: comPergunta(a) }
-    }
+  /** Próximo passo depois da qualificação: horários (ou lembrete dos já enviados), ou a pessoa quando não há agenda. */
+  const proximoPassoAgenda = (): Decisao => {
     if (!ctx.temCalendario) return escalar('qualificação completa e a empresa não tem calendário')
     // Já tem um horário pendente de confirmação (o lead escolheu antes, só faltou nome/e-mail, ou o turno em que
     // ele escolheu foi resolvido por outra regra de prioridade maior nesse meio-tempo): nunca reoferece do zero
@@ -905,6 +962,20 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     return { estado, acao: base('oferecer_horarios', { etapa_depois: 'oferta_horario' }) }
   }
 
+  if (I.has('quer_agendar') || completa) {
+    if (!completa) {
+      // Achado real, lead Daiane/conv538, 03/10/2026: ela disse "posso conversar amanhã? Tô caindo de sono" --
+      // o extrator corretamente marcou quer_agendar E pede_espera juntos, mas essa regra rodava primeiro e
+      // colava a próxima pergunta de qualificação de qualquer jeito, ignorando o pedido de espera. O SDR
+      // respondeu "Claro, descansa 😊" e emendou a pergunta na mesma respirada -- contradição na cara do lead.
+      if (I.has('pede_espera')) return { estado, acao: base('aguardar') }
+      const a = base('perguntar')
+      a.contexto.push('O lead quer agendar. Diga em meia frase que já vai ver o horário e faça a pergunta.')
+      return { estado, acao: comPergunta(a) }
+    }
+    return proximoPassoAgenda()
+  }
+
   // 11. pede espera
   if (I.has('pede_espera')) return { estado, acao: base('aguardar') }
 
@@ -922,7 +993,17 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   if (naoEntendeu && !abertura && !temDado) {
     const a = base('perguntar')
     a.contexto.push('O lead disse que não entendeu sua última pergunta. Comece com uma desculpa curta ("Desculpa, deixei meio confuso") e refaça a pergunta em palavras simples do dia a dia, sem jargão nem termo corporativo. Não escale e não mude de assunto.')
-    return { estado, acao: comPergunta(a) }
+    // Refaz a pergunta que ele não entendeu (a última feita), mesmo dentro da janela de 2 turnos: é ela que ele quer
+    // entender. Achado real, auditoria 16/11/2026, Luzia/conv1051: "Não entendo" -> "Sem problema, eu explico de um
+    // jeito mais simples 😊" e parou, porque a janela travava a pergunta e nenhuma outra sobrava pra colar.
+    const ultimaId = entrada.contadores.ultimo_id_perguntado
+    const ultima = ultimaId ? config.qualificacao.perguntas.find((q) => q.id === ultimaId) : undefined
+    if (ultima && !filled(estado.dados, ultima.campo)) {
+      a.proxima_pergunta = { id: ultima.id, texto: preencher(ultima.texto, estado.dados) }
+      return { estado, acao: a }
+    }
+    const comQ = comPergunta(a)
+    return comQ.proxima_pergunta ? { estado, acao: comQ } : proximoPassoAgenda()
   }
 
   // 13. demais: próxima pergunta (na abertura pode ser qualquer uma, inclusive opcional)
@@ -943,6 +1024,12 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   }
   if (abertura) {
     contextoAbertura(a)
+  } else if (!q && !a.handoff) {
+    // Nenhuma pergunta sobrando pra fazer neste turno e nada pra transferir: nunca fica parado num "Combinado 😊"
+    // sem próximo passo. Segue pro próximo passo de verdade (horários com o Bruno, ou a pessoa sem agenda).
+    // Achado real, auditoria 16/11/2026: Marco/conv1067 respondeu "Sim", recebeu "Combinado, Marco 🙂" e ficou
+    // sem resposta ("Combinado o que? Fala comigo!"); Gleide/conv1110 terminou igual.
+    return proximoPassoAgenda()
   } else if (!q) {
     a.tipo = 'aguardar'
   }

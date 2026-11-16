@@ -89,7 +89,10 @@ async function jobsSemCredito(supabase: Supabase, companyId: number, desde: stri
     .select('id, phone, error')
     .eq('company_id', companyId)
     .eq('status', 'COMPLETED')
-    .gte('created_at', desde)
+    // last_message_at, não created_at: o job é um por telefone e é reaproveitado, então um lead antigo que voltou a
+    // falar durante a falta de crédito tem job criado lá atrás (bug real 16/11/2026: Marco 1067, Mark Rio 899 e
+    // Anarela 1068 ficaram de fora da retomada).
+    .gte('last_message_at', desde)
     .not('error', 'is', null)
   return (data ?? []).filter((j) => ERRO_SEM_CREDITO.test(j.error ?? ''))
 }

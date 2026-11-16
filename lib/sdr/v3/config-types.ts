@@ -66,6 +66,12 @@ export interface PrecoPorEscopo {
   /** Pergunta que descobre o escopo. Uma pergunta só. */
   pergunta: string
   opcoes: { valor: string; /** como o extrator reconhece este escopo */ descricao: string; /** texto fixo do valor; cada item é um bloco */ texto: string | string[] }[]
+  /** EXTENSÃO: valor de TODAS as opções num texto só, enviado quando o lead pede preço e o escopo ainda não é
+   * conhecido (como um vendedor faz: "tenho dois planos, X custa tanto e Y custa tanto"). Sem isso, o agente
+   * pergunta o escopo antes de falar valor. Achado real, auditoria 16/11/2026: a pergunta de escopo era longa e
+   * de "isso ou aquilo"; quem respondia "sim", "não entendo" ou "já tenho site" ficava preso nela sem nunca
+   * receber o valor (conversas 1051, 1060, 1110). */
+  texto_sem_escopo?: string | string[]
 }
 
 export interface CompanyConfig {
@@ -93,6 +99,11 @@ export interface CompanyConfig {
   }
   /** EXTENSÃO: resposta fixa para "como funciona?". Cada item é um bloco; a pergunta de escopo (preco.por_escopo) é acrescentada no fim quando o escopo ainda não é conhecido. */
   como_funciona?: { texto: string | string[] }
+  /** EXTENSÃO: serviço que a empresa faz mas que o SDR não vende sozinho (ex.: gestão de tráfego, social media):
+   * quando o lead mostra interesse nele, o agente confirma que a empresa faz e transfere na hora pra pessoa, que
+   * explica e passa o valor. Sem isso, o agente segue qualificando como antes. Pedido do Rodrigo, 16/11/2026:
+   * "trabalhamos com tráfego sim, vou te transferir pro Bruno, e o Bruno assume". */
+  outra_frente?: { frase_transferencia: string }
   limites: {
     recusas_para_encerrar: number
     /** EXTENSÃO: máximo de frases por mensagem (regra do dono). */

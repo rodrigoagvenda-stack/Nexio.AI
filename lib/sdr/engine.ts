@@ -118,6 +118,9 @@ export interface BufferedMessage {
   synthetic?: boolean
   /** Resposta atrasada (retomada depois da OpenAI sem crédito): a resposta começa pedindo desculpa pela demora. */
   retomada?: boolean
+  /** Quantas vezes esta mensagem já voltou pro buffer porque o lead escreveu de novo enquanto o SDR preparava a
+   * resposta (ver devolverAoBuffer). Teto em MAX_ADIAMENTOS: lead que escreve sem parar ainda recebe resposta. */
+  adiamentos?: number
 }
 
 type ChatMsg = { role: 'user' | 'assistant' | 'system'; content: string }
@@ -542,6 +545,74 @@ async function drainBuffer(
     .eq('phone', phone)
 
   return (data?.messages as BufferedMessage[]) ?? []
+}
+
+/** Depois de quantos adiamentos o SDR responde de qualquer jeito (lead que manda mensagem a cada poucos segundos
+ * sem parar nunca ficaria sem resposta). */
+const MAX_ADIAMENTOS = 2
+
+/** O lead escreveu de novo depois que o SDR leu as mensagens deste turno? (a mensagem nova fica no buffer até o
+ * próximo turno). */
+async function temMensagemNoBuffer(
+  companyId: number,
+  phone: string,
+  supabase: ReturnType<typeof createServiceClient>
+): Promise<boolean> {
+  const { data } = await supabase
+    .from('sdr_message_buffer')
+    .select('messages')
+    .eq('company_id', companyId)
+    .eq('phone', phone)
+    .maybeSingle()
+  return ((data?.messages as BufferedMessage[] | undefined) ?? []).length > 0
+}
+
+/**
+ * Lead escreveu de novo enquanto o SDR preparava a resposta: a resposta pronta é descartada (nada foi enviado nem
+ * gravado no estado) e as mensagens deste turno voltam pro buffer, NA FRENTE das novas, pra tudo ser lido junto no
+ * próximo turno, como uma pessoa faria. Achado real, auditoria 16/11/2026 (Vivi/conv1056, Joviano/conv1050,
+ * Everson/conv1097): o SDR respondia a mensagem anterior enquanto o lead já tinha escrito outra, e a conversa
+ * ficava sempre uma mensagem atrasada.
+ * Voltam como synthetic (já estão salvas no histórico, não viram balão de novo) e com o texto já transcrito/descrito
+ * (áudio e imagem não são processados de novo).
+ */
+async function devolverAoBuffer(
+  companyId: number,
+  phone: string,
+  mensagens: Array<BufferedMessage & { enrichedContent: string }>,
+  supabase: ReturnType<typeof createServiceClient>
+): Promise<void> {
+  const devolvidas: BufferedMessage[] = mensagens.map((m) => ({
+    content: m.enrichedContent,
+    type: 'text',
+    timestamp: m.timestamp,
+    messageId: m.messageId,
+    senderName: m.senderName,
+    synthetic: true,
+    retomada: m.retomada,
+    adiamentos: (m.adiamentos ?? 0) + 1,
+  }))
+  const { data: existing } = await supabase
+    .from('sdr_message_buffer')
+    .select('messages')
+    .eq('company_id', companyId)
+    .eq('phone', phone)
+    .maybeSingle()
+  const expiresAt = new Date(Date.now() + 30_000).toISOString()
+  if (existing) {
+    await supabase
+      .from('sdr_message_buffer')
+      .update({ messages: [...devolvidas, ...((existing.messages as BufferedMessage[]) ?? [])], expires_at: expiresAt })
+      .eq('company_id', companyId)
+      .eq('phone', phone)
+  } else {
+    await supabase.from('sdr_message_buffer').insert({ company_id: companyId, phone, messages: devolvidas, expires_at: expiresAt })
+  }
+  // Garante a fila aberta mesmo se o job da mensagem nova ainda não tiver sido reaberto pelo webhook (corrida de
+  // milissegundos): sem isso as mensagens devolvidas podiam ficar no buffer sem ninguém pra processar.
+  await supabase
+    .from('sdr_jobs')
+    .upsert({ company_id: companyId, phone, status: 'PENDING', last_message_at: new Date().toISOString(), attempts: 0 }, { onConflict: 'company_id,phone', ignoreDuplicates: false })
 }
 
 // ─── RAG : Busca vetorial no Supabase ─────────────────────────
@@ -3070,9 +3141,13 @@ async function sendWithHumanDelay(
   ctx: SdrContext,
   supabase: ReturnType<typeof createServiceClient>,
   metaPhoneNumberId?: string | null,
-  metaToken?: string | null
-): Promise<void> {
+  metaToken?: string | null,
+  /** Para de mandar os blocos restantes quando isso devolve true (lead escreveu de novo no meio do envio). Só é
+   * conferido a partir do bloco de índice `interromperAPartirDe` (padrão 1: o primeiro bloco sempre sai). */
+  interrupcao?: { interromper: () => Promise<boolean>; interromperAPartirDe?: number }
+): Promise<number> {
   const isMeta = !!(metaPhoneNumberId && metaToken)
+  let enviados = 0
   const uazapi = isMeta ? null : createUazapiClient(uazapiUrl, token)
 
   // Re-checa pausa AQUI, logo antes de enviar de verdade : achado ao vivo
@@ -3085,7 +3160,7 @@ async function sendWithHumanDelay(
   if (await isAgentePausadoAtivo(conversationId, supabase)) {
     console.warn(`[SDR:${ctx.companyId}] envio cancelado : humano assumiu a conversa durante o processamento (conversationId=${conversationId})`)
     await log(ctx.companyId, 'send_blocked_agent_paused_mid_processing', { conversationId }, supabase, phone, ctx.leadId)
-    return
+    return 0
   }
 
   // Janela de 24h : fora dela, mensagem livre falha direto na API da Meta.
@@ -3097,7 +3172,7 @@ async function sendWithHumanDelay(
   if (windowState && !canSendFreeform(windowState)) {
     console.warn(`[SDR:${ctx.companyId}] envio bloqueado : fora da janela de 24h (conversationId=${conversationId})`)
     await log(ctx.companyId, 'send_blocked_outside_window', { conversationId }, supabase, phone, ctx.leadId)
-    return
+    return 0
   }
 
   for (let i = 0; i < paragraphs.length; i++) {
@@ -3113,8 +3188,20 @@ async function sendWithHumanDelay(
     if (i > 0 && (await isAgentePausadoAtivo(conversationId, supabase))) {
       console.warn(`[SDR:${ctx.companyId}] envio interrompido no meio dos blocos : humano assumiu a conversa (conversationId=${conversationId})`)
       await log(ctx.companyId, 'send_blocked_agent_paused_mid_paragraphs', { conversationId, paragraphIndex: i }, supabase, phone, ctx.leadId)
-      return
+      return enviados
     }
+
+    // Mesma ideia da pausa, agora pro próprio lead: se ele escreveu de novo enquanto os blocos saíam, uma pessoa
+    // pararia pra ler antes de continuar falando. Os blocos restantes não saem; a mensagem nova é respondida no
+    // próximo turno (achado real, auditoria 16/11/2026, Everson/conv1097: "Você decide sobre esse investimento?"
+    // saiu 2 segundos depois do desabafo dele, como se ninguém tivesse lido).
+    // Conferido antes de "digitar" e de novo depois (a digitação simulada leva de 3 a 8 segundos).
+    const leadEscreveuDeNovo = async () => {
+      if (!interrupcao || i < (interrupcao.interromperAPartirDe ?? 1) || !(await interrupcao.interromper())) return false
+      await log(ctx.companyId, 'send_interrompido_mensagem_nova', { conversationId, paragraphIndex: i, total: paragraphs.length }, supabase, phone, ctx.leadId)
+      return true
+    }
+    if (await leadEscreveuDeNovo()) return enviados
 
     const typingDelay = Math.floor(Math.random() * (8000 - 3000 + 1)) + 3000
     let sentMessageId: string | undefined
@@ -3146,6 +3233,7 @@ async function sendWithHumanDelay(
       sentMessageId = `dryrun-${Date.now()}-${i}`
     } else if (isMeta) {
       await new Promise((r) => setTimeout(r, Math.min(typingDelay, 4000)))
+      if (await leadEscreveuDeNovo()) return enviados
       const sendMeta = async (comCitacao: boolean) => fetch(`https://graph.facebook.com/v21.0/${metaPhoneNumberId}/messages`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${metaToken}`, 'Content-Type': 'application/json' },
@@ -3177,6 +3265,10 @@ async function sendWithHumanDelay(
     } else {
       await uazapi!.sendPresence(phone, 'composing', typingDelay)
       await new Promise((r) => setTimeout(r, typingDelay))
+      if (await leadEscreveuDeNovo()) {
+        await uazapi!.sendPresence(phone, 'paused', 0).catch(() => {})
+        return enviados
+      }
       let sendResult: { id: string } | undefined
       try {
         sendResult = await uazapi!.sendText({ number: phone, text: paragraph, ...(quoteMessageId ? { replyid: quoteMessageId } : {}) })
@@ -3189,6 +3281,7 @@ async function sendWithHumanDelay(
     }
 
     await saveOutbound(conversationId, ctx, paragraph, supabase, sentMessageId)
+    enviados = i + 1
     await maybeStampFirstCtwaReply(supabase, conversationId)
 
     // Primeira vez que o preço sai nesta conversa : marca no lead, sem
@@ -3254,6 +3347,7 @@ async function sendWithHumanDelay(
       await new Promise((r) => setTimeout(r, 1500))
     }
   }
+  return paragraphs.length
 }
 
 // ─── Pausa por humano : checagem + auto-reativação após 24h ────
@@ -3957,15 +4051,22 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
           ctx,
           pushName: bufferedMessages[0]?.senderName || null,
           retomada: bufferedMessages.some((m) => m.retomada),
+          podeAdiar: !ctx.qaDryRun && bufferedMessages.every((m) => (m.adiamentos ?? 0) < MAX_ADIAMENTOS),
           historico: history,
           mensagemAtual: combinedText,
           deps: {
             supabase,
             openai,
-            send: (blocos) => {
+            send: (blocos, opts) => {
               v3Enviou = true
-              return sendWithHumanDelay(blocos, phone, cfg.uazapi_instance_url, cfg.uazapi_token, conversationId, ctx, supabase, cfg.meta_wa_phone_number_id, cfg.meta_wa_token)
+              return sendWithHumanDelay(
+                blocos, phone, cfg.uazapi_instance_url, cfg.uazapi_token, conversationId, ctx, supabase, cfg.meta_wa_phone_number_id, cfg.meta_wa_token,
+                opts?.podeInterromper && !ctx.qaDryRun
+                  ? { interromper: () => temMensagemNoBuffer(companyId, phone, supabase), interromperAPartirDe: opts.interromperAPartirDe }
+                  : undefined,
+              )
             },
+            chegouMensagemNova: () => temMensagemNoBuffer(companyId, phone, supabase),
             log: (event, data) => log(companyId, event, data, supabase, phone, leadId),
             search: (q) => searchDocuments(q, companyId, openai, supabase, 'conhecimento'),
             onUsage: (completion, agent) => pushUsage(acc, completion, agent),
@@ -3975,6 +4076,13 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
               notificarResponsavelHumano({ companyId, leadId, leadName: ctx.leadName, leadPhone: phone, tipo: 'agendamento', motivo, extra }, supabase),
           },
         })
+        if (v3.adiado) {
+          // Nada foi enviado nem salvo: as mensagens deste turno voltam pro buffer, na frente das novas.
+          await devolverAoBuffer(companyId, phone, enrichedMessages, supabase)
+          await log(companyId, 'v3_adiado_mensagem_nova', { mensagens: enrichedMessages.length }, supabase, phone, leadId)
+          recordUsage(companyId, acc, supabase, quotaCheck.packageId).catch(console.error)
+          return
+        }
         if (v3.handled) {
           await applyPendingHandoff(ctx, supabase)
           recordUsage(companyId, acc, supabase, quotaCheck.packageId).catch(console.error)
@@ -4008,7 +4116,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
           openai,
           send: async (texts) => {
             await auditarSaidaAutomacao({ companyId, leadId, conversationId, phone, text: texts.join('\n\n'), source: 'funil' }, supabase)
-            return sendWithHumanDelay(texts, phone, cfg.uazapi_instance_url, cfg.uazapi_token, conversationId, { ...ctx, envioSource: 'funil' }, supabase, cfg.meta_wa_phone_number_id, cfg.meta_wa_token)
+            await sendWithHumanDelay(texts, phone, cfg.uazapi_instance_url, cfg.uazapi_token, conversationId, { ...ctx, envioSource: 'funil' }, supabase, cfg.meta_wa_phone_number_id, cfg.meta_wa_token)
           },
           search: (q) => searchDocuments(q, companyId, openai, supabase, 'conhecimento'),
           onUsage: (completion, agent) => pushUsage(acc, completion, agent),

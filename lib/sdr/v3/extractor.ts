@@ -174,7 +174,7 @@ Devolva as intenções da MENSAGEM ATUAL (uma mensagem pode ter várias, ex.: "t
 - cancela_reuniao: já tem reunião marcada e pede EXPLICITAMENTE pra cancelar, sem quere remarcar agora ("quero cancelar", "cancela minha reunião", "não quero mais", "pode cancelar, depois eu remarco"). Diferente de pede_remarcar: aqui o lead não quer ver outros horários agora, só cancelar. Se ele disser "cancela" mas também já der um novo dia/horário na mesma mensagem, marque as duas: cancela_reuniao E escolheu_horario.
 - pede_humano: quer falar com uma pessoa, atendente ou o responsável
 - pergunta_se_e_robo: pergunta se é robô, IA, bot ou pessoa
-- recusa: disse que não quer, não tem interesse, para de mandar mensagem
+- recusa: disse que não quer, não tem interesse, para de mandar mensagem, ou se despede educadamente encerrando a conversa ("estou vendo com outras empresas, obrigado", "vou fechar com outro", "por enquanto não, valeu"). Um "obrigado" sozinho depois de uma resposta, sem sinal de saída, NÃO é recusa
 - fora_do_escopo: pede algo que a empresa não faz
 - pede_pagamento: quer pagar, pede link, boleto, PIX ou chave de pagamento
 - outro: nenhuma das anteriores ou não deu para entender

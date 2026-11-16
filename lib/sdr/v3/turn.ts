@@ -38,7 +38,11 @@ export interface V3Ctx {
 export interface V3Deps {
   supabase: Supabase
   openai: OpenAI
-  send: (blocos: string[]) => Promise<void>
+  /** Manda os blocos e devolve quantos saíram de fato (o envio para no meio se `podeInterromper` e o lead escrever
+   * de novo). void = todos saíram (implementações antigas de teste). */
+  send: (blocos: string[], opts?: { podeInterromper: boolean; interromperAPartirDe: number }) => Promise<number | void>
+  /** O lead escreveu de novo depois que este turno leu as mensagens dele? Opcional (testes não têm buffer). */
+  chegouMensagemNova?: () => Promise<boolean>
   log: (event: string, data: Record<string, unknown>) => Promise<void>
   search: (query: string) => Promise<string>
   onUsage: (c: OpenAI.Chat.ChatCompletion, agent: string) => void
@@ -61,6 +65,9 @@ export interface V3Params {
   pushName: string | null
   /** Resposta atrasada (retomada depois da OpenAI sem crédito, lib/sdr/retomada-sem-credito.ts). */
   retomada?: boolean
+  /** true: se o lead escrever de novo enquanto a resposta é preparada, o turno é descartado (adiado) pra ler tudo
+   * junto. false quando as mensagens já foram adiadas o máximo de vezes (o lead nunca fica sem resposta). */
+  podeAdiar?: boolean
 }
 
 /** Primeiro bloco de toda resposta atrasada. Texto fixo de propósito (pedido do Rodrigo, 16/11/2026): entra depois
@@ -83,10 +90,16 @@ function contemLiteral(blocos: string[], literal: string[]): boolean {
   return literal.every((l) => saida.includes(norm(l).replace(/[.!?]+$/, '')))
 }
 
-export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo?: string }> {
+export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo?: string; adiado?: boolean }> {
   const { ctx, deps, historico, mensagemAtual } = p
   const { supabase, openai } = deps
   const t0 = Date.now()
+
+  // Lead escreveu de novo enquanto este turno era preparado: descarta tudo (nada foi enviado nem salvo no estado) e o
+  // motor devolve as mensagens pro buffer, pra próxima rodada ler tudo junto. Conferido em 3 pontos: antes de gastar
+  // com a IA, antes de qualquer ação de verdade (agenda, cobrança) e logo antes de enviar.
+  const leadEscreveuDeNovo = async () => p.podeAdiar === true && !!deps.chegouMensagemNova && (await deps.chegouMensagemNova().catch(() => false))
+  if (await leadEscreveuDeNovo()) return { handled: true, adiado: true }
 
   const cfgRow = await getActiveConfig(ctx.companyId, supabase)
   const conv = Number(ctx.conversationId)
@@ -166,7 +179,9 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
     await supabase.from('leads').update({ contact_name: extracao.dados.nome_completo || extracao.dados.nome, updated_at: new Date().toISOString() }).eq('id', ctx.leadId).eq('company_id', ctx.companyId)
     await supabase.from('conversas_do_whatsapp').update({ nome_do_contato: extracao.dados.nome }).eq('id', ctx.conversationId).eq('company_id', ctx.companyId)
   }
-  if (extracao.dados.segmento) {
+  // "Outros" nunca apaga um segmento de verdade já anotado (mesma regra do decisor, ver decider.ts passo 0).
+  const segmentoAtual = (estadoIn.dados.segmento ?? '').trim()
+  if (extracao.dados.segmento && !(extracao.dados.segmento.trim() === 'Outros' && segmentoAtual && segmentoAtual !== 'Outros')) {
     const { error: segmentoErr } = await supabase.from('leads').update({ segment: extracao.dados.segmento }).eq('id', ctx.leadId).eq('company_id', ctx.companyId)
     // Achado real, lead Jorge Luiz/conv541, 03/10/2026: segment é enum fechado no banco -- quando o valor não
     // bate com nenhuma opção, a escrita falhava calada (sem log, sem erro visível), o campo ficava null pra
@@ -269,6 +284,13 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
     return true
   }
 
+  if (await leadEscreveuDeNovo()) {
+    await deps.log('v3_turno_adiado', { ponto: 'depois_da_decisao', acao: acao.tipo }).catch(() => {})
+    return { handled: true, adiado: true }
+  }
+  // Agenda, cancelamento e cobrança acontecem de verdade fora daqui: depois deles o turno nunca é descartado.
+  const efeitoReal = ['agendar', 'cancelar_reuniao', 'gerar_cobranca'].includes(acao.tipo)
+
   // Ações que o código executa (agendamento, cobrança, busca de fatos), nunca a IA
   if (acao.tipo === 'responder_fato' && acao.consulta_rag) {
     const rag = await deps.search(acao.consulta_rag)
@@ -277,7 +299,12 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
     if (acao.fatos.length === 0) virarEscalar('dúvida sem fato na base', true)
   }
   if (acao.tipo === 'oferecer_horarios') {
-    if (!(await ofertar())) virarEscalar('sem horários livres para oferecer')
+    // Primeira oferta: diz antes o que é o horário (uma conversa com a pessoa), em vez de soltar a lista seca.
+    // Achado real, auditoria 16/11/2026, conv1052/1097: horários chegaram sem ponte, o lead não sabia pra quê.
+    const ponte = !(estado.contadores.ofertas_horario ?? 0) && config.escala.nome_humano?.trim()
+      ? `O próximo passo é uma conversa rápida com o ${config.escala.nome_humano.trim()}, que te mostra direitinho como fica pro seu caso. `
+      : ''
+    if (!(await ofertar(ponte))) virarEscalar('sem horários livres para oferecer')
     else if (analysis?.gaps) {
       const gap = analysis.gaps.filter((g) => !g.unknown)[0]
       if (gap) acao.fatos.push({ id: 'places_gap', texto: `Na análise do perfil dele achamos: ${gap.titulo}. ${gap.texto}. Há mais pontos que o especialista mostra na conversa.` })
@@ -414,8 +441,24 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
   blocos = blocos.map((b) => b.replace(/\s*[—–]\s*/g, ', ').trim()).filter(Boolean)
 
   // Envio (em blocos, com digitando e atraso: o motor de envio atual)
+  if (!efeitoReal && (await leadEscreveuDeNovo())) {
+    await deps.log('v3_turno_adiado', { ponto: 'antes_de_enviar', acao: acao.tipo }).catch(() => {})
+    return { handled: true, adiado: true }
+  }
   if (p.retomada && blocos.length > 0) blocos = [TEXTO_RETOMADA, ...blocos]
-  if (blocos.length > 0) await deps.send(blocos)
+  const preparados = blocos
+  if (blocos.length > 0) {
+    // Escalada pra pessoa e confirmação de agenda/cobrança saem inteiras (o lead precisa receber o aviso completo).
+    // No resto, se o lead escrever no meio do envio, para e responde a mensagem nova no próximo turno.
+    // Na retomada, o pedido de desculpa nunca sai sozinho: só interrompe depois do primeiro bloco de conteúdo.
+    const podeInterromper = !efeitoReal && !acao.handoff && !!deps.chegouMensagemNova
+    const n = await deps.send(blocos, { podeInterromper, interromperAPartirDe: p.retomada ? 2 : 1 })
+    if (typeof n === 'number' && n < blocos.length) {
+      // Só o que saiu de verdade conta como dito (frases enviadas, pergunta feita): o que não saiu não existe.
+      blocos = blocos.slice(0, n)
+      await deps.log('v3_envio_interrompido', { enviados: n, preparados: preparados.length, naoEnviados: preparados.slice(n) }).catch(() => {})
+    }
+  }
   if (acao.handoff) ctx.pendingHandoff = acao.handoff
 
   // Depois do envio nada pode derrubar o turno (evita reenviar no retry do worker)
