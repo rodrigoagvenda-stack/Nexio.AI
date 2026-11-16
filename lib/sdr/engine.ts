@@ -3090,7 +3090,10 @@ async function sendWithHumanDelay(
 
   // Janela de 24h : fora dela, mensagem livre falha direto na API da Meta.
   // Bloqueia antes de tentar, em vez de deixar a chamada estourar.
-  const windowState = await getWindowStateForConversation(supabase, conversationId)
+  // SÓ na API oficial (Meta): na uazapi não existe janela, igual mandar pelo celular. Achado real, Rodrigo,
+  // 16/11/2026: a trava valia pra todo mundo e descartava calada a resposta de lead que escreveu há mais de 24h
+  // na Grupo Venda (uazapi). O envio manual (api/whatsapp/send) e o rich-sender já faziam essa distinção.
+  const windowState = isMeta ? await getWindowStateForConversation(supabase, conversationId) : null
   if (windowState && !canSendFreeform(windowState)) {
     console.warn(`[SDR:${ctx.companyId}] envio bloqueado : fora da janela de 24h (conversationId=${conversationId})`)
     await log(ctx.companyId, 'send_blocked_outside_window', { conversationId }, supabase, phone, ctx.leadId)
