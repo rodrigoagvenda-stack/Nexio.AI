@@ -116,6 +116,8 @@ export interface BufferedMessage {
   // é uma mensagem que o lead de fato escreveu no WhatsApp -- mostrar isso
   // como se fosse fala do lead confundiria quem lê o histórico depois.
   synthetic?: boolean
+  /** Resposta atrasada (retomada depois da OpenAI sem crédito): a resposta começa pedindo desculpa pela demora. */
+  retomada?: boolean
 }
 
 type ChatMsg = { role: 'user' | 'assistant' | 'system'; content: string }
@@ -3951,6 +3953,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
         const v3 = await runV3Turn({
           ctx,
           pushName: bufferedMessages[0]?.senderName || null,
+          retomada: bufferedMessages.some((m) => m.retomada),
           historico: history,
           mensagemAtual: combinedText,
           deps: {

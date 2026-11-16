@@ -59,7 +59,13 @@ export interface V3Params {
   historico: MsgHist[]
   mensagemAtual: string
   pushName: string | null
+  /** Resposta atrasada (retomada depois da OpenAI sem crédito, lib/sdr/retomada-sem-credito.ts). */
+  retomada?: boolean
 }
+
+/** Primeiro bloco de toda resposta atrasada. Texto fixo de propósito (pedido do Rodrigo, 16/11/2026): entra depois
+ * do validador, então nunca é reescrito, cortado nem confundido com fato inventado pela IA. */
+export const TEXTO_RETOMADA = 'Desculpa a demora pra te responder! A procura pela nossa Black November foi enorme nesses dias.'
 
 const STATUS_CRM: Partial<Record<Etapa, string>> = {
   qualificando: 'Em contato',
@@ -408,6 +414,7 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
   blocos = blocos.map((b) => b.replace(/\s*[—–]\s*/g, ', ').trim()).filter(Boolean)
 
   // Envio (em blocos, com digitando e atraso: o motor de envio atual)
+  if (p.retomada && blocos.length > 0) blocos = [TEXTO_RETOMADA, ...blocos]
   if (blocos.length > 0) await deps.send(blocos)
   if (acao.handoff) ctx.pendingHandoff = acao.handoff
 
