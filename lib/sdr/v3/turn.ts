@@ -302,7 +302,7 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
     // Primeira oferta: diz antes o que é o horário (uma conversa com a pessoa), em vez de soltar a lista seca.
     // Achado real, auditoria 16/11/2026, conv1052/1097: horários chegaram sem ponte, o lead não sabia pra quê.
     const ponte = !(estado.contadores.ofertas_horario ?? 0) && config.escala.nome_humano?.trim()
-      ? `O próximo passo é uma conversa rápida com o ${config.escala.nome_humano.trim()}, que te mostra direitinho como fica pro seu caso. `
+      ? `O próximo passo é uma conversa rápida com o ${config.escala.nome_humano.trim().split(/\s+/)[0]}, que te mostra direitinho como fica pro seu caso. `
       : ''
     if (!(await ofertar(ponte))) virarEscalar('sem horários livres para oferecer')
     else if (analysis?.gaps) {

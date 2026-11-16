@@ -759,7 +759,10 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
         return { estado, acao: comPergunta(a) }
       }
       estado.contadores.preco_enviado = TODAS_AS_OPCOES
-      return { estado, acao: comPergunta(base('responder_preco', { conteudo: { modo: 'literal', texto: blocosDe(pe.texto_sem_escopo) } })) }
+      // Mesmo fechamento do preço de um plano só: termina no convite pra garantir a vaga, nunca com pergunta de
+      // qualificação colada logo depois do valor ("...R$ 3.500. E você atende em qual cidade?").
+      const blocosTodos = [...blocosDe(pe.texto_sem_escopo).filter((b) => !b.trim().endsWith('?')), FECHAMENTO_PRECO]
+      return { estado, acao: comPergunta(base('responder_preco', { conteudo: { modo: 'literal', texto: blocosTodos } })) }
     }
     if (pe) {
       // Achado real, lead Jonas/conv1023 (Grupo Venda), 09/11/2026: o escopo nunca foi respondido de verdade
