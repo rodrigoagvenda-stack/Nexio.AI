@@ -305,6 +305,12 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   const COMO_FUNCIONA_EXPLICITO_RE = /como funciona|como (e|eh) (o processo|feito)|qual (e|eh) o processo|como (voces? |voce )?faz(em)?|o que voces? faz(em)?|me explica/
   const pedeuPrecoDeVerdade = !abertura || PRECO_EXPLICITO_RE.test(norm(ctx.mensagemLead))
   const pedeuComoFuncionaDeVerdade = !abertura || COMO_FUNCIONA_EXPLICITO_RE.test(norm(ctx.mensagemLead))
+  // Mesma trava pra "outra frente" (anúncio/tráfego): na primeira mensagem, o texto é o gancho do anúncio e não diz
+  // o que o lead quer. Achado real, Rodrigo, 16/11/2026: a Meta trocou sozinha a mensagem pronta do anúncio da
+  // Fundação Digital por "Quero anunciar no Google", e todo lead desse anúncio recebia a oferta de Google Ads
+  // (valor personalizado com o Bruno) em vez da Fundação Digital. Na abertura segue a qualificação normal; se o
+  // lead quiser mesmo anúncio, ele diz nas próximas mensagens e o classificador volta a valer.
+  if (abertura) I.delete('interesse_outra_frente')
 
   const base = (tipo: Acao['tipo'], extra: Partial<Acao> = {}): Acao => ({
     tipo,

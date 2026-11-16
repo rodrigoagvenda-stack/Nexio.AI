@@ -808,7 +808,11 @@ ok('schema do extrator trava segmento num enum fechado (não aceita texto livre)
   const dAds = decidir(ex({ intencoes: ['interesse_outra_frente'] }), ESTADO_INICIAL(2), config, ctx({ primeiraMensagemNossa: true, mensagemLead: 'Quero anunciar no Google' }))
   ok('abertura com pedido (anunciar no Google): pergunta o nome', dAds.acao.proxima_pergunta?.id === 'nome', JSON.stringify(dAds.acao.proxima_pergunta))
   ok('abertura com pedido: se apresenta', dAds.acao.contexto.some((c: string) => c.includes('apresente-se')), dAds.acao.contexto.join(' | '))
-  ok('abertura com pedido: continua respondendo o pedido', dAds.acao.tipo === 'responder_fato', dAds.acao.tipo)
+  // 16/11: "Quero anunciar no Google" na abertura é o gancho que a Meta colocou no anúncio da Fundação Digital,
+  // não pedido de Google Ads: segue a qualificação normal, nunca marca escopo outra_frente.
+  ok('abertura "Quero anunciar no Google": não vira oferta de anúncio (outra frente)', dAds.acao.tipo === 'perguntar' && dAds.estado.dados.escopo !== 'outra_frente', `${dAds.acao.tipo} escopo=${dAds.estado.dados.escopo}`)
+  const dAdsDepois = decidir(ex({ intencoes: ['interesse_outra_frente'] }), dAds.estado, config, ctx({ mensagemLead: 'quero fazer anúncio pago no Google Ads mesmo' }))
+  ok('depois da abertura, pedido de anúncio de verdade continua virando outra frente', dAdsDepois.estado.dados.escopo === 'outra_frente', `${dAdsDepois.acao.tipo} escopo=${dAdsDepois.estado.dados.escopo}`)
   const dAds2 = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { nome: 'Carlos' } }), dAds.estado, config, ctx({ mensagemLead: 'Carlos' }))
   ok('depois do nome, segue pro negócio (sem repetir apresentação)', dAds2.acao.proxima_pergunta?.id === 'negocio' && !dAds2.acao.contexto.some((c: string) => c.includes('apresente-se')), JSON.stringify(dAds2.acao.proxima_pergunta))
   const dJaTem = decidir(ex({ intencoes: ['interesse_outra_frente'], dados: { nome: 'Ana' } }), ESTADO_INICIAL(2), config, ctx({ primeiraMensagemNossa: true, mensagemLead: 'Sou a Ana, quero anunciar no Google' }))
