@@ -340,13 +340,27 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // empresa que termine um bloco literal com "?", não só preço.
   const literalJaTerminaEmPergunta = (a: Acao) => a.conteudo?.modo === 'literal' && asArr(a.conteudo.texto).join(' ').trim().endsWith('?')
 
+  /** Primeira mensagem nossa: apresentação + nome. Antes só a regra 13 (lead que só cumprimenta) fazia isso; lead
+   * que chegava pedindo algo ("Quero anunciar no Google", botão do anúncio) caía em outra regra, a abertura era
+   * pulada e o nome (pergunta opcional, só feita na abertura) nunca mais era perguntado, nem a Laura se
+   * apresentava (achado real, Bruno, 16/11/2026: ~metade das conversas de 09 a 13/11 sem nome). */
+  const contextoAbertura = (a: Acao) => {
+    a.contexto.push(`Primeira mensagem da conversa: apresente-se pelo nome (${config.persona.nome_agente}) e pela empresa (${config.persona.empresa}).`)
+    if (ctx.contextoOutbound) a.contexto.push(`O lead recebeu um disparo nosso antes: "${ctx.contextoOutbound}". Não se reapresente como se fosse o primeiro contato.`)
+    if (ctx.origemAnuncio) a.contexto.push(`O lead chegou pelo anúncio: "${ctx.origemAnuncio}".`)
+    if (!filled(estado.dados, 'nome')) {
+      a.contexto.push('Pergunte o nome de forma direta ("Qual o seu nome?"). Nunca adivinhe nem confirme um nome a partir do perfil do WhatsApp, nem escreva "Falo com fulano?".')
+    }
+  }
+
   const comPergunta = (a: Acao, permitir = true): Acao => {
     if (!permitir || completa || literalJaTerminaEmPergunta(a)) return a
-    const q = proximaPergunta(estado, config, false)
+    const q = proximaPergunta(estado, config, abertura)
+    if (abertura) contextoAbertura(a)
     if (q) {
       a.proxima_pergunta = { id: q.id, texto: q.texto }
       if (q.id === ID_CONFIRMA_ESCOPO) a.contexto.push(CONTEXTO_CONFIRMA_ESCOPO)
-      comentar(a)
+      if (!abertura) comentar(a)
       if (q.reformulada && !q.reformulacaoFixa) a.contexto.push('Esta pergunta já foi feita antes e não foi respondida: reformule com outras palavras, sem cobrar.')
     } else if (!a.handoff) {
       const travada = perguntaObrigatoriaEmperrada(estado, config)
@@ -365,11 +379,12 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
    * cortou a pergunta seguinte — a conversa respondia certo e simplesmente parava, sem next step nenhum). */
   const comPerguntaSemTrava = (a: Acao): Acao => {
     if (completa || literalJaTerminaEmPergunta(a)) return a
-    const q = proximaPergunta(estado, config, false)
+    const q = proximaPergunta(estado, config, abertura)
+    if (abertura) contextoAbertura(a)
     if (q) {
       a.proxima_pergunta = { id: q.id, texto: q.texto }
       if (q.id === ID_CONFIRMA_ESCOPO) a.contexto.push(CONTEXTO_CONFIRMA_ESCOPO)
-      comentar(a)
+      if (!abertura) comentar(a)
       if (q.reformulada && !q.reformulacaoFixa) a.contexto.push('Esta pergunta já foi feita antes e não foi respondida: reformule com outras palavras, sem cobrar.')
     }
     return a
@@ -921,12 +936,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     }
   }
   if (abertura) {
-    a.contexto.push(`Primeira mensagem da conversa: apresente-se pelo nome (${config.persona.nome_agente}) e pela empresa (${config.persona.empresa}).`)
-    if (ctx.contextoOutbound) a.contexto.push(`O lead recebeu um disparo nosso antes: "${ctx.contextoOutbound}". Não se reapresente como se fosse o primeiro contato.`)
-    if (ctx.origemAnuncio) a.contexto.push(`O lead chegou pelo anúncio: "${ctx.origemAnuncio}".`)
-    if (!filled(estado.dados, 'nome')) {
-      a.contexto.push('Pergunte o nome de forma direta ("Qual o seu nome?"). Nunca adivinhe nem confirme um nome a partir do perfil do WhatsApp, nem escreva "Falo com fulano?".')
-    }
+    contextoAbertura(a)
   } else if (!q) {
     a.tipo = 'aguardar'
   }

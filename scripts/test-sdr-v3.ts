@@ -802,6 +802,21 @@ const schema: any = schemaExtracao(config)
 const segmentoSchema = schema.properties.dados.properties.segmento
 ok('schema do extrator trava segmento num enum fechado (não aceita texto livre)', Array.isArray(segmentoSchema?.enum) && segmentoSchema.enum.includes('Construção Civil') && segmentoSchema.enum.includes(null), JSON.stringify(segmentoSchema))
 
+// Achado real, Bruno, 16/11/2026: lead que chega pelo botão "Quero anunciar no Google" pulava a abertura
+// (caía na regra de outra frente) e nunca era perguntado o nome nem recebia a apresentação da Laura.
+{
+  const dAds = decidir(ex({ intencoes: ['interesse_outra_frente'] }), ESTADO_INICIAL(2), config, ctx({ primeiraMensagemNossa: true, mensagemLead: 'Quero anunciar no Google' }))
+  ok('abertura com pedido (anunciar no Google): pergunta o nome', dAds.acao.proxima_pergunta?.id === 'nome', JSON.stringify(dAds.acao.proxima_pergunta))
+  ok('abertura com pedido: se apresenta', dAds.acao.contexto.some((c: string) => c.includes('apresente-se')), dAds.acao.contexto.join(' | '))
+  ok('abertura com pedido: continua respondendo o pedido', dAds.acao.tipo === 'responder_fato', dAds.acao.tipo)
+  const dAds2 = decidir(ex({ intencoes: ['resposta_qualificacao'], dados: { nome: 'Carlos' } }), dAds.estado, config, ctx({ mensagemLead: 'Carlos' }))
+  ok('depois do nome, segue pro negócio (sem repetir apresentação)', dAds2.acao.proxima_pergunta?.id === 'negocio' && !dAds2.acao.contexto.some((c: string) => c.includes('apresente-se')), JSON.stringify(dAds2.acao.proxima_pergunta))
+  const dJaTem = decidir(ex({ intencoes: ['interesse_outra_frente'], dados: { nome: 'Ana' } }), ESTADO_INICIAL(2), config, ctx({ primeiraMensagemNossa: true, mensagemLead: 'Sou a Ana, quero anunciar no Google' }))
+  ok('abertura com pedido e nome já dito: não pergunta o nome de novo', dJaTem.acao.proxima_pergunta?.id !== 'nome', JSON.stringify(dJaTem.acao.proxima_pergunta))
+  const dMeio = decidir(ex({ intencoes: ['interesse_outra_frente'] }), est({ turno: 3 }), config, ctx({ mensagemLead: 'quero anunciar no Google' }))
+  ok('no meio da conversa: não se reapresenta', !dMeio.acao.contexto.some((c: string) => c.includes('apresente-se')), dMeio.acao.contexto.join(' | '))
+}
+
 testarChatV3().then(() => {
   console.log(falhas === 0 ? '\nTODOS OK' : `\n${falhas} FALHA(S)`)
   process.exit(falhas === 0 ? 0 : 1)
