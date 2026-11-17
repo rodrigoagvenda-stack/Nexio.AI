@@ -9,7 +9,7 @@ import { formatDateTimeBR } from '@/lib/google-calendar'
 import { writeV3TurnLog } from '../turn-log'
 import { agendarReuniao, cancelarReuniao, filtroDisponibilidade, ofertarHorarios, type AgendaCtx } from './agenda'
 import { gerarCobranca } from './cobranca'
-import { firstName, decidir, type DecisorCtx } from './decider'
+import { firstName, decidir, LINK_NAO_ENVIADO, type DecisorCtx } from './decider'
 import { extrair, type MsgHist } from './extractor'
 import { getActiveConfig } from './config-store'
 import { carregarEstado, salvarEstado } from './state'
@@ -323,10 +323,16 @@ export async function runV3Turn(p: V3Params): Promise<{ handled: boolean; motivo
       // uma conversa real (lead Antônio) e resolve um problema comum antes de virar reclamação ("não chegou nada").
       acao.bloco_fixo = `${firstName(nomeCompleto)}, agendado! ${r.dataFormatada}.\n\nTe enviei o convite por e-mail com o link da reunião. Dá uma olhadinha lá (vale checar o spam também por garantia) e me avisa se chegou certinho.`
       await salvarEstado(supabase, ctx.companyId, conv, estado).catch(() => {})
-      const linkGmn = /https?:\/\/\S+/.exec(estado.dados.tem_perfil_google ?? '')?.[0]
+      const perfil = estado.dados.tem_perfil_google ?? ''
+      const linkGmn = /https?:\/\/\S+/.exec(perfil)?.[0]
+      const linhaPerfil = linkGmn
+        ? `\nPerfil do Google: ${linkGmn}`
+        : perfil === LINK_NAO_ENVIADO
+          ? '\nPerfil do Google: ele NÃO mandou o link (mandou outro link, não o do perfil)'
+          : ''
       await deps.notificarResponsavel(
         'reunião agendada',
-        `Lead: ${nomeCompleto}\nWhatsApp: ${ctx.leadPhone}\nData: ${r.dataFormatada}\nLink da reunião: ${r.meetUrl}${linkGmn ? `\nPerfil do Google: ${linkGmn}` : ''}`,
+        `Lead: ${nomeCompleto}\nWhatsApp: ${ctx.leadPhone}\nData: ${r.dataFormatada}\nLink da reunião: ${r.meetUrl}${linhaPerfil}`,
       )
     } else if (r.motivo === 'indisponivel') {
       delete estado.dados.horario_escolhido

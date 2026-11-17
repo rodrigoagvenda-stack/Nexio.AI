@@ -104,6 +104,27 @@ export function perguntaConfirmacaoEscopo(estado: Estado, config: CompanyConfig)
 const CONTEXTO_CONFIRMA_ESCOPO =
   'A pergunta deste turno confirma se você entendeu certo o que o lead precisa. Pode usar as palavras dele, mas a pergunta TEM que deixar claro o mesmo sentido da pergunta de referência (com site ou sem site). Nunca troque esse sentido, mesmo que a mensagem dele pareça dizer outra coisa: se estiver errado, ele mesmo corrige. Não fale de preço, plano nem horário nesta mensagem.'
 
+/** Valor do campo quando o lead tem perfil mas mandou um link que não é dele (sem URL de propósito: o aviso pro
+ * Bruno só mostra "Perfil do Google" quando há link de verdade). */
+export const LINK_NAO_ENVIADO = 'sim: não mandou o link do perfil (mandou outro link)'
+const TEXTO_PEDE_LINK_DE_NOVO = 'Consegue me mandar o link do perfil da empresa no Google? Se não conseguir, pode mandar um print.'
+
+/** Link de perfil do Google (Meu Negócio / Maps / compartilhar da busca). Tela de login, site, Instagram,
+ * Linktree e afins não são. */
+export function ehLinkPerfilGoogle(url: string): boolean {
+  let u: URL
+  try {
+    u = new URL(url)
+  } catch {
+    return false
+  }
+  const host = u.hostname.toLowerCase().replace(/^www\./, '')
+  if (/^(g\.page|g\.co|goo\.gl|maps\.app\.goo\.gl|share\.google|business\.google\.com)$/.test(host)) return true
+  if (/^maps\.google\./.test(host)) return true
+  if (/^google\.[a-z.]+$/.test(host) && /^\/(maps|search)\b/.test(u.pathname)) return true
+  return false
+}
+
 /** Próxima pergunta permitida: uma por turno, nunca a respondida, nunca a do turno anterior sem resposta. */
 export function proximaPergunta(estado: Estado, config: CompanyConfig, abertura: boolean, ignorarJanela = false): { id: string; texto: string; reformulada: boolean; reformulacaoFixa: boolean } | null {
   const ordenadas = [...config.qualificacao.perguntas].sort((a, b) => a.ordem - b.ordem)
@@ -172,6 +193,27 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // prioridade maior (ex.: pergunta_como_funciona), a regra 9 nunca rodava e a escolha de horário do lead se
   // perdia pra sempre, mesmo ele repetindo. Precisa ser incondicional, igual ex.dados, não só dentro da regra 9.
   if (ex.horario_escolhido) estado.dados.horario_escolhido = ex.horario_escolhido
+
+  // 0-link. Pergunta que pede link (ex.: perfil do Google) respondida com um link que NÃO é do perfil. Achado real,
+  // Vilson/conv1155, 17/11/2026: mandou o link da tela de login da conta Google; o SDR comentou "esse link é da
+  // tela de login" e seguiu pra próxima pergunta sem pedir o certo, e o aviso pro Bruno levaria o link de login
+  // como "Perfil do Google". Regra (Rodrigo): pede o link certo UMA vez (ou um print); se mandar errado de novo,
+  // diz que não é o link e segue. O campo fica "sim: não mandou o link do perfil", sem URL, pro aviso do Bruno
+  // dizer que ele não mandou. O campo nunca fica vazio: o lead respondeu que tem perfil, então nada de trava/handoff.
+  let linkRepedir: { id: string } | null = null
+  let linkErradoDeNovo = false
+  for (const q of config.qualificacao.perguntas) {
+    if (q.campo_tipo !== 'link_ou_print' && !/\blink\b/i.test(q.texto)) continue
+    const valor = ex.dados?.[q.campo]
+    const url = typeof valor === 'string' ? /https?:\/\/\S+/i.exec(valor)?.[0] : undefined
+    if (!url || ehLinkPerfilGoogle(url)) continue
+    estado.dados[q.campo] = LINK_NAO_ENVIADO
+    if (estado.contadores.link_perfil_repedido) linkErradoDeNovo = true
+    else {
+      estado.contadores.link_perfil_repedido = true
+      linkRepedir = { id: q.id }
+    }
+  }
 
   // 0a. Escopo só vale depois de o lead confirmar o que a IA entendeu. Achado real, lead Rafael/5535997494720,
   // 10/11/2026: ele disse num áudio que queria o Google mandando cliente direto pro WhatsApp, sem site; a IA
@@ -375,8 +417,21 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
     }
   }
 
+  /** Link que não é do perfil: na 1ª vez a pergunta do turno é pedir o link certo (ou um print); na 2ª, avisa
+   * em meia frase que também não é o link e segue com a próxima pergunta normal. */
+  const tratarLinkErrado = (a: Acao): boolean => {
+    if (linkRepedir) {
+      a.proxima_pergunta = { id: linkRepedir.id, texto: TEXTO_PEDE_LINK_DE_NOVO }
+      a.contexto.push('O link que o lead mandou NÃO é do perfil da empresa no Google (é de outra página, ex.: tela de login, site ou rede social). Diga isso em meia frase, sem julgar, e peça o link do perfil da empresa no Google; se ele não conseguir mandar o link, que mande um print do perfil. Não faça outra pergunta.')
+      return true
+    }
+    if (linkErradoDeNovo) a.contexto.push('O lead mandou de novo um link que NÃO é do perfil da empresa no Google. Diga em meia frase que esse também não é o link do perfil, sem pedir de novo, e siga com a pergunta.')
+    return false
+  }
+
   const comPergunta = (a: Acao, permitir = true): Acao => {
     if (!permitir || completa || literalJaTerminaEmPergunta(a)) return a
+    if (tratarLinkErrado(a)) return a
     const q = proximaPergunta(estado, config, abertura)
     if (abertura) contextoAbertura(a)
     if (q) {
@@ -401,6 +456,7 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
    * cortou a pergunta seguinte — a conversa respondia certo e simplesmente parava, sem next step nenhum). */
   const comPerguntaSemTrava = (a: Acao): Acao => {
     if (completa || literalJaTerminaEmPergunta(a)) return a
+    if (tratarLinkErrado(a)) return a
     const q = proximaPergunta(estado, config, abertura)
     if (abertura) contextoAbertura(a)
     if (q) {
@@ -1011,8 +1067,9 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
 
   // 13. demais: próxima pergunta (na abertura pode ser qualquer uma, inclusive opcional)
   const soSocial = I.has('social') && ex.intencoes.every((i) => i === 'social' || i === 'outro')
-  const q = proximaPergunta(estado, config, abertura, soSocial)
   const a = base('perguntar')
+  if (!abertura && !completa && tratarLinkErrado(a)) return { estado, acao: a }
+  const q = proximaPergunta(estado, config, abertura, soSocial)
   if (q) {
     a.proxima_pergunta = { id: q.id, texto: q.texto }
     if (q.id === ID_CONFIRMA_ESCOPO) a.contexto.push(CONTEXTO_CONFIRMA_ESCOPO)

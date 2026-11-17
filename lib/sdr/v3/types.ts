@@ -85,6 +85,8 @@ export interface Contadores {
   preco_pedido_no_como_funciona?: boolean
   /** Quantas vezes o SDR já pediu pro lead confirmar o escopo entendido: da segunda resposta em diante aceita direto. */
   escopo_confirmacoes?: number
+  /** Já pedimos de novo o link do perfil porque o lead mandou um link que não era dele: nunca pede uma terceira vez. */
+  link_perfil_repedido?: boolean
 }
 
 export interface Estado {
