@@ -108,6 +108,9 @@ const CONTEXTO_CONFIRMA_ESCOPO =
  * Bruno só mostra "Perfil do Google" quando há link de verdade). */
 export const LINK_NAO_ENVIADO = 'sim: não mandou o link do perfil (mandou outro link)'
 const TEXTO_PEDE_LINK_DE_NOVO = 'Consegue me mandar o link do perfil da empresa no Google? Se não conseguir, pode mandar um print.'
+const CONTEXTO_LINK_ERRADO = 'O link que o lead mandou NÃO é do perfil da empresa no Google (é de outra página, ex.: tela de login, site ou rede social). Diga isso em meia frase, sem julgar, e peça o link do perfil da empresa no Google; se ele não conseguir mandar o link, que mande um print do perfil. Não faça outra pergunta.'
+const TEXTO_PEDE_LINK_SIM_SEM_LINK = 'Me manda o link do perfil, por favor? Se for mais fácil, pode ser um print.'
+const CONTEXTO_LINK_SIM_SEM_LINK = 'O lead disse que tem o perfil no Google mas não mandou o link nem o print que você pediu. Peça de novo, curto e leve (o link, ou um print se for mais fácil). Não faça outra pergunta.'
 
 /** Link de perfil do Google (Meu Negócio / Maps / compartilhar da busca). Tela de login, site, Instagram,
  * Linktree e afins não são. */
@@ -173,6 +176,33 @@ function etapaAvanca(atual: Etapa, alvo: Etapa): Etapa {
 
 const asArr = (v: string | string[]) => (Array.isArray(v) ? v : [v])
 
+/** Domínios com erro de digitação comum → domínio certo. */
+const DOMINIO_CERTO: Record<string, string> = {
+  'gmil.com': 'gmail.com', 'gmai.com': 'gmail.com', 'gmal.com': 'gmail.com', 'gnail.com': 'gmail.com', 'gamil.com': 'gmail.com',
+  'gmial.com': 'gmail.com', 'gmaill.com': 'gmail.com', 'gmali.com': 'gmail.com', 'gemail.com': 'gmail.com', 'gimail.com': 'gmail.com',
+  'gmail.com.br': 'gmail.com', 'gmail.co': 'gmail.com', 'gmail.cm': 'gmail.com', 'gmail.om': 'gmail.com', 'gmail.con': 'gmail.com', 'gmail.cpm': 'gmail.com', 'gmail.comm': 'gmail.com', 'gmail': 'gmail.com',
+  'hotmial.com': 'hotmail.com', 'hotmal.com': 'hotmail.com', 'hotmai.com': 'hotmail.com', 'hotmil.com': 'hotmail.com', 'hotamil.com': 'hotmail.com', 'hotmeil.com': 'hotmail.com', 'homail.com': 'hotmail.com', 'hotmail.con': 'hotmail.com', 'hotmail.co': 'hotmail.com', 'hotmail': 'hotmail.com',
+  'outlok.com': 'outlook.com', 'outloo.com': 'outlook.com', 'outlook.con': 'outlook.com', 'outlook.co': 'outlook.com', 'outlook': 'outlook.com',
+  'yaho.com': 'yahoo.com', 'yahoo.con': 'yahoo.com', 'yaho.com.br': 'yahoo.com.br', 'yahoo.com.b': 'yahoo.com.br',
+  'iclod.com': 'icloud.com', 'icloud.con': 'icloud.com', 'icoud.com': 'icloud.com',
+}
+
+/** Normaliza o e-mail (minúsculo, sem espaço), corrige domínio digitado errado e valida o formato. */
+export function corrigirEmail(bruto: string): { valido: boolean; email: string } {
+  let e = (bruto ?? '').trim().toLowerCase().replace(/^mailto:/, '').replace(/\s+/g, '').replace(/[.,;]+$/, '')
+  const at = e.lastIndexOf('@')
+  if (at > 0) {
+    const local = e.slice(0, at)
+    let dom = e.slice(at + 1).replace(/\.{2,}/g, '.')
+    dom = DOMINIO_CERTO[dom] ?? dom
+    // final digitado errado em qualquer domínio: .con/.cm/.om/.cpm → .com
+    dom = dom.replace(/\.(con|cm|om|cpm|comm)$/, '.com').replace(/\.(con|cm|om|cpm|comm)\.br$/, '.com.br')
+    e = `${local}@${dom}`
+  }
+  const valido = /^[a-z0-9._%+-]+@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/.test(e) && !/^\.|\.\.|\.@/.test(e)
+  return { valido, email: e }
+}
+
 
 export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ctx: DecisorCtx): Decisao {
   const estado: Estado = JSON.parse(JSON.stringify(entrada))
@@ -180,12 +210,28 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   const turno = estado.turno
 
   // 0. merge dos dados (só o que o lead disse) e fechamento das perguntas respondidas
+  // E-mail passa por correção/validação (achado real, Evandro/17/11/2026: "vandosouza735@.com" e depois
+  // "vandosouza@gmil.com" foram aceitos e o convite foi pro endereço errado). Erro de digitação conhecido no
+  // domínio é corrigido; e-mail inválido não é guardado e o lead é pedido de novo, quantas vezes precisar.
+  let emailInvalido: string | null = null
+  let emailCorrigido: { de: string; para: string } | null = null
   for (const [k, v] of Object.entries(ex.dados ?? {})) {
     if (typeof v !== 'string' || !v.trim()) continue
     // "Outros" é a categoria de quando nada encaixa: nunca apaga uma categoria de verdade já anotada. Achado real,
     // auditoria 16/11/2026, Roberto/conv1098: mandou só o nome da empresa ("Oliveira telhado") e o segmento
     // "Construção Civil", certo, virou "Outros" no painel.
     if (k === 'segmento' && v.trim() === 'Outros' && filled(estado.dados, 'segmento') && estado.dados.segmento !== 'Outros') continue
+    if (k === 'email') {
+      const r = corrigirEmail(v)
+      if (!r.valido) {
+        emailInvalido = v.trim()
+        delete estado.dados.email
+        continue
+      }
+      if (r.email !== v.trim().toLowerCase()) emailCorrigido = { de: v.trim(), para: r.email }
+      estado.dados.email = r.email
+      continue
+    }
     estado.dados[k] = v.trim()
   }
   // horario_escolhido é campo separado de "dados" no extrator (não fica dentro de ex.dados), e por isso não
@@ -200,18 +246,32 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // como "Perfil do Google". Regra (Rodrigo): pede o link certo UMA vez (ou um print); se mandar errado de novo,
   // diz que não é o link e segue. O campo fica "sim: não mandou o link do perfil", sem URL, pro aviso do Bruno
   // dizer que ele não mandou. O campo nunca fica vazio: o lead respondeu que tem perfil, então nada de trava/handoff.
-  let linkRepedir: { id: string } | null = null
+  // Também (Rodrigo, 17/11, Maria/conv1144): respondeu só "sim" ao pedido do link/print e não mandou nada: pede uma
+  // vez. Só vale quando a pergunta da vez ERA essa (link mandado em outro momento, ex.: Instagram depois de agendar,
+  // nunca puxa a conversa de volta pra cá).
+  let linkRepedir: { id: string; texto: string; contexto: string } | null = null
   let linkErradoDeNovo = false
   for (const q of config.qualificacao.perguntas) {
     if (q.campo_tipo !== 'link_ou_print' && !/\blink\b/i.test(q.texto)) continue
+    if (entrada.contadores.ultimo_id_perguntado !== q.id) continue
     const valor = ex.dados?.[q.campo]
-    const url = typeof valor === 'string' ? /https?:\/\/\S+/i.exec(valor)?.[0] : undefined
-    if (!url || ehLinkPerfilGoogle(url)) continue
-    estado.dados[q.campo] = LINK_NAO_ENVIADO
-    if (estado.contadores.link_perfil_repedido) linkErradoDeNovo = true
-    else {
+    if (typeof valor !== 'string') continue
+    const url = /https?:\/\/\S+/i.exec(valor)?.[0]
+    if (url) {
+      if (ehLinkPerfilGoogle(url)) continue
+      estado.dados[q.campo] = LINK_NAO_ENVIADO
+      if (estado.contadores.link_perfil_repedido) linkErradoDeNovo = true
+      else {
+        estado.contadores.link_perfil_repedido = true
+        linkRepedir = { id: q.id, texto: TEXTO_PEDE_LINK_DE_NOVO, contexto: CONTEXTO_LINK_ERRADO }
+      }
+      continue
+    }
+    // "sim" sem link e sem print (print vem como "sim: print enviado")
+    const v = norm(valor)
+    if ((v === 'sim' || /^sim[:,]/.test(v)) && !/print|imagem|foto/.test(v) && !estado.contadores.link_perfil_repedido) {
       estado.contadores.link_perfil_repedido = true
-      linkRepedir = { id: q.id }
+      linkRepedir = { id: q.id, texto: TEXTO_PEDE_LINK_SIM_SEM_LINK, contexto: CONTEXTO_LINK_SIM_SEM_LINK }
     }
   }
 
@@ -362,6 +422,13 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // (valor personalizado com o Bruno) em vez da Fundação Digital. Na abertura segue a qualificação normal; se o
   // lead quiser mesmo anúncio, ele diz nas próximas mensagens e o classificador volta a valer.
   if (abertura) I.delete('interesse_outra_frente')
+  // Fora da abertura, "outra frente" só vale quando o texto do lead PEDE outro serviço com todas as letras
+  // (anúncio, tráfego, redes sociais, vídeo...). Achado real, Luana/conv1139, 17/11/2026: perguntada sobre o que
+  // queria melhorar, disse "mais visibilidade / mais seguidores / organizar nosso perfil"; a IA leu como pedido
+  // de social media e ela foi transferida pro Bruno no meio da qualificação, quando era o caso da Fundação Digital.
+  // Desejo (visibilidade, seguidores, clientes, faturamento) não é pedido de serviço.
+  const OUTRA_FRENTE_EXPLICITO_RE = /anunci|\bads\b|adwords|trafego|campanha|impulsion|patrocinad|social ?media|redes? sociai?s|instagram|facebook|tiktok|\bposts?\b|postage|conteudo|video|filmage|audiovisual|fotos? profissio|\bleads?\b|gestor|gestao de|agencia/
+  if (!OUTRA_FRENTE_EXPLICITO_RE.test(norm(ctx.mensagemLead ?? ''))) I.delete('interesse_outra_frente')
 
   const base = (tipo: Acao['tipo'], extra: Partial<Acao> = {}): Acao => ({
     tipo,
@@ -421,8 +488,8 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
    * em meia frase que também não é o link e segue com a próxima pergunta normal. */
   const tratarLinkErrado = (a: Acao): boolean => {
     if (linkRepedir) {
-      a.proxima_pergunta = { id: linkRepedir.id, texto: TEXTO_PEDE_LINK_DE_NOVO }
-      a.contexto.push('O link que o lead mandou NÃO é do perfil da empresa no Google (é de outra página, ex.: tela de login, site ou rede social). Diga isso em meia frase, sem julgar, e peça o link do perfil da empresa no Google; se ele não conseguir mandar o link, que mande um print do perfil. Não faça outra pergunta.')
+      a.proxima_pergunta = { id: linkRepedir.id, texto: linkRepedir.texto }
+      a.contexto.push(linkRepedir.contexto)
       return true
     }
     if (linkErradoDeNovo) a.contexto.push('O lead mandou de novo um link que NÃO é do perfil da empresa no Google. Diga em meia frase que esse também não é o link do perfil, sem pedir de novo, e siga com a pergunta.')
@@ -577,25 +644,39 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
   // mais: quem já escolheu horário está a um passo de marcar, não é hora de reabrir explicação.
   // Vale também com reunião já marcada: é uma remarcação. O turno cancela o evento antigo antes de criar o novo,
   // nunca cria os dois sem cancelar; ver eventoParaCancelar em agenda.ts.
-  if (ctx.temCalendario && (I.has('escolheu_horario') || I.has('informou_email'))) {
+  /** Agendar: se o e-mail foi corrigido (ex.: gmil → gmail), o redator diz pra qual e-mail vai o convite. */
+  const acaoAgendar = (): Acao => {
+    const a = base('agendar', { etapa_depois: 'agendado' })
+    if (emailCorrigido) a.contexto.push(`O e-mail que o lead digitou ("${emailCorrigido.de}") tinha erro de digitação e foi corrigido para ${emailCorrigido.para}. Diga em meia frase que o convite vai para ${emailCorrigido.para}.`)
+    return a
+  }
+  /** Pede o que falta pro convite. E-mail inválido: diz que veio com erro e pede de novo (quantas vezes precisar). */
+  const acaoPedirDados = (falta: string[], textoPadrao: string): Acao => {
+    if (emailInvalido && falta.includes('e-mail')) {
+      const nome = falta.includes('nome completo') ? ' E me passa também seu nome completo.' : ''
+      const a = base('pedir_dados_agendamento', {
+        conteudo: { modo: 'livre', texto: `Acho que o e-mail veio com algum erro ("${emailInvalido}"). Pode mandar de novo, conferindo como se escreve?${nome}` },
+        etapa_depois: 'confirmando',
+      })
+      a.contexto.push(`O e-mail "${emailInvalido}" é inválido (falta parte do endereço ou está escrito errado). Não confirme o agendamento ainda: peça o e-mail certo, educado e curto.`)
+      return a
+    }
+    return base('pedir_dados_agendamento', { conteudo: { modo: 'livre', texto: textoPadrao }, etapa_depois: 'confirmando' })
+  }
+
+  if (ctx.temCalendario && (I.has('escolheu_horario') || I.has('informou_email') || emailInvalido)) {
     const nomeCompleto = estado.dados.nome_completo || (estado.dados.nome?.trim().split(/\s+/).length >= 2 ? estado.dados.nome : '')
     const horario = estado.dados.horario_escolhido
     const email = estado.dados.email
     if (horario && email && nomeCompleto) {
       estado.etapa = 'confirmando'
-      return { estado, acao: base('agendar', { etapa_depois: 'agendado' }) }
+      return { estado, acao: acaoAgendar() }
     }
-    if (horario || I.has('informou_email')) {
+    if (horario || I.has('informou_email') || emailInvalido) {
       estado.etapa = 'confirmando'
       const falta = [!nomeCompleto ? 'nome completo' : '', !email ? 'e-mail' : ''].filter(Boolean)
       if (falta.length > 0) {
-        return {
-          estado,
-          acao: base('pedir_dados_agendamento', {
-            conteudo: { modo: 'livre', texto: `Show, fechamos esse horário! Pra enviar o convite, preciso do seu ${falta.join(' e ')}.` },
-            etapa_depois: 'confirmando',
-          }),
-        }
+        return { estado, acao: acaoPedirDados(falta, `Show, fechamos esse horário! Pra enviar o convite, preciso do seu ${falta.join(' e ')}.`) }
       }
     }
   }
@@ -996,15 +1077,9 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
       const nomeCompleto = estado.dados.nome_completo || (estado.dados.nome?.trim().split(/\s+/).length >= 2 ? estado.dados.nome : '')
       const email = estado.dados.email
       estado.etapa = 'confirmando'
-      if (email && nomeCompleto) return { estado, acao: base('agendar', { etapa_depois: 'agendado' }) }
+      if (email && nomeCompleto) return { estado, acao: acaoAgendar() }
       const falta = [!nomeCompleto ? 'nome completo' : '', !email ? 'e-mail' : ''].filter(Boolean)
-      return {
-        estado,
-        acao: base('pedir_dados_agendamento', {
-          conteudo: { modo: 'livre', texto: `Show, vamos fechar! Só preciso do seu ${falta.join(' e ')}.` },
-          etapa_depois: 'confirmando',
-        }),
-      }
+      return { estado, acao: acaoPedirDados(falta, `Show, vamos fechar! Só preciso do seu ${falta.join(' e ')}.`) }
     }
     // Horários já mandados e o lead não trouxe nada novo (nem pediu outro período, nem pediu pra agendar):
     // não despeja a mesma lista de novo, só pergunta se algum serve. Passou do limite de ofertas: vai pra pessoa.
@@ -1029,7 +1104,9 @@ export function decidir(ex: Extracao, entrada: Estado, config: CompanyConfig, ct
       // respondeu "Claro, descansa 😊" e emendou a pergunta na mesma respirada -- contradição na cara do lead.
       if (I.has('pede_espera')) return { estado, acao: base('aguardar') }
       const a = base('perguntar')
-      a.contexto.push('O lead quer agendar. Diga em meia frase que já vai ver o horário e faça a pergunta.')
+      // Achado real, Júlio/17/11/2026: "diga que já vai ver o horário" + pergunta de qualificação = promessa que não
+      // se cumpre na mesma mensagem. Agora diz que antes precisa de umas respostas rápidas, nunca promete horário.
+      a.contexto.push('O lead quer marcar uma conversa, mas ainda faltam perguntas. Diga em meia frase que antes de marcar precisa de umas informações rápidas e faça a pergunta. NUNCA diga que já vai ver, buscar ou mandar horário nesta mensagem.')
       return { estado, acao: comPergunta(a) }
     }
     return proximoPassoAgenda()

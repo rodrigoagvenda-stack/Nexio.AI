@@ -648,7 +648,7 @@ ok('sem texto fixo de como funciona: cai na dúvida sobre fato (com RAG)', d.aca
 // inteiro (dor_central, perfil_google, escopo) só existia pra Fundação Digital. Agora reconhece e desvia.
 {
   const semGmn = est({ dados: { negocio: 'clínica odontológica' } })
-  d = decidir(ex({ intencoes: ['interesse_outra_frente'] }), semGmn, config, ctx())
+  d = decidir(ex({ intencoes: ['interesse_outra_frente'] }), semGmn, config, ctx({ mensagemLead: 'Estou precisando de leads' }))
   ok('interesse em outra frente: responde com o fato outras_frentes (não ignora)', d.acao.tipo === 'responder_fato' && d.acao.fatos.some((f) => f.id === 'outras_frentes'), d.acao.tipo)
   ok('marca escopo como outra_frente (não trava esperando resposta sobre GMN/site)', d.estado.dados.escopo === 'outra_frente', d.estado.dados.escopo)
   ok('marca dor_central e perfil_google como n/a (perguntas de GMN não fazem sentido aqui)', d.estado.dados.aparece_no_google === 'n/a' && d.estado.dados.tem_perfil_google === 'n/a')
@@ -657,11 +657,11 @@ ok('sem texto fixo de como funciona: cai na dúvida sobre fato (com RAG)', d.aca
   // regressão real (lead Edvaldo, 01/10/2026): respondeu certo sobre a promoção, mas não colou NENHUMA pergunta
   // seguinte (base() puro cortava a checagem de trava E a pergunta, quando só devia cortar a trava) — a conversa
   // respondia e simplesmente parava, sem next step. Lead totalmente novo (igual o caso real: só "Olá!").
-  const dNovo = decidir(ex({ intencoes: ['social', 'interesse_outra_frente'] }), est(), config, ctx())
+  const dNovo = decidir(ex({ intencoes: ['social', 'interesse_outra_frente'] }), est(), config, ctx({ mensagemLead: 'Estou precisando de leads' }))
   ok('lead novo com interesse em outra frente: cola a próxima pergunta de qualificação (não para a conversa)', !!dNovo.acao.proxima_pergunta, JSON.stringify(dNovo.acao.proxima_pergunta))
 
   // 2ª vez: não repete o fato de novo, só deixa o funil seguir (evita o "oi de novo" a cada mensagem)
-  const d2 = decidir(ex({ intencoes: ['interesse_outra_frente'] }), d.estado, config, ctx())
+  const d2 = decidir(ex({ intencoes: ['interesse_outra_frente'] }), d.estado, config, ctx({ mensagemLead: 'Estou precisando de leads' }))
   ok('interesse repetido: não repete o texto do fato de novo', d2.acao.tipo !== 'responder_fato' || !d2.acao.fatos.some((f) => f.id === 'outras_frentes'), d2.acao.tipo)
 
   // pediu preço depois de marcado como outra_frente: nunca solta o preço do GMN/site, defere pro Bruno
@@ -680,7 +680,7 @@ ok('sem texto fixo de como funciona: cai na dúvida sobre fato (com RAG)', d.aca
     ],
     turno: 6,
   })
-  const d4 = decidir(ex({ intencoes: ['interesse_outra_frente'] }), pivoComOutraTravada, config, ctx())
+  const d4 = decidir(ex({ intencoes: ['interesse_outra_frente'] }), pivoComOutraTravada, config, ctx({ mensagemLead: 'Estou precisando de leads' }))
   ok('pivotou pra outra frente com pergunta diferente já travada: NÃO escala no mesmo turno do pivô', !d4.acao.handoff, JSON.stringify(d4.acao.handoff))
   ok('mesmo sem escalar, ainda reconhece o pivô (fato outras_frentes)', d4.acao.tipo === 'responder_fato' && d4.acao.fatos.some((f) => f.id === 'outras_frentes'), d4.acao.tipo)
 }
