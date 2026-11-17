@@ -258,6 +258,22 @@ export function extractCtwaReferral(msg: UazapiWebhookMessage['message'] | undef
   return { ctwaClid, sourceApp: ctx.entryPointConversionApp ?? null, title, adId, thumbnailUrl, body }
 }
 
+/**
+ * WhatsApp Business em telefone FIXO (ex.: 44 3028-4511) chega com 12 dígitos, e o normalizePhone põe o 9 de
+ * celular (5544930284511), número que não existe no WhatsApp. Caso real 17/11/2026 (Paraná Celular, conversa
+ * 1153): o SDR respondeu e a uazapi devolveu "is not on WhatsApp". Se o envio falhar só por isso e o número tem
+ * o 9 inserido, tenta de novo sem ele. Não mexe na normalização (que identifica a conversa).
+ */
+async function comNumeroFixo<T>(number: string, enviar: (n: string) => Promise<T>): Promise<T> {
+  try {
+    return await enviar(number)
+  } catch (err: any) {
+    const digitos = (number ?? '').replace(/\D/g, '')
+    if (!/not on WhatsApp/i.test(err?.message ?? '') || !/^55\d{2}9\d{8}$/.test(digitos)) throw err
+    return enviar(digitos.slice(0, 4) + digitos.slice(5))
+  }
+}
+
 export class UazapiClient {
   private baseUrl: string
   private token: string
@@ -330,17 +346,15 @@ export class UazapiClient {
   // ─── Mensagens ────────────────────────────────────────────
 
   async sendText(params: UazapiSendTextParams): Promise<{ id: string }> {
-    return this.request('/send/text', {
-      method: 'POST',
-      body: JSON.stringify(params),
-    })
+    return comNumeroFixo(params.number, (number) =>
+      this.request('/send/text', { method: 'POST', body: JSON.stringify({ ...params, number }) })
+    )
   }
 
   async sendMedia(params: UazapiSendMediaParams): Promise<{ id: string }> {
-    return this.request('/send/media', {
-      method: 'POST',
-      body: JSON.stringify(params),
-    })
+    return comNumeroFixo(params.number, (number) =>
+      this.request('/send/media', { method: 'POST', body: JSON.stringify({ ...params, number }) })
+    )
   }
 
   async markRead(messageId: string): Promise<void> {
