@@ -512,12 +512,19 @@ function normalizeInstanceResponse(raw: any) {
 
 // ─── Helpers ─────────────────────────────────────────────
 
-/** Normaliza número BR para formato uazapi (apenas dígitos, com DDI 55 e dígito 9) */
+/** Normaliza número BR para formato uazapi (apenas dígitos, com DDI 55 e dígito 9 só em celular).
+ * Telefone FIXO (8 dígitos começando em 2 a 5, ex.: 44 3028-4511) fica sem o 9: WhatsApp Business em fixo
+ * existe, e com o 9 o número não existe no WhatsApp (caso real 17/11/2026, Paraná Celular). */
 export function normalizePhone(raw: string): string {
   let n = raw.replace('@s.whatsapp.net', '').replace(/\D/g, '')
   if (!n.startsWith('55')) n = '55' + n
-  if (n.length === 12) n = n.slice(0, 4) + '9' + n.slice(4)
+  if (n.length === 12 && !isTelefoneFixo(n)) n = n.slice(0, 4) + '9' + n.slice(4)
   return n
+}
+
+/** 55 + DDD + 8 dígitos começando em 2, 3, 4 ou 5 = fixo (celular de 8 dígitos começava em 6 a 9). */
+export function isTelefoneFixo(n: string): boolean {
+  return /^55\d{2}[2-5]\d{7}$/.test(n)
 }
 
 /** Despacha mensagem rica de um step de follow-up */
