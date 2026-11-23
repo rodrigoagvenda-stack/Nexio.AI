@@ -58,6 +58,7 @@ import {
 } from '@/lib/billing/usage'
 import { sendInjectionAlertEmail } from '@/lib/email/resend'
 import { logCompanyNotice, notifyInboundMessage } from '@/lib/notifications/server'
+import { runRecepcao } from '@/lib/sdr/recepcao'
 import { newTurnTrace, writeTurnLog, type TurnTrace } from '@/lib/sdr/turn-log'
 import { auditarSaidaAutomacao } from './output-audit'
 import { runV3Turn } from './v3/turn'
@@ -3859,6 +3860,18 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     // configurado, manda mensagem de ausência, coloca em fila e retorna antes
     // do orquestrador rodar. Sem linhas em business_hours = sempre aberto.
     const withinHours = await isWithinBusinessHours(companyId, supabase)
+
+    // Modo Recepção (atendente): coleta o que a empresa definiu e passa pro vendedor da vez.
+    // Pode seguir fora do horário se a empresa ligou "IA continua atendendo".
+    if (await runRecepcao({
+      companyId, companyName: company?.name ?? '', conversationId, leadId, leadName: ctx.leadName, phone, openai, supabase, withinHours,
+      send: (texts) => sendWithHumanDelay(texts, phone, cfg.uazapi_instance_url, cfg.uazapi_token, conversationId, ctx, supabase, cfg.meta_wa_phone_number_id, cfg.meta_wa_token).then(() => undefined),
+      log: (action, data) => log(companyId, action, data, supabase, phone, leadId),
+    })) {
+      recordUsage(companyId, [], supabase, quotaCheck.packageId).catch(console.error)
+      return
+    }
+
     if (!withinHours) {
       const { data: convQueue } = await supabase
         .from('conversas_do_whatsapp')
@@ -3907,124 +3920,6 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       return
     }
 
-    // ── Épico 3: SDR Modo Recepção ─────────────────────────────────────────────
-    // Verifica se este número está em modo 'recepcao'. Se sim, o SDR só coleta
-    // o briefing e então pausa-se, passando a conversa para um atendente humano.
-    let isRecepcaoMode = false
-    let briefingFields: Array<{ name: string; label: string; required: boolean }> = []
-    try {
-      const { data: modeConfig } = await supabase
-        .from('sdr_mode_config')
-        .select('mode, briefing_fields')
-        .eq('company_id', companyId)
-        .maybeSingle()
-
-      if (modeConfig?.mode === 'recepcao') {
-        isRecepcaoMode = true
-        briefingFields = (modeConfig.briefing_fields as any[]) ?? [
-          { name: 'nome', label: 'Nome', required: true },
-          { name: 'interesse', label: 'Interesse / objetivo', required: true },
-        ]
-      }
-    } catch {
-      // tabela ainda não existe (migration pendente) — continua modo normal
-    }
-
-    if (isRecepcaoMode) {
-      // Carrega briefing já coletado desta conversa
-      const { data: convData } = await supabase
-        .from('conversas_do_whatsapp')
-        .select('briefing, nome_do_contato')
-        .eq('id', conversationId)
-        .single()
-
-      const currentBriefing: Record<string, string> = (convData?.briefing as any) ?? {}
-      const requiredFields = briefingFields.filter(f => f.required)
-      const missingFields = requiredFields.filter(f => !currentBriefing[f.name])
-
-      const lastUserMessage = enrichedMessages[enrichedMessages.length - 1]?.enrichedContent ?? ''
-
-      // Salva resposta do lead no briefing
-      if (missingFields.length > 0) {
-        // Detecta qual campo está sendo respondido e salva
-        const nextMissing = missingFields[0]
-        if (lastUserMessage.trim().length > 1) {
-          currentBriefing[nextMissing.name] = lastUserMessage.trim()
-          await supabase
-            .from('conversas_do_whatsapp')
-            .update({ briefing: currentBriefing })
-            .eq('id', conversationId)
-        }
-      }
-
-      // Recalcula campos faltantes após atualização
-      const remainingMissing = briefingFields.filter(f => f.required && !currentBriefing[f.name])
-
-      if (remainingMissing.length === 0) {
-        // ✅ Briefing completo: pausa SDR, move para fila
-        await supabase
-          .from('conversas_do_whatsapp')
-          .update({
-            agente_pausado: true,
-            pause_reason: 'recepcao',
-            agente_pausado_em: new Date().toISOString(),
-            current_status: 'livre',
-            kanban_stage: 'fila',
-            queue_entered_at: new Date().toISOString(),
-          })
-          .eq('id', conversationId)
-
-        const handoffMsg = 'Perfeito! Recebi todas as informações. Em breve um de nossos especialistas entrará em contato com você. Aguarde!'
-        const uazClient = createUazapiClient(cfg.uazapi_instance_url, cfg.uazapi_token)
-        await uazClient.sendText({ number: phone, text: handoffMsg })
-
-        // Mesmo bug de sender_type 'sdr' (não existe na constraint) do bloco
-        // de fora-do-horário acima : corrigido pra 'ai' + erro logado.
-        const { error: insertHandoffError } = await supabase.from('mensagens_do_whatsapp').insert({
-          company_id: companyId,
-          id_da_conversacao: conversationId,
-          texto_da_mensagem: handoffMsg,
-          tipo_de_mensagem: 'text',
-          direcao: 'outbound',
-          sender_type: 'ai',
-          source: 'sdr',
-          carimbo_de_data_e_hora: new Date().toISOString(),
-        })
-        if (insertHandoffError) console.error(`[SDR:${companyId}] INSERT mensagem handoff falhou:`, insertHandoffError.message)
-
-        await log(companyId, 'recepcao_handoff', { briefing: currentBriefing }, supabase, phone, leadId)
-        return
-      }
-
-      // Pede o próximo campo faltante
-      const nextField = remainingMissing[0]
-      let question = `Para que nosso time possa te atender melhor, preciso de mais algumas informações.\n\n*${nextField.label}:* qual seria?`
-      if (nextField.name === 'nome' && !(convData?.nome_do_contato)) {
-        question = 'Olá! Para te atender melhor, pode me informar seu nome?'
-      } else if (nextField.name === 'interesse') {
-        question = `Obrigado! E qual é o seu interesse ou objetivo principal?`
-      }
-
-      const uazClient = createUazapiClient(cfg.uazapi_instance_url, cfg.uazapi_token)
-      await uazClient.sendText({ number: phone, text: question })
-
-      const { error: insertPerguntaError } = await supabase.from('mensagens_do_whatsapp').insert({
-        company_id: companyId,
-        id_da_conversacao: conversationId,
-        texto_da_mensagem: question,
-        tipo_de_mensagem: 'text',
-        direcao: 'outbound',
-        sender_type: 'ai',
-        source: 'sdr',
-        carimbo_de_data_e_hora: new Date().toISOString(),
-      })
-      if (insertPerguntaError) console.error(`[SDR:${companyId}] INSERT pergunta recepção falhou:`, insertPerguntaError.message)
-
-      await log(companyId, 'recepcao_briefing_question', { field: nextField.name, remaining: remainingMissing.length }, supabase, phone, leadId)
-      recordUsage(companyId, [], supabase, quotaCheck.packageId).catch(console.error)
-      return
-    }
-    // ── Fim modo Recepção ──────────────────────────────────────────────────────
 
     // Texto combinado para o orquestrador (usa transcrição/descrição para mídia)
     const combinedText = enrichedMessages.map((m) => m.enrichedContent).join('\n')
