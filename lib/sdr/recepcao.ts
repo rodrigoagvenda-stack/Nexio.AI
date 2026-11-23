@@ -40,6 +40,7 @@ type Out = {
   resumo: string
   completo: boolean
   resposta: string
+  etiquetas?: string[]
 }
 
 /** Roda um turno da recepção. Devolve true quando tratou a mensagem (o motor normal não roda). */
@@ -61,15 +62,17 @@ export async function runRecepcao(o: {
   if (!o.withinHours && !cfg.rules.continue_out_of_hours) return false
 
   const { supabase, conversationId } = o
-  const [{ data: conv }, { data: hist }] = await Promise.all([
-    supabase.from('conversas_do_whatsapp').select('briefing, nome_do_contato').eq('id', conversationId).maybeSingle(),
+  const [{ data: conv }, { data: hist }, { data: tagRows }] = await Promise.all([
+    supabase.from('conversas_do_whatsapp').select('briefing, nome_do_contato, etiquetas').eq('id', conversationId).maybeSingle(),
     supabase
       .from('mensagens_do_whatsapp')
       .select('direcao, texto_da_mensagem, tipo_de_mensagem')
       .eq('id_da_conversacao', conversationId)
       .order('carimbo_de_data_e_hora', { ascending: false })
       .limit(40),
+    supabase.from('tags').select('tag_name, ai_can_apply').eq('company_id', o.companyId),
   ])
+  const tagsIa = ((tagRows ?? []) as { tag_name: string; ai_can_apply: boolean | null }[]).filter((t) => t.ai_can_apply !== false).map((t) => t.tag_name)
   const msgs = ((hist ?? []) as { direcao: string; texto_da_mensagem: string | null; tipo_de_mensagem: string | null }[]).reverse()
   const jaFalamos = msgs.some((m) => m.direcao === 'outbound')
   const transcript = msgs
@@ -86,8 +89,10 @@ ${cfg.fields.map((f) => `- ${f.name}: ${f.label}`).join('\n')}
 Regras de escrita: português do Brasil, tom de WhatsApp, curto (até 2 frases), simpático, sem listas, sem markdown, sem travessão. Use o primeiro nome do cliente quando souber.
 ${welcome && !jaFalamos ? `Esta é a PRIMEIRA mensagem nossa: a resposta tem que ser exatamente este texto: "${welcome}"` : ''}
 
+${tagsIa.length ? `Etiquetas que você pode marcar quando a conversa deixar claro (senão, nenhuma): ${tagsIa.join(', ')}.
+` : ''}
 Responda só em JSON:
-{"briefing": {<cada name>: "valor dito pelo cliente" ou null}, "temperatura": "quente"|"morno"|"frio", "motivo": "por que essa temperatura, 1 frase com fatos da conversa", "resumo": "resumo do lead pro vendedor em 1 a 3 frases", "completo": true se todas as informações obrigatórias já foram ditas, "resposta": "próxima mensagem pro cliente (vazio se completo)"}
+{"briefing": {<cada name>: "valor dito pelo cliente" ou null}, "temperatura": "quente"|"morno"|"frio", "motivo": "por que essa temperatura, 1 frase com fatos da conversa", "resumo": "resumo do lead pro vendedor em 1 a 3 frases", "completo": true se todas as informações obrigatórias já foram ditas, "resposta": "próxima mensagem pro cliente (vazio se completo)", "etiquetas": ["nomes exatos da lista acima que se aplicam"]}
 Temperatura: quente = necessidade clara e prazo curto ou pediu orçamento/visita; morno = interesse real sem urgência; frio = só pesquisando, fora do perfil ou sem resposta clara.`
 
   let out: Out
@@ -112,7 +117,9 @@ Temperatura: quente = necessidade clara e prazo curto ou pediu orçamento/visita
   const faltam = cfg.fields.filter((f) => f.required !== false && !briefing[f.name])
   const completo = faltam.length === 0 && (jaFalamos || !welcome)
 
-  await supabase.from('conversas_do_whatsapp').update({ briefing }).eq('id', conversationId)
+  const atuais = ((conv?.etiquetas as string[] | null) ?? [])
+  const novas = (out.etiquetas ?? []).filter((t) => tagsIa.includes(t) && !atuais.includes(t))
+  await supabase.from('conversas_do_whatsapp').update({ briefing, ...(novas.length ? { etiquetas: [...atuais, ...novas] } : {}) }).eq('id', conversationId)
   if (o.leadId) {
     const temp = NIVEL[out.temperatura] ?? null
     const linhas = cfg.fields.filter((f) => briefing[f.name]).map((f) => `- ${f.label}: ${briefing[f.name]}`)
