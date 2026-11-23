@@ -1,19 +1,27 @@
-﻿import { NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { createUazapiClient } from '@/lib/sdr/uazapi'
+import { cockpitCompanyId } from '@/lib/cockpit-bridge'
 
 // GET /api/sdr/status : consulta status da instância em tempo real
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    // Cockpit (servidor a servidor) ou usuario logado no Zaapply
+    let userData: { company_id: number } | null = null
+    const bridged = cockpitCompanyId(request)
+    if (bridged != null) userData = { company_id: bridged }
+    else {
+      const supabase = await createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
-    const { data: userData } = await supabase
-      .from('users')
-      .select('company_id')
-      .eq('auth_user_id', user.id)
-      .single()
+      const { data } = await supabase
+        .from('users')
+        .select('company_id')
+        .eq('auth_user_id', user.id)
+        .single()
+      userData = data as { company_id: number } | null
+    }
 
     if (!userData) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
 
