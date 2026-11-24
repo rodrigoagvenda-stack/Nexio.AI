@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
           uazapi_instance_url: BASE_URL,
           uazapi_instance_name: instanceName,
           uazapi_token: instance.token,   // armazenado sem criptografia
+          whatsapp_provider: 'uazapi',     // conectar por QR = uazapi; o padrao da tabela e 'meta' e escondia o QR no status
           instance_status: 'disconnected',
           instance_phone: null,
         }).eq('company_id', companyId)
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest) {
           uazapi_instance_url: BASE_URL,
           uazapi_instance_name: instanceName,
           uazapi_token: instance.token,   // armazenado sem criptografia
+          whatsapp_provider: 'uazapi',
           webhook_url: webhookUrl,
           agent_type: 'atendimento_venda',
           agente_ativo: false,
@@ -143,6 +145,7 @@ export async function POST(request: NextRequest) {
           uazapi_instance_url: BASE_URL,
           uazapi_instance_name: instanceName,
           uazapi_token: instance.token,
+          whatsapp_provider: 'uazapi',
           instance_status: 'disconnected',
           instance_phone: null,
         }).eq('company_id', companyId)
