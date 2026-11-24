@@ -4,7 +4,15 @@ import { createUazapiClient } from '@/lib/sdr/uazapi'
 import { createInstance } from '@/lib/uazapi-admin'
 import { cockpitCompanyId } from '@/lib/cockpit-bridge'
 
-const BASE_URL = (process.env.UAZAPI_BASE_URL || 'https://nexioai.uazapi.com').replace(/\/$/, '')
+import { getPlatformConfig } from '@/lib/platform-config'
+
+// servidor uazapi onde a instancia e criada: o MESMO que lib/uazapi-admin usa (Admin > Configuracoes > UAZapi, fallback env).
+// Antes vinha so da env: a instancia nascia no servidor do Admin e o Zaapply gravava outro endereco, entao o status
+// batia no servidor errado (401), o QR nunca aparecia e cada nova tentativa criava outra instancia.
+async function baseUrl() {
+  const cfg = await getPlatformConfig()
+  return (cfg.uazapi_base_url || process.env.UAZAPI_BASE_URL || 'https://nexioai.uazapi.com').replace(/\/$/, '')
+}
 
 // POST /api/sdr/connect : inicia conexão. QR code vem de GET /api/sdr/status.
 export async function POST(request: NextRequest) {
@@ -35,6 +43,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     const body = await request.json().catch(() => ({}))
+    const BASE_URL = await baseUrl()
 
     // ── Criar/recriar instância se necessário ─────────────────────────────
     const needsCreate = !config?.uazapi_token || !config?.uazapi_instance_url

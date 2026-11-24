@@ -1,3 +1,4 @@
+import { getPlatformConfig } from '@/lib/platform-config';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { createInstance } from '@/lib/uazapi-admin';
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
       companyId: context.companyId,
     });
 
-    const baseUrl = process.env.UAZAPI_BASE_URL || 'https://nexioai.uazapi.com';
+    const baseUrl = ((await getPlatformConfig()).uazapi_base_url || process.env.UAZAPI_BASE_URL || 'https://nexioai.uazapi.com').replace(/\/$/, '');
     const encryptedToken = encrypt(instance.token);
 
     // Salvar ou atualizar sdr_configs
