@@ -432,3 +432,11 @@ export function nextBusinessDay(from: Date = new Date()): Date {
   next.setHours(9, 0, 0, 0)
   return next
 }
+
+/** Horarios ocupados no Google da empresa (freebusy) entre start e end. Usado pela Agenda do Cockpit. */
+export async function listBusy(companyId: number, calendarId: string, start: Date, end: Date): Promise<{ start: string; end: string }[]> {
+  const calendar = await getCalendarClientForCompany(companyId)
+  const r = await calendar.freebusy.query({ requestBody: { timeMin: start.toISOString(), timeMax: end.toISOString(), timeZone: 'America/Sao_Paulo', items: [{ id: calendarId }] } })
+  const busy = r.data.calendars?.[calendarId]?.busy ?? []
+  return busy.filter((b) => b.start && b.end).map((b) => ({ start: b.start as string, end: b.end as string }))
+}
