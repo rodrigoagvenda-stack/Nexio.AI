@@ -4185,6 +4185,13 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       return false
     }
 
+    // Reação (❤️👍): não é mensagem nova, grava no balão reagido pro atendimento mostrar.
+    // Vem antes do fromMe: reação feita pelo celular conectado também não pode virar balão.
+    if (String((body.message as any)?.messageType ?? '').toLowerCase().includes('reaction')) {
+      await saveReaction(companyId, body).catch((e) => console.error(`[SDR:${companyId}] reação não gravada:`, e?.message))
+      return false
+    }
+
     if (body.message?.fromMe) {
       // fromMe=true acontece em dois casos bem diferentes : eco da própria
       // mensagem que o SDR (ou o botão de enviar do Atendimento) já mandou
@@ -4513,6 +4520,31 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
   } catch (err: any) {
     console.error('[SDR Webhook] Erro:', err)
     return false
+  }
+}
+
+/** Reação recebida pelo webhook: acha o balão reagido e grava o emoji.
+ *  Do lead fica em metadados.reacao_lead; de quem está no celular conectado entra em reactions.
+ *  Emoji vazio = reação removida. Nomes de campo conferidos contra o payload logado (debug_reacao_uazapi). */
+async function saveReaction(companyId: number, body: UazapiWebhookMessage): Promise<void> {
+  const m = body.message as any
+  const emoji = String(m?.text ?? m?.content?.text ?? m?.reaction?.text ?? '').trim()
+  const key = m?.content?.key ?? m?.reaction?.key ?? {}
+  const raw = [m?.reaction, key?.ID, key?.id, m?.quoted].filter((x) => typeof x === 'string' && x) as string[]
+  const ids = [...new Set(raw.flatMap((x) => [x, x.includes(':') ? x.split(':').pop()! : x]))]
+  syslog({ type: 'debug_reacao_uazapi', severity: 'info', message: `Reação "${emoji}" alvo=${ids.join(',') || '?'}`, company_id: companyId, payload: { message: m } })
+  if (!ids.length) return
+  const sb = createServiceClient()
+  const { data: target } = await sb.from('mensagens_do_whatsapp').select('id, reactions, metadados')
+    .eq('company_id', companyId).in('whatsapp_message_id', ids).limit(1).maybeSingle()
+  if (!target) return
+  if (m?.fromMe) {
+    const cur: string[] = Array.isArray(target.reactions) ? target.reactions : []
+    const next = emoji ? [emoji] : []
+    if (JSON.stringify(cur) !== JSON.stringify(next)) await sb.from('mensagens_do_whatsapp').update({ reactions: next }).eq('id', target.id)
+  } else {
+    const meta = (target.metadados && typeof target.metadados === 'object') ? target.metadados as Record<string, unknown> : {}
+    await sb.from('mensagens_do_whatsapp').update({ metadados: { ...meta, reacao_lead: emoji || null } }).eq('id', target.id)
   }
 }
 
