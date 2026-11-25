@@ -4525,7 +4525,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
 
 /** Reação recebida pelo webhook: acha o balão reagido e grava o emoji.
  *  Do lead fica em metadados.reacao_lead; de quem está no celular conectado entra em reactions.
- *  Emoji vazio = reação removida. Nomes de campo conferidos contra o payload logado (debug_reacao_uazapi). */
+ *  Emoji vazio = reação removida. Campos conferidos contra payload real (25/11): message.reaction = id da msg reagida, content.text = emoji. */
 async function saveReaction(companyId: number, body: UazapiWebhookMessage): Promise<void> {
   const m = body.message as any
   const emoji = String(m?.text ?? m?.content?.text ?? m?.reaction?.text ?? '').trim()
@@ -4535,8 +4535,11 @@ async function saveReaction(companyId: number, body: UazapiWebhookMessage): Prom
   syslog({ type: 'debug_reacao_uazapi', severity: 'info', message: `Reação "${emoji}" alvo=${ids.join(',') || '?'}`, company_id: companyId, payload: { message: m } })
   if (!ids.length) return
   const sb = createServiceClient()
+  // o codigo salvo vem com o numero na frente ("5514...:3EB0..."); a reacao aponta so pro "3EB0..."
+  const safe = ids.filter((x) => /^[A-Za-z0-9:@._-]+$/.test(x))
+  if (!safe.length) return
   const { data: target } = await sb.from('mensagens_do_whatsapp').select('id, reactions, metadados')
-    .eq('company_id', companyId).in('whatsapp_message_id', ids).limit(1).maybeSingle()
+    .eq('company_id', companyId).or(safe.flatMap((x) => [`whatsapp_message_id.eq.${x}`, `whatsapp_message_id.like.%:${x}`]).join(',')).limit(1).maybeSingle()
   if (!target) return
   if (m?.fromMe) {
     const cur: string[] = Array.isArray(target.reactions) ? target.reactions : []
