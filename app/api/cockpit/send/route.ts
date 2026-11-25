@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { timingSafeEqual } from 'crypto'
 import { createServiceClient } from '@/lib/supabase/server'
-import { sendText as waSendText, sendMedia as waSendMedia } from '@/lib/sdr/whatsapp-sender'
+import { sendText as waSendText, sendMedia as waSendMedia, sendLocation as waSendLocation } from '@/lib/sdr/whatsapp-sender'
 
 /**
  * Ponte do Cockpit: o atendimento do Cockpit e so a tela, o envio continua sendo
@@ -19,11 +19,12 @@ function authorized(req: NextRequest): boolean {
 export async function POST(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ ok: false, error: 'Não autorizado' }, { status: 401 })
   try {
-    const { companyId, conversationId, message, messageType, mediaUrl, caption, filename, senderName, replyId, replyToText, replyToSender } = await req.json()
+    const { companyId, conversationId, message, messageType, mediaUrl, caption, filename, senderName, replyId, replyToText, replyToSender, latitude, longitude, locationName, address } = await req.json()
     if (!companyId || !conversationId) return NextResponse.json({ ok: false, error: 'Dados faltando' }, { status: 400 })
     const type: string = messageType || 'text'
     if (type === 'text' && !String(message ?? '').trim()) return NextResponse.json({ ok: false, error: 'Mensagem vazia' }, { status: 400 })
-    if (type !== 'text' && !mediaUrl) return NextResponse.json({ ok: false, error: 'Mídia faltando' }, { status: 400 })
+    if (type === 'location' && !(Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude)))) return NextResponse.json({ ok: false, error: 'Localização sem coordenadas' }, { status: 400 })
+    if (type !== 'text' && type !== 'location' && !mediaUrl) return NextResponse.json({ ok: false, error: 'Mídia faltando' }, { status: 400 })
 
     const sb = createServiceClient()
     const { data: conv } = await sb
@@ -35,7 +36,10 @@ export async function POST(req: NextRequest) {
     if (!conv) return NextResponse.json({ ok: false, error: 'Conversa não encontrada' }, { status: 404 })
 
     let waId: string | undefined
-    if (type === 'text') {
+    if (type === 'location') {
+      const r = await waSendLocation({ companyId: Number(companyId), phoneNumber: conv.numero_de_telefone, latitude: Number(latitude), longitude: Number(longitude), name: locationName || undefined, address: address || undefined })
+      waId = r?.id
+    } else if (type === 'text') {
       const r = await waSendText({ companyId: Number(companyId), phoneNumber: conv.numero_de_telefone, text: message, replyId: replyId || undefined })
       waId = r?.id
     } else {
@@ -45,7 +49,7 @@ export async function POST(req: NextRequest) {
     }
 
     const now = new Date().toISOString()
-    const fallback = type === 'image' ? '📷 Imagem' : type === 'document' ? '📄 Documento' : type === 'audio' ? '🎵 Áudio' : type === 'video' ? '🎥 Vídeo' : ''
+    const fallback = type === 'location' ? `📍 ${[locationName, address].filter(Boolean).join(' · ') || 'Localização'}` : type === 'image' ? '📷 Imagem' : type === 'document' ? '📄 Documento' : type === 'audio' ? '🎵 Áudio' : type === 'video' ? '🎥 Vídeo' : ''
     const row: Record<string, unknown> = {
       company_id: companyId,
       id_da_conversacao: conversationId,
@@ -57,7 +61,7 @@ export async function POST(req: NextRequest) {
       nome_do_agente: senderName || null,
       status: 'sent',
       carimbo_de_data_e_hora: now,
-      url_da_midia: mediaUrl || null,
+      url_da_midia: type === 'location' ? `https://maps.google.com/?q=${Number(latitude)},${Number(longitude)}` : mediaUrl || null,
       whatsapp_message_id: waId || null,
       reply_to_text: replyToText || null,
       reply_to_sender: replyToSender || null,

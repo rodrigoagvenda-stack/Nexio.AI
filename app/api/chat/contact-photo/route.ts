@@ -1,5 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { cockpitCompanyId } from '@/lib/cockpit-bridge'
 
 // Cache com TTL (30 min) e limite de tamanho : evita crescimento ilimitado
 const CACHE_TTL = 30 * 60 * 1000
@@ -30,16 +31,20 @@ export async function GET(request: NextRequest) {
   const convId = request.nextUrl.searchParams.get('convId')
   if (!phone) return NextResponse.json({ photo: null })
 
-  const cacheKey = leadId ? `lead:${leadId}` : phone
+  // Cockpit (servidor a servidor) entra pela ponte; senao, usuario logado no Zaapply
+  const bridged = cockpitCompanyId(request)
+  const cacheKey = `${bridged ?? ''}:${leadId ? `lead:${leadId}` : phone}`
   const cached = cacheGet(cacheKey); if (cached !== undefined) return NextResponse.json({ photo: cached })
 
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ photo: null })
-
-    const { data: userData } = await supabase
-      .from('users').select('company_id').eq('auth_user_id', user.id).single()
+    let userData: { company_id: number } | null = bridged != null ? { company_id: bridged } : null
+    if (!userData) {
+      const supabase = await createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return NextResponse.json({ photo: null })
+      const { data } = await supabase.from('users').select('company_id').eq('auth_user_id', user.id).single()
+      userData = data as { company_id: number } | null
+    }
     if (!userData) return NextResponse.json({ photo: null })
 
     const service = createServiceClient()
