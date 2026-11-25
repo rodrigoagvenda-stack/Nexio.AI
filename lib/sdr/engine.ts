@@ -16,7 +16,7 @@ import { getPlatformConfig } from '@/lib/platform-config'
 import { createUazapiClient, normalizePhone, detectMessageType, extractCtwaReferral, type UazapiWebhookMessage } from './uazapi'
 import { markOptOut } from './outbound'
 import { persistMediaToStorage } from './media-storage'
-import { ingestInboundMessage, type NormalizedInboundEvent } from './inbound'
+import { ingestInboundMessage, upsertSdrJob, type NormalizedInboundEvent } from './inbound'
 import { runFunnelTurn } from './funnel/runner'
 import { enrichConversationMedia } from './media-understanding'
 import { MIN_NOTICE_MINUTES } from '../slot-notice'
@@ -62,6 +62,7 @@ import { runRecepcao } from '@/lib/sdr/recepcao'
 import { newTurnTrace, writeTurnLog, type TurnTrace } from '@/lib/sdr/turn-log'
 import { auditarSaidaAutomacao } from './output-audit'
 import { runV3Turn } from './v3/turn'
+import { copilotoLigado, runCopiloto } from './copiloto'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -3661,6 +3662,14 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
   try {
     const cfg = await loadSdrConfig(companyId, supabase, phone)
     if (!cfg) {
+      // atendimento humano com copiloto: a IA nao responde, so le a conversa e atualiza resumo, temperatura e etapa
+      if (await copilotoLigado(companyId, supabase)) {
+        // a mensagem ja esta salva em mensagens_do_whatsapp; o buffer so serviria pra IA responder
+        await drainBuffer(companyId, phone, supabase)
+        const key = (await getPlatformConfig()).openai_api_key || process.env.OPENAI_API_KEY || ''
+        if (key) await runCopiloto(companyId, phone, await getOpenAIClient(key), supabase)
+        return
+      }
       console.warn(`[SDR:${companyId}] processSdrMessage → abortado: loadSdrConfig retornou null (ver aviso acima)`)
       await log(companyId, 'agent_disabled', {}, supabase, phone)
       return
@@ -4280,6 +4289,8 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
         pause_reason: 'humano_assumiu',
         agente_pausado_em: new Date().toISOString(),
       }).eq('id', conv.id)
+      // copiloto: o que a equipe respondeu pelo celular tambem entra na leitura (proposta, horario combinado)
+      if (await copilotoLigado(companyId, supabase)) await upsertSdrJob(companyId, fromMePhone, supabase)
 
       return false
     }

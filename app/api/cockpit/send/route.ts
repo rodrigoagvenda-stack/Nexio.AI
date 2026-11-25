@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { timingSafeEqual } from 'crypto'
 import { createServiceClient } from '@/lib/supabase/server'
+import { copilotoLigado } from '@/lib/sdr/copiloto'
+import { upsertSdrJob } from '@/lib/sdr/inbound'
 import { sendText as waSendText, sendMedia as waSendMedia, sendLocation as waSendLocation } from '@/lib/sdr/whatsapp-sender'
 
 /**
@@ -83,6 +85,8 @@ export async function POST(req: NextRequest) {
       }).eq('id', conversationId).eq('company_id', companyId),
     ])
     if (error) throw error
+    // copiloto: a resposta da equipe tambem entra na leitura da IA (proposta enviada, horario combinado)
+    if (await copilotoLigado(Number(companyId), sb)) await upsertSdrJob(Number(companyId), conv.numero_de_telefone, sb).catch(() => {})
     return NextResponse.json({ ok: true, message: saved })
   } catch (e: any) {
     console.error('[cockpit/send]', e)
