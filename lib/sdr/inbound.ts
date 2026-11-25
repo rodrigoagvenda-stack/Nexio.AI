@@ -39,6 +39,35 @@ export interface NormalizedInboundEvent {
   mediaUrl?: string
   referral?: NormalizedReferral | null
   instanceName?: string | null
+  /** Codigo da mensagem que o lead citou ao responder (uazapi: message.quoted). */
+  quotedId?: string | null
+}
+
+/**
+ * Resposta citando outra mensagem: acha a citada na conversa e devolve o que mostrar no balao (texto e quem mandou).
+ * O codigo salvo vem com o numero na frente ("5514...:3EB0..."); o citado chega so como "3EB0...".
+ */
+export async function resolveQuoted(
+  supabase: Supabase,
+  p: { companyId: number; conversationId: string | number; quotedId: string | null | undefined; leadName: string },
+): Promise<{ reply_to_text: string; reply_to_sender: string } | null> {
+  const raw = (p.quotedId ?? '').trim()
+  const id = raw.includes(':') ? raw.split(':').pop()! : raw
+  if (!id || !/^[A-Za-z0-9._-]+$/.test(id)) return null
+  const { data } = await supabase
+    .from('mensagens_do_whatsapp')
+    .select('texto_da_mensagem, tipo_de_mensagem, direcao, nome_do_agente, sender_type')
+    .eq('id_da_conversacao', p.conversationId)
+    .or(`whatsapp_message_id.eq.${id},whatsapp_message_id.like.%:${id}`)
+    .limit(1)
+    .maybeSingle()
+  if (!data) return null
+  const tipo = data.tipo_de_mensagem ?? 'text'
+  const rotulo = tipo === 'image' ? '📷 Foto' : tipo === 'audio' || tipo === 'ptt' ? '🎵 Áudio' : tipo === 'video' ? '🎥 Vídeo' : tipo === 'document' ? '📄 Documento' : ''
+  const texto = (data.texto_da_mensagem ?? '').trim()
+  const mostra = rotulo && (!texto || /^(📷|🎵|🎥|📄)/.test(texto)) ? rotulo : rotulo ? `${rotulo} · ${texto}` : texto
+  const quem = data.direcao === 'inbound' ? p.leadName : data.sender_type === 'ai' ? 'IA' : data.nome_do_agente || 'Equipe'
+  return { reply_to_text: mostra.slice(0, 300) || rotulo || 'Mensagem', reply_to_sender: quem }
 }
 
 export interface IngestResult {
@@ -348,6 +377,8 @@ async function insertInboundMessageRow(
     mediaUrl?: string
     messageId: string
     timestamp: string
+    quotedId?: string | null
+    leadName?: string
   },
   supabase: Supabase
 ): Promise<void> {
@@ -370,6 +401,7 @@ async function insertInboundMessageRow(
     carimbo_de_data_e_hora: params.timestamp,
     url_da_midia: params.mediaUrl ?? null,
     whatsapp_message_id: params.messageId,
+    ...((params.quotedId && (await resolveQuoted(supabase, { companyId: params.companyId, conversationId: params.conversationId, quotedId: params.quotedId, leadName: params.leadName || 'Lead' }))) || {}),
   })
   if (insertError) {
     console.error(`[inbound:${params.companyId}] salvar mensagem falhou:`, insertError.message)
@@ -484,6 +516,8 @@ export async function ingestInboundMessage(evt: NormalizedInboundEvent, supabase
         mediaUrl: evt.mediaUrl,
         messageId: evt.messageId,
         timestamp: evt.timestamp,
+        quotedId: evt.quotedId,
+        leadName: evt.senderName,
       },
       supabase
     )

@@ -16,7 +16,7 @@ import { getPlatformConfig } from '@/lib/platform-config'
 import { createUazapiClient, normalizePhone, detectMessageType, extractCtwaReferral, type UazapiWebhookMessage } from './uazapi'
 import { markOptOut } from './outbound'
 import { persistMediaToStorage } from './media-storage'
-import { ingestInboundMessage, upsertSdrJob, type NormalizedInboundEvent } from './inbound'
+import { ingestInboundMessage, resolveQuoted, upsertSdrJob, type NormalizedInboundEvent } from './inbound'
 import { runFunnelTurn } from './funnel/runner'
 import { enrichConversationMedia } from './media-understanding'
 import { MIN_NOTICE_MINUTES } from '../slot-notice'
@@ -4229,7 +4229,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       const fromMePhone = normalizePhone(body.chat?.phone ?? '')
       const { data: conv } = await supabase
         .from('conversas_do_whatsapp')
-        .select('id, id_do_lead')
+        .select('id, id_do_lead, nome_do_contato')
         .eq('company_id', companyId)
         .eq('numero_de_telefone', fromMePhone)
         .maybeSingle()
@@ -4281,6 +4281,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
         url_da_midia: fromMeMediaUrl ?? null,
         carimbo_de_data_e_hora: new Date().toISOString(),
         whatsapp_message_id: fromMeMsgId,
+        ...((typeof fromMeMsg?.quoted === 'string' && fromMeMsg.quoted && (await resolveQuoted(supabase, { companyId, conversationId: conv.id, quotedId: fromMeMsg.quoted, leadName: conv.nome_do_contato || 'Lead' }))) || {}),
       })
       await supabase.from('conversas_do_whatsapp').update({
         ultima_mensagem: fromMeDisplay,
@@ -4524,6 +4525,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       mediaUrl,
       instanceName: body.instanceName ?? null,
       referral,
+      quotedId: typeof msg?.quoted === 'string' ? msg.quoted : null,
     }
 
     const result = await ingestInboundMessage(evt, supabase)
