@@ -76,10 +76,12 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      await service.from('companies').update({
+      // o webhook acha a empresa por este nome: se nao gravar, toda mensagem recebida e descartada
+      const { error: compErr } = await service.from('companies').update({
         whatsapp_instance_name: instanceName,
         whatsapp_instance: BASE_URL,
       }).eq('id', companyId)
+      if (compErr) throw new Error(`Falha ao vincular a instância à empresa: ${compErr.message}`)
 
       const { data: fresh } = await service
         .from('sdr_configs')
@@ -150,10 +152,11 @@ export async function POST(request: NextRequest) {
           instance_phone: null,
         }).eq('company_id', companyId)
 
-        await service.from('companies').update({
+        const { error: compErr2 } = await service.from('companies').update({
           whatsapp_instance_name: instanceName,
           whatsapp_instance: BASE_URL,
         }).eq('id', companyId)
+        if (compErr2) throw new Error(`Falha ao vincular a instância à empresa: ${compErr2.message}`)
 
         client = createUazapiClient(BASE_URL, instance.token)
         const webhookUrl2 = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook/nexio${webhookSecret ? `?secret=${webhookSecret}` : ''}`
